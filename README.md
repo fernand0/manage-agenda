@@ -39,7 +39,9 @@ Rules:
 We can select the first one, for example.
 
 5. It will read the messages tagged with `zAgenda` (it can be selected)
-6. Asks to choose a Google calendar account.
+6. Extracts the content of each message and sends an adequate prompt to the selected AI. 
+It will return a `json` formatted event suitable for Google calendar.
+7. Asks to choose a Google calendar account.
 
 ```
 Rules:
@@ -49,10 +51,24 @@ Rules:
 
 Let us suppose that we choose the first one.
 
-7. Extracts the content of each message and sends an adequate prompt to the selected AI. 
-It will return a `json` formatted event suitable for Google calendar.
 8. It will show the subject of the message and it will ask to choose the calendar to enter the event.
+
+```
+Subject: (some subject)
+
+0) Work
+1) Leissure 
+2) Meetings
+...
+6) Others
+Selection 
+```
+
 9. It will ask if we want to delete the tag.
+
+```
+Delete tag? (Press Enter to continue)
+```
 
 [![PyPI](https://img.shields.io/pypi/v/manage-agenda.svg)](https://pypi.org/project/manage-agenda/)
 [![Changelog](https://img.shields.io/github/v/release/fernand0/manage-agenda?include_prereleases&label=changelog)](https://github.com/fernand0/manage-agenda/releases)

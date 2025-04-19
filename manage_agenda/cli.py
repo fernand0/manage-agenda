@@ -77,7 +77,7 @@ def select_from_list(options, selector="", default=""):
         for i, elem in enumerate(options_sel):
             if selector in elem:
                 print(f"{i}) {elem}")
-        msg = "Select model "
+        msg = "Selection "
         msg += f"({default}) " if default else ""
         sel = input(msg)
         if sel == "":
@@ -514,7 +514,7 @@ def process_email_cli(args, model):
 
             # Delete email (optional)
             if args.delete:
-                input("Delete email? (Press Enter to continue)")
+                input("Delete tag? (Press Enter to continue)")
                 if "gmail" in api_src.service.lower():
                     try:
                         res = api_src.deleteLabel(api_src.getChannel())
@@ -590,8 +590,8 @@ def cli():
 @click.option(
     "-d",
     "--delete",
-    default=False,
-    help="Delete email",
+    default=True,
+    help="Delete tag",
 )
 @click.option(
     "-s",
