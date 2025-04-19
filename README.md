@@ -32,6 +32,7 @@ For example, for help, run:
 uv run manage-agenda --help
 ```
 
+<---
 For help, run:
 ```bash
 manage-agenda --help
@@ -40,6 +41,7 @@ You can also use:
 ```bash
 python -m manage_agenda --help
 ```
+--->
 
 
 ## Development
