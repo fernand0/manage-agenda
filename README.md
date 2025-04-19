@@ -17,11 +17,11 @@ uv run manage-agenda add -i True 2>&1 | tee /tmp/log.txt
 
 1. Asks for the selection of some AI
 
-```
-Local/mistral/gemini model )(l/m/g)? 
-```
-
-Let us choose, for instance, (g)emini.
+    ```
+    Local/mistral/gemini model )(l/m/g)? 
+    ```
+    
+    Let us choose, for instance, (g)emini.
 
 2. Asks to choose one of the available models.
 
