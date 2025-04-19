@@ -531,7 +531,6 @@ def process_email_cli(args, model):
 
 def select_llm(args):
     """Selects and initializes the appropriate LLM client."""
-    selection = "g"  # Default
     if args.interactive:
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
