@@ -19,13 +19,16 @@ Let us choose, for instance, (g)emini.
 
 2. Asks to choose one of the available models.
 
-3. Then we can select one of the configured email accounts.
-4. It will read the messages taged with `zAgenda` (it can be selected)
-5. Asks to choose a Google calendar account.
-6. Extracts the content of each message and sends an adequate prompt to the selected AI. 
+![image](https://github.com/user-attachments/assets/bd49fb8d-885e-4e70-8239-d4b72e62bb22)
+
+
+4. Then we can select one of the configured email accounts.
+5. It will read the messages taged with `zAgenda` (it can be selected)
+6. Asks to choose a Google calendar account.
+7. Extracts the content of each message and sends an adequate prompt to the selected AI. 
 It will return a `json` formatted event suitable for Google calendar.
-7. It will show the subject of the message and it will ask to choose the calendar to enter the event.
-8. It will ask if we want to delete the tag.
+8. It will show the subject of the message and it will ask to choose the calendar to enter the event.
+9. It will ask if we want to delete the tag.
 
 [![PyPI](https://img.shields.io/pypi/v/manage-agenda.svg)](https://pypi.org/project/manage-agenda/)
 [![Changelog](https://img.shields.io/github/v/release/fernand0/manage-agenda?include_prereleases&label=changelog)](https://github.com/fernand0/manage-agenda/releases)
