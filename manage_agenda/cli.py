@@ -437,17 +437,6 @@ def process_email_cli(args, model):
                 f"posteriores a {post_date_time}. El texto es:\n{email_text}"
                 " No añadas comentarios al resultado, que"
                 " se representará como un JSON."
-                # " En el campo description puedes poner un "
-                # " resumen, seguido de una línea en blanco, "
-                # "seguido del texto 'Mensaje:' un salto de línea"
-                # " y el mensaje de correo completo."
-                # f" En el resultado reemplaza los saltos"
-                # f" de línea por los caracteres '\n' y los ':' "
-                # f" del campo DESCRIPTION  "
-                # f" En el resultado elimina las líneas "
-                # f" que comienzan por ATTENDEE y ORGANIZER"
-                # f" Si hay más de un campo llamado URL, "
-                # f" bórrarlo y añade las URLs al campo DESCRIPTION  "
             )
             print(f"Prompt:\n{prompt}")
             print(f"\nEnd Prompt:")
