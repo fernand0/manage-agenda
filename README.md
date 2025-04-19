@@ -9,7 +9,7 @@ A tool for adding entries on my Google Calendar from email messages
 
 ## Steps of an execution.
 
-When running in ineractive mode with:
+When running (in ineractive mode, `-i True`) with:
 
 ```bash
 uv run manage-agenda add -i True 
