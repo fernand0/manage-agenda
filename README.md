@@ -3,7 +3,22 @@
 This program does the following steps: 
 
 1. Asks for the selection of some AI
+
+When running with:
+
+```bash
+uv run manage-agenda add -i True 2>&1 | tee /tmp/log.txt
+```
+It shows:
+
+```
+Local/mistral/gemini model )(l/m/g)? 
+```
+
+Let us choose, for instance, (g)emini.
+
 2. Asks to choose one of the available models.
+
 3. Then we can select one of the configured email accounts.
 4. It will read the messages taged with `zAgenda` (it can be selected)
 5. Asks to choose a Google calendar account.
