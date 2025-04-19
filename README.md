@@ -9,10 +9,10 @@ A tool for adding entries on my Google Calendar from email messages
 
 ## Steps of an execution.
 
-When running with:
+When running in ineractive mode with:
 
 ```bash
-uv run manage-agenda add -i True 2>&1 | tee /tmp/log.txt
+uv run manage-agenda add -i True 
 ```
 
 1. Asks for the selection of some AI
