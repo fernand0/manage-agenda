@@ -34,7 +34,7 @@ pip install manage-agenda
 git clone git@github.com:fernand0/manage-agenda.git
 ```
 
-It can not be installed via pip
+It can not be installed via pip (does it make sense in such a raw state?)
 
 ## Usage
 
