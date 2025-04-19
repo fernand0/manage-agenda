@@ -9,16 +9,13 @@ A tool for adding entries on my Google Calendar from email messages
 
 ## Steps of an execution.
 
-This program does the following steps: 
-
-1. Asks for the selection of some AI
-
 When running with:
 
 ```bash
 uv run manage-agenda add -i True 2>&1 | tee /tmp/log.txt
 ```
-It shows:
+
+1. Asks for the selection of some AI
 
 ```
 Local/mistral/gemini model )(l/m/g)? 
