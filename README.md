@@ -7,6 +7,10 @@
 
 A tool for adding entries on my Google Calendar from email messages
 
+It relies on:
+
+- Module [socialModules](https://github.com/fernand0/socialModules) for reading in your gmail account and writing in your google calendar (needs configuration).
+
 ## Installation
 
 <!---
