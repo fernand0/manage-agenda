@@ -40,6 +40,15 @@ We can select the first one, for example.
 
 5. It will read the messages tagged with `zAgenda` (it can be selected)
 6. Asks to choose a Google calendar account.
+
+```
+Rules:
+0) ('gcalendar', 'set', 'fernand0@elmundoesimperfecto.com', 'posts')
+1) ('gcalendar', 'set', 'otherOne@elmundoesimperfecto.com', 'posts')
+```
+
+Let us suppose that we choose the first one.
+
 7. Extracts the content of each message and sends an adequate prompt to the selected AI. 
 It will return a `json` formatted event suitable for Google calendar.
 8. It will show the subject of the message and it will ask to choose the calendar to enter the event.
