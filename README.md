@@ -11,6 +11,14 @@ It relies on:
 
 - Module [socialModules](https://github.com/fernand0/socialModules) for reading in your gmail account and writing in your google calendar (needs configuration).
 
+At this moment it can use several AI modules:
+
+- [Gemini](https://gemini.google.com/) via [Gemini API Python SDK](https://ai.google.dev/gemini-api/docs/quickstart?lang=python)
+- [Mistral](https://mistral.ai/) via [Mistral Python Client](https://github.com/mistralai/client-python)
+- Locally installed AIs with [Ollama](https://ollama.com/) via [Ollama code](https://github.com/ollama/ollama)
+
+All of them need some configuration (provided in their respective sites)
+
 ## Installation
 
 <!---
