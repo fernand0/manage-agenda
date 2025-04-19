@@ -21,6 +21,10 @@ Let us choose, for instance, (g)emini.
 
 ![image](https://github.com/user-attachments/assets/bd49fb8d-885e-4e70-8239-d4b72e62bb22)
 
+...
+
+![image](https://github.com/user-attachments/assets/e55beb11-6383-4c06-8314-2180aaa68045)
+
 
 4. Then we can select one of the configured email accounts.
 5. It will read the messages taged with `zAgenda` (it can be selected)
