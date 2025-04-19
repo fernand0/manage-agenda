@@ -4,7 +4,7 @@ version = "0.1"
 description = "Adding entries to google calendar"
 readme = "README.md"
 authors = [{name = "Fernando Tricas García"}]
-license = "Apache-2.0"
+license = {file = "LICENSE"}
 requires-python = ">=3.9"
 classifiers = []
 dependencies = [
