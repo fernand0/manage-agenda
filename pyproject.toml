@@ -1,0 +1,28 @@
+[project]
+name = "manage-agenda"
+version = "0.1"
+description = "A tool for adding entries on my Google Calendar from email messages"
+readme = "README.md"
+authors = [{name = "Fernando Tricas García"}]
+license = "Apache-2.0"
+requires-python = ">=3.8"
+classifiers = []
+dependencies = [
+    "click"
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/fernand0/manage-agenda"
+Changelog = "https://github.com/fernand0/manage-agenda/releases"
+Issues = "https://github.com/fernand0/manage-agenda/issues"
+CI = "https://github.com/fernand0/manage-agenda/actions"
+
+[project.scripts]
+manage-agenda = "manage_agenda.cli:cli"
+
+[project.optional-dependencies]
+test = ["pytest"]
