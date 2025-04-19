@@ -34,7 +34,11 @@ pip install manage-agenda
 git clone git@github.com:fernand0/manage-agenda.git
 ```
 
-It can not be installed via pip (does it make sense in such a raw state?)
+It can not be installed via pip (does it make sense in such a raw state?).
+
+This is my first attempt at using `click` (using 
+[click-app cookiecutter template](https://github.com/simonw/click-app)
+some parts will not work.
 
 ## Usage
 
