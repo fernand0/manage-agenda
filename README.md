@@ -25,9 +25,20 @@ Let us choose, for instance, (g)emini.
 
 ![image](https://github.com/user-attachments/assets/e55beb11-6383-4c06-8314-2180aaa68045)
 
+It has a default selection. Let us suppose that we push [Enter].
 
 4. Then we can select one of the configured email accounts.
-5. It will read the messages taged with `zAgenda` (it can be selected)
+
+```
+Rules:
+0) ('gmail', 'set', 'fernand0@elmundoesimperfecto', 'posts')
+1) ('gmail', 'set', 'fernand0@elmundoesimperfecto.com', 'drafts')
+1) ('gmail', 'set', 'otherOne@elmundoesimperfecto.com', 'posts')
+```
+
+We can select the first one, for example.
+
+5. It will read the messages tagged with `zAgenda` (it can be selected)
 6. Asks to choose a Google calendar account.
 7. Extracts the content of each message and sends an adequate prompt to the selected AI. 
 It will return a `json` formatted event suitable for Google calendar.
