@@ -1,6 +1,16 @@
 # manage-agenda
 
-Tests are not working.
+This program does the following steps: 
+
+1. Asks for the selection of some AI
+2. Asks to choose one of the available models.
+3. Then we can select one of the configured email accounts.
+4. It will read the messages taged with `zAgenda` (it can be selected)
+5. Asks to choose a Google calendar account.
+6. Extracts the content of each message and sends an adequate prompt to the selected AI. 
+It will return a `json` formatted event suitable for Google calendar.
+7. It will show the subject of the message and it will ask to choose the calendar to enter the event.
+8. It will ask if we want to delete the tag.
 
 [![PyPI](https://img.shields.io/pypi/v/manage-agenda.svg)](https://pypi.org/project/manage-agenda/)
 [![Changelog](https://img.shields.io/github/v/release/fernand0/manage-agenda?include_prereleases&label=changelog)](https://github.com/fernand0/manage-agenda/releases)
@@ -63,6 +73,8 @@ python -m manage_agenda --help
 
 
 ## Development
+
+Tests check nothing but the correct structure of the project (using the template).
 
 To contribute to this tool, first checkout the code. Then create a new virtual environment:
 ```bash
