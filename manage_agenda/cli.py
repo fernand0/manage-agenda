@@ -307,24 +307,28 @@ def process_event_data(event, content):
     """
     event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
     # if "attendees" in event and event["attendees"]:
-    if safe_get(event, ['attendees']):  # in event and event["attendees"]:
+    if safe_get(event, ["attendees"]):  # in event and event["attendees"]:
         event["attendees"] = []  # Clear attendees
     return event
 
 
 def adjust_event_times(event):
     """Adjusts event start/end times if one is missing."""
-    start = safe_get(event, ["start","dateTime"])
-    end = safe_get(event, ["end","dateTime"])
+    start = safe_get(event, ["start", "dateTime"])
+    end = safe_get(event, ["end", "dateTime"])
 
     if not start and end:
         event["start"]["dateTime"] = end
-        event["start"]["timeZone"] = safe_get(event, ["end","timeZone"], "Europe/Madrid")
+        event["start"]["timeZone"] = safe_get(
+            event, ["end", "timeZone"], "Europe/Madrid"
+        )
     elif not end and start:
         event["end"]["dateTime"] = start
-        event["end"]["timeZone"] = safe_get(event, ["start","timeZone"], "Europe/Madrid")
+        event["end"]["timeZone"] = safe_get(
+            event, ["start", "timeZone"], "Europe/Madrid"
+        )
 
-    if not safe_get(event,["start", "timeZone"]):
+    if not safe_get(event, ["start", "timeZone"]):
         event["start"]["timeZone"] = "Europe/Madrid"
     if not safe_get(event, ["end", "timeZone"]):
         event["end"]["timeZone"] = "Europe/Madrid"
@@ -382,7 +386,7 @@ def process_email_cli(args, model):
     api_src.setPostsType("posts")
     api_src.setLabels()
     label = api_src.getLabels(folder)
-    if len(label)>0:
+    if len(label) > 0:
         api_src.setChannel(folder)
         api_src.setPosts()
 
@@ -460,7 +464,7 @@ def process_email_cli(args, model):
                 # The first configured google calendar in .rssBlogs
                 api_dst_name = rules.selectRule(api_dst_type, "")[0]
                 api_dst_details = rules.more.get(api_dst_name, {})
-                api_dst = rules.readConfigSrc( "", api_dst_name, api_dst_details)
+                api_dst = rules.readConfigSrc("", api_dst_name, api_dst_details)
 
             try:
                 event = json.loads(vcal_json)
@@ -488,14 +492,16 @@ def process_email_cli(args, model):
                 continue
 
             try:
-                #calendar_result = (
+                # calendar_result = (
                 #    api_dst.getClient()
                 #    .events()
                 #    .insert(calendarId=selected_calendar, body=event)
                 #    .execute()
-                #)
-                #print(f"Calendar event created: {calendar_result.get('htmlLink')}")
-                calendar_result = api_dst.publishPost(post={'event':event,'idCal':selected_calendar}, api=api_dst)
+                # )
+                # print(f"Calendar event created: {calendar_result.get('htmlLink')}")
+                calendar_result = api_dst.publishPost(
+                    post={"event": event, "idCal": selected_calendar}, api=api_dst
+                )
                 print(f"Calendar event created: {calendar_result}")
                 # print(f"Calendar event created: {calendar_result.get('htmlLink')}")
             except googleapiclient.errors.HttpError as e:
@@ -519,7 +525,7 @@ def process_email_cli(args, model):
                     flag = "\\Deleted"
                     api_src.getClient().store(post_id, "+FLAGS", flag)
                     logging.info(f"Email {post_id} marked for deletion.")
-    else: 
+    else:
         print(f"There are no posts tagged with label {folder}")
 
 
@@ -564,6 +570,7 @@ def select_llm(args):
 @click.version_option()
 def cli():
     "An app for adding entries to my calendar"
+
 
 # @cli.command(name="command")
 # @click.argument(
