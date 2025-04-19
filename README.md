@@ -25,56 +25,56 @@ uv run manage-agenda add -i True 2>&1 | tee /tmp/log.txt
 
 2. Asks to choose one of the available models.
 
-![image](https://github.com/user-attachments/assets/bd49fb8d-885e-4e70-8239-d4b72e62bb22)
-
-...
-
-![image](https://github.com/user-attachments/assets/e55beb11-6383-4c06-8314-2180aaa68045)
-
-It has a default selection. Let us suppose that we push [Enter].
+    ![image](https://github.com/user-attachments/assets/bd49fb8d-885e-4e70-8239-d4b72e62bb22)
+    
+    ...
+    
+    ![image](https://github.com/user-attachments/assets/e55beb11-6383-4c06-8314-2180aaa68045)
+    
+    It has a default selection. Let us suppose that we push [Enter].
 
 4. Then we can select one of the configured email accounts.
 
-```
-Rules:
-0) ('gmail', 'set', 'fernand0@elmundoesimperfecto', 'posts')
-1) ('gmail', 'set', 'fernand0@elmundoesimperfecto.com', 'drafts')
-1) ('gmail', 'set', 'otherOne@elmundoesimperfecto.com', 'posts')
-```
-
-We can select the first one, for example.
+    ```
+    Rules:
+    0) ('gmail', 'set', 'fernand0@elmundoesimperfecto', 'posts')
+    1) ('gmail', 'set', 'fernand0@elmundoesimperfecto.com', 'drafts')
+    1) ('gmail', 'set', 'otherOne@elmundoesimperfecto.com', 'posts')
+    ```
+    
+    We can select the first one, for example.
 
 5. It will read the messages tagged with `zAgenda` (it can be selected)
 6. Extracts the content of each message and sends an adequate prompt to the selected AI. 
 It will return a `json` formatted event suitable for Google calendar.
 7. Asks to choose a Google calendar account.
 
-```
-Rules:
-0) ('gcalendar', 'set', 'fernand0@elmundoesimperfecto.com', 'posts')
-1) ('gcalendar', 'set', 'otherOne@elmundoesimperfecto.com', 'posts')
-```
-
-Let us suppose that we choose the first one.
+    ```
+    Rules:
+    0) ('gcalendar', 'set', 'fernand0@elmundoesimperfecto.com', 'posts')
+    1) ('gcalendar', 'set', 'otherOne@elmundoesimperfecto.com', 'posts')
+    ```
+    
+    Let us suppose that we choose the first one.
 
 8. It will show the subject of the message and it will ask to choose the calendar to enter the event.
 
-```
-Subject: (some subject)
-
-0) Work
-1) Leissure 
-2) Meetings
-...
-6) Others
-Selection 
-```
+    ```
+    Subject: (some subject)
+    
+    0) Work
+    1) Leissure 
+    2) Meetings
+    ...
+    6) Others
+    Selection 
+    ```
 
 9. It will ask if we want to delete the tag.
 
-```
-Delete tag? (Press Enter to continue)
-```
+    ```
+    Delete tag? (Press Enter to continue)
+    ```
 
 It will repeat the last four steps for each message with the tag.
 
