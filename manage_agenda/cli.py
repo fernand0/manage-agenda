@@ -10,12 +10,14 @@ import argparse  # Import argparse at the top
 
 from collections import namedtuple
 
+# AI modules
 import google.generativeai as genai
 import ollama
 from ollama import chat, ChatResponse
 from mistralai import Mistral
 import googleapiclient
 
+# Ggmail an Gcalendar access modules
 from socialModules import moduleImap, moduleRules  # Explicitly import modules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
 
@@ -24,12 +26,11 @@ DEFAULT_DATA_DIR = "~/Documents/data/msgs/"
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
 
-
 def setup_logging():
     """Configures logging to stdout."""
     logging.basicConfig(
         stream=sys.stdout,
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s %(levelname)s: %(message)s",
     )
 
@@ -63,17 +64,17 @@ def safe_get(data, keys, default=""):
 
 
 def select_from_list(options, identifier = "", selector="", default=""):
-    """Selects an option form a list
+    """Selects an option form an iterable element, based on some identifier
 
     We can make an initial selection of elements that contain 'selector'
     We can select based on numbers or in substrings of the elements
     of the list.
     """
 
-    names = [getattr(el, identifier) for el in options]
-    sel = ""
+    names = [safe_get(el, [identifier,]) if isinstance(el, dict) else getattr(el, identifier) for el in options]
+    sel = -1
     options_sel = names.copy()
-    while not sel:
+    while sel<0:
         for i, elem in enumerate(options_sel):
             if selector in elem:
                 print(f"{i}) {elem}")
@@ -85,16 +86,15 @@ def select_from_list(options, identifier = "", selector="", default=""):
                 sel = names.index(default)
                 # indices_coincidentes = list(i for i, elemento in enumerate(mi_lista) if busqueda in elemento)
         elif sel.isdigit() and int(sel) not in range(len(options_sel)):
-            sel = ""
+            sel = -1
         elif not sel.isdigit():
             options_sel = [opt for opt in options_sel if sel in opt]
             print(f"Options: {options_sel}")
-            sel = ""
             if len(options_sel) == 1:
                 sel = names.index(options_sel[0])
         else:
             # Now we select the original number
-            sel = options.index(options_sel[int(sel)])
+            sel = names.index(options_sel[int(sel)])
 
     logging.info(f"Sel: {sel}")
 
@@ -128,19 +128,23 @@ class LLMClient:
 
 class OllamaClient(LLMClient):
     def __init__(self, model_name=""):
+        name_class = self.__class__.__name__
+        self.config = False
+
+        super().__init__(name_class)
         if not model_name:
-            names = [el.model for el in self.list_models()]
-            sel = select_from_list(names)
-            model_name = names[int(sel)]
-        super().__init__(model_name)
+            # names = [el.model for el in self.list_models()]
+            models = self.list_models()
+            sel, name = select_from_list(models, identifier='model')
+            # model_name = names[int(sel)]
+            self.model_name = name
 
         self.client = ollama.list()["models"][int(sel)]
 
     def generate_text(self, prompt):
         try:
-            logging.info(f"Name: {self.name}")
             response: ChatResponse = chat(
-                model=self.name, messages=[{"role": "user", "content": prompt}]
+                model=self.model_name, messages=[{"role": "user", "content": prompt}]
             )
             return response.message.content
         except Exception as e:
@@ -275,16 +279,10 @@ def select_calendar(calendar_api):
     ]
 
     names = [safe_get(cal, ["summary"]) for cal in eligible_calendars]
-    selection = select_from_list(names)
+    selection, cal = select_from_list(eligible_calendars, 'summary')
 
-    if isinstance(selection, int) or selection.isnumeric():
-        return calendars[int(selection)]["id"]
-    # else:
-    #     for cal in eligible_calendars:
-    #         if selection in cal["summary"]:
-    #             return cal
-    #     logging.warning("Calendar not found.")
-    #     return None
+    print(f"Cal: {cal}")
+    return eligible_calendars[selection]['id']
 
 
 # --- File I/O ---
