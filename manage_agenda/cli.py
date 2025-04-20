@@ -19,7 +19,6 @@ import googleapiclient
 from socialModules import moduleImap, moduleRules  # Explicitly import modules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
 
-
 # --- Constants and Configuration ---
 DEFAULT_DATA_DIR = "~/Documents/data/msgs/"
 
@@ -63,7 +62,7 @@ def safe_get(data, keys, default=""):
         return default
 
 
-def select_from_list(options, selector="", default=""):
+def select_from_list(options, identifier = "", selector="", default=""):
     """Selects an option form a list
 
     We can make an initial selection of elements that contain 'selector'
@@ -71,8 +70,9 @@ def select_from_list(options, selector="", default=""):
     of the list.
     """
 
+    names = [getattr(el, identifier) for el in options]
     sel = ""
-    options_sel = options.copy()
+    options_sel = names.copy()
     while not sel:
         for i, elem in enumerate(options_sel):
             if selector in elem:
@@ -82,7 +82,7 @@ def select_from_list(options, selector="", default=""):
         sel = input(msg)
         if sel == "":
             if default:
-                sel = options.index(default)
+                sel = names.index(default)
                 # indices_coincidentes = list(i for i, elemento in enumerate(mi_lista) if busqueda in elemento)
         elif sel.isdigit() and int(sel) not in range(len(options_sel)):
             sel = ""
@@ -91,22 +91,36 @@ def select_from_list(options, selector="", default=""):
             print(f"Options: {options_sel}")
             sel = ""
             if len(options_sel) == 1:
-                sel = options.index(options_sel[0])
+                sel = names.index(options_sel[0])
         else:
             # Now we select the original number
             sel = options.index(options_sel[int(sel)])
 
     logging.info(f"Sel: {sel}")
 
-    return sel
+    return sel, names[int(sel)]
 
 
 # --- API Abstraction ---
 class LLMClient:
     """Abstracts interactions with LLMs (Ollama, Gemini, Mistral)."""
 
-    def __init__(self, model=None):
-        self.model = model
+    def __init__(self, name_class=None):
+        if self.config:
+            try:
+                config_file = f"{CONFIGDIR}/.rss{name_class[:-6]}"
+                config = load_config(config_file)
+            except FileNotFoundError as e:
+                raise FileNotFoundError(
+                    f"Configuration file: {config_file} does not exist\n"
+                    f"You need to create it and add the API key"
+                )
+            except Exception as e:
+                raise Exception(e)
+
+            section = config.sections()[0]
+            self.api_key = config.get(section, "api_key")
+        self.model_name = None
 
     def generate_text(self, prompt):
         raise NotImplementedError("Subclasses must implement this method")
@@ -140,21 +154,22 @@ class OllamaClient(LLMClient):
 
 class GeminiClient(LLMClient):
     # def __init__(self, model_name="gemini-1.5-flash-latest"):
-    def __init__(self, model_name=""):
+    def __init__(self, name_class=""):
         name_class = self.__class__.__name__
-        config = load_config(f"{CONFIGDIR}/.rss{name_class[:-6]}")
-        section = config.sections()[0]
-        api_key = config.get(section, "api_key")
-        genai.configure(api_key=api_key)
-        if not model_name:
-            names = [el.name for el in genai.list_models()]
-            sel = select_from_list(
-                names, selector="gemini", default="models/gemini-1.5-flash-latest"
-            )
-            model_name = names[int(sel)].split("/")[1]
-        super().__init__(model_name)
+        self.config = True
 
-        self.client = genai.GenerativeModel(model_name)
+        super().__init__(name_class)
+
+        genai.configure(api_key=self.api_key)
+        if not self.model_name:
+            #names = [el.name for el in genai.list_models()]
+            models = genai.list_models()
+            sel, name = select_from_list(
+                models, identifier='name', selector="gemini", default="models/gemini-1.5-flash-latest"
+            )
+            self.model_name = name.split("/")[1]
+
+        self.client = genai.GenerativeModel(self.model_name)
 
     def generate_text(self, prompt):
         try:
@@ -172,20 +187,24 @@ class GeminiClient(LLMClient):
 class MistralClient(LLMClient):
     def __init__(self, model_name=""):
         name_class = self.__class__.__name__
-        config = load_config(f"{CONFIGDIR}/.rss{name_class[:-6]}")
-        section = config.sections()[0]  # The first one
-        api_key = config.get(section, "api_key")
-        self.client = Mistral(api_key=api_key)
-        if not model_name:
-            names = [el.id for el in self.list_models(self).data]
-            sel = select_from_list(names, default="mistral-small-latest")
-            model_name = names[int(sel)]
-        super().__init__(model_name)
+        self.config = True
+
+        super().__init__(name_class)
+        
+        self.client = Mistral(api_key=self.api_key)
+        if not self.model_name:
+            # names = [el.id for el in self.list_models(self).data]
+            models = self.list_models(self).data
+            sel, name = select_from_list(
+                models, identifier='id', default="mistral-small-latest"
+            )
+            # sel = select_from_list(names, default="mistral-small-latest")
+            self.model_name = name
 
     def generate_text(self, prompt):
         try:
             response = self.client.chat.complete(
-                model=self.name, messages=[{"content": prompt, "role": "user"}]
+                model=self.model_name, messages=[{"content": prompt, "role": "user"}]
             )
             return response.choices[0].message.content
         except Exception as e:
