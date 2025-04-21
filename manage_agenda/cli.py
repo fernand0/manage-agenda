@@ -138,6 +138,8 @@ class OllamaClient(LLMClient):
             sel, name = select_from_list(models, identifier='model')
             # model_name = names[int(sel)]
             self.model_name = name
+        else:
+            self.model_name = model_name
 
         self.client = ollama.list()["models"][int(sel)]
 
@@ -158,20 +160,22 @@ class OllamaClient(LLMClient):
 
 class GeminiClient(LLMClient):
     # def __init__(self, model_name="gemini-1.5-flash-latest"):
-    def __init__(self, name_class=""):
+    def __init__(self, model_name=""):
         name_class = self.__class__.__name__
         self.config = True
 
         super().__init__(name_class)
 
         genai.configure(api_key=self.api_key)
-        if not self.model_name:
+        if not model_name:
             #names = [el.name for el in genai.list_models()]
             models = genai.list_models()
             sel, name = select_from_list(
                 models, identifier='name', selector="gemini", default="models/gemini-1.5-flash-latest"
             )
             self.model_name = name.split("/")[1]
+        else:
+            self.model_name = model_name
 
         self.client = genai.GenerativeModel(self.model_name)
 
@@ -404,6 +408,7 @@ def process_email_cli(args, model):
     api_src.setLabels()
     label = api_src.getLabels(folder)
     if len(label) > 0:
+        label_id = safe_get(label[0], ['id'])
         api_src.setChannel(folder)
         api_src.setPosts()
 
@@ -529,13 +534,15 @@ def process_email_cli(args, model):
                 input("Delete tag? (Press Enter to continue)")
                 if "gmail" in api_src.service.lower():
                     try:
-                        res = api_src.deleteLabel(api_src.getChannel())
+                        label = api_src.getLabels(api_src.getChannel())
+                        logging.info(f"Msg: {post}")
+                        res = api_src.modifyLabels(post_id, label_id, None)
                         label_id = api_src.getLabels(api_src.getChannel())[0]["id"]
                         print(f"Label deleted: {res}")
-                        api_src.getClient().users().messages().modify(
-                            userId="me", id=post_id, body={"removeLabelIds": [label_id]}
-                        ).execute()
-                        logging.info(f"email {post_id} deleted.")
+                        # api_src.getClient().users().messages().modify(
+                        #     userId="me", id=post_id, body={"removeLabelIds": [label_id]}
+                        # ).execute()
+                        # logging.info(f"email {post_id} deleted.")
                     except googleapiclient.errors.httperror as e:
                         logging.error(f"Error deleting email: {e}")
                 else:
