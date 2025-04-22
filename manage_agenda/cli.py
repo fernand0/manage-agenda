@@ -22,7 +22,7 @@ from socialModules import moduleImap, moduleRules  # Explicitly import modules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
 
 # --- Constants and Configuration ---
-DEFAULT_DATA_DIR = "~/Documents/data/msgs/"
+DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
 
