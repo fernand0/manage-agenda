@@ -17,7 +17,7 @@ from ollama import chat, ChatResponse
 from mistralai import Mistral
 import googleapiclient
 
-# Ggmail an Gcalendar access modules
+# Gmail an Gcalendar access modules
 from socialModules import moduleImap, moduleRules  # Explicitly import modules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
 
