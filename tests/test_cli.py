@@ -87,7 +87,7 @@ class TestCli(unittest.TestCase):
                 self.assertEqual(result.exit_code, 0)
                 expected_args = self.Args(interactive=False, delete=False, source=self.llm_name)
                 mock_select_llm.assert_called_once_with(expected_args)
-                mock_process_email_cli.called_once()
+                mock_process_email_cli.called_once_with()
                 
 
     
