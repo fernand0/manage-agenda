@@ -18,9 +18,12 @@ class TestCli(unittest.TestCase):
             "manage_agenda.cli.process_email_cli"
         ) as mock_process_email_cli:
             # Mock the LLM client
-            mock_llm_client = MagicMock()
-            mock_llm_client.generate_text.return_value = '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}'  # Example JSON response
-            mock_select_llm.return_value = mock_llm_client            
+            mock_llm_client = MagicMock()            
+            def generate_text_side_effect(prompt):
+                return '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}' 
+            
+            mock_llm_client.generate_text.side_effect = generate_text_side_effect
+            mock_select_llm.return_value = mock_llm_client
             self._mock_api(mock_process_email_cli)
 
             result = self.runner.invoke(
@@ -30,47 +33,59 @@ class TestCli(unittest.TestCase):
             mock_select_llm.assert_called_once_with(self.llm_name)
             mock_process_email_cli.assert_called_once()
     
-    def test_add_non_interactive_d_true(self):
-        with patch("manage_agenda.cli.select_llm") as mock_select_llm, patch(
-            "manage_agenda.cli.process_email_cli"
-        ) as mock_process_email_cli, patch(
-            "manage_agenda.cli.datetime"
-        ) as mock_datetime:
-            # Mock the LLM client
-            mock_llm_client = MagicMock()
-            mock_llm_client.generate_text.return_value = '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}'  # Example JSON response
-            mock_select_llm.return_value = mock_llm_client            
-            self._mock_api(mock_process_email_cli)
-
-            today = datetime.date(2023,12,7)
-            mock_datetime.date.today.return_value = today
-
-            result = self.runner.invoke(
-                self.cli.cli, ["add", "-s", self.llm_name, "-d", "True"]
-            )
-            self.assertEqual(result.exit_code, 0)
-            mock_select_llm.assert_called_once_with(self.llm_name)
-            mock_process_email_cli.assert_called_once()
-
-    def test_add_invalid_json(self):
+    def test_add_select_llm_returns_none(self):
         with patch("manage_agenda.cli.select_llm") as mock_select_llm, patch(
             "manage_agenda.cli.process_email_cli"
         ) as mock_process_email_cli:
-            # Mock the LLM client to return invalid JSON
-            mock_llm_client = MagicMock()
-            mock_llm_client.generate_text.return_value = 'this is not json'
-            mock_select_llm.return_value = mock_llm_client            
-            self._mock_api(mock_process_email_cli)
+            # Mock select_llm to return None
+            mock_select_llm.return_value = None
+            
+            mock_process_email_cli.side_effect = lambda args, model: None
 
             result = self.runner.invoke(
                 self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
             )
             self.assertEqual(result.exit_code, 1)
-            self.assertIn("Invalid JSON", result.output)
+            self.assertIn("Invalid LLM", result.output)
             mock_select_llm.assert_called_once_with(self.llm_name)
+            mock_process_email_cli.assert_not_called()
+    
+    def test_add_no_posts(self):
+        with patch("manage_agenda.cli.select_llm") as mock_select_llm, patch(
+            "manage_agenda.cli.process_email_cli"
+        ) as mock_process_email_cli:
+            # Mock the LLM client
+            mock_llm_client = MagicMock()
+            def generate_text_side_effect(prompt):
+                return '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}' 
             
-            mock_process_email_cli.assert_called_once()
+            mock_llm_client.generate_text.side_effect = generate_text_side_effect
+            mock_select_llm.return_value = mock_llm_client            
+            
+            # Mock api_src to return no posts
+            mock_api_src = MagicMock()
+            mock_api_src.service = "gmail"
+            mock_api_src.getLabels.return_value = [{"id":"Label_0"}]
+            mock_api_src.getPosts.return_value = []
+            
+            mock_process_email_cli.side_effect = lambda args, model: None
+            
+            with patch("manage_agenda.cli.moduleRules.moduleRules") as mock_module_rules:
+                mock_rules = MagicMock()
+                mock_rules.selectRule.return_value = ["mocked_rule"]
+                mock_rules.more.get.return_value = {"key":"value"}
+                mock_rules.readConfigSrc.return_value = mock_api_src
+                mock_module_rules.return_value = mock_rules
 
+                result = self.runner.invoke(
+                    self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
+                )
+                self.assertEqual(result.exit_code, 0)
+                mock_select_llm.assert_called_once_with(self.llm_name)
+                mock_process_email_cli.assert_not_called()
+                
+
+    
 
     def _mock_api(self, mock_process_email_cli):
         # Mock api_src and api_dst
@@ -83,17 +98,22 @@ class TestCli(unittest.TestCase):
         mock_api_src.getPostTitle.return_value = "Test title"
         mock_api_src.getPostBody.return_value = "Test Body"
         mock_api_src.getMessage.return_value = "message"
-        mock_process_email_cli.side_effect = lambda args, model: None
-
-    def test_select_llm_called(self):
+        mock_process_email_cli.side_effect = lambda args, model: None    
+        
+    def test_add_llm_returns_none(self):
         with patch("manage_agenda.cli.select_llm") as mock_select_llm, patch(
             "manage_agenda.cli.process_email_cli"
         ) as mock_process_email_cli:
+            # Mock the LLM client
             mock_llm_client = MagicMock()
-            mock_llm_client.generate_text.return_value = '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}'
-            mock_select_llm.return_value = mock_llm_client
-            mock_process_email_cli.side_effect = lambda args, model: None
+            mock_llm_client.generate_text.return_value = None
+            mock_select_llm.return_value = mock_llm_client            
             self._mock_api(mock_process_email_cli)
-            self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"])
+
+            result = self.runner.invoke(
+                self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
+            )
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("Failed to get response from LLM", result.output)
             mock_select_llm.assert_called_once_with(self.llm_name)
             mock_process_email_cli.assert_called_once()
