@@ -97,13 +97,13 @@ more text"""
     def test_select_calendar(self, mock_select_from_list):
         mock_calendar_api = MagicMock()
         calendars = [{"summary": "Calendar1", "id": "id1", "accessRole": "owner"}]
+        mock_calendar_api.setCalendarList.assert_called_once()
+        mock_select_from_list.assert_called_once()
         mock_calendar_api.getCalendarList.return_value = calendars
         mock_select_from_list.return_value = "0"
 
         result = select_calendar(mock_calendar_api)
 
-        mock_calendar_api.setCalendarList.assert_called_once()
-        mock_select_from_list.assert_called_once()
         self.assertEqual(result, "id1")
 
     def test_safe_get(self):
