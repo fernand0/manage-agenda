@@ -71,7 +71,10 @@ def select_from_list(options, identifier = "", selector="", default=""):
     of the list.
     """
 
-    names = [safe_get(el, [identifier,]) if isinstance(el, dict) else getattr(el, identifier) for el in options]
+    if options and (isinstance(options[0], dict) or (hasattr(options[0], '__slots__'))):
+        names = [safe_get(el, [identifier,]) if isinstance(el, dict) else getattr(el, identifier) for el in options]
+    else:
+        names = options
     sel = -1
     options_sel = names.copy()
     while sel<0:
@@ -92,6 +95,8 @@ def select_from_list(options, identifier = "", selector="", default=""):
             print(f"Options: {options_sel}")
             if len(options_sel) == 1:
                 sel = names.index(options_sel[0])
+            else:
+                sel = -1
         else:
             # Now we select the original number
             sel = names.index(options_sel[int(sel)])
@@ -282,7 +287,7 @@ def select_calendar(calendar_api):
         cal for cal in calendars if "reader" not in cal.get("accessRole", "")
     ]
 
-    names = [safe_get(cal, ["summary"]) for cal in eligible_calendars]
+    #names = [safe_get(cal, ["summary"]) for cal in eligible_calendars]
     selection, cal = select_from_list(eligible_calendars, 'summary')
 
     print(f"Cal: {cal}")

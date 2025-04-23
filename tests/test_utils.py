@@ -97,13 +97,13 @@ more text"""
     def test_select_calendar(self, mock_select_from_list):
         mock_calendar_api = MagicMock()
         calendars = [{"summary": "Calendar1", "id": "id1", "accessRole": "owner"}]
-        mock_calendar_api.setCalendarList.assert_called_once()
-        mock_select_from_list.assert_called_once()
         mock_calendar_api.getCalendarList.return_value = calendars
-        mock_select_from_list.return_value = "0"
+        mock_select_from_list.return_value = (0, 'Calendar1')
 
         result = select_calendar(mock_calendar_api)
 
+        mock_calendar_api.setCalendarList.assert_called_once()
+        mock_select_from_list.assert_called_once()
         self.assertEqual(result, "id1")
 
     def test_safe_get(self):
@@ -116,16 +116,16 @@ more text"""
     def test_select_from_list_numeric(self, mock_input):
         options = ["option1", "option2", "option3"]
         result = select_from_list(options)
-        self.assertEqual(result, 0)
+        self.assertEqual(result, (0, "option1"))
 
     @patch("manage_agenda.cli.input", side_effect=["opt", "0"])
     def test_select_from_list_substring(self, mock_input):
         options = ["option1", "option2", "other"]
         result = select_from_list(options)
-        self.assertEqual(result, 0)
+        self.assertEqual(result, (0, "option1"))
     
     @patch("manage_agenda.cli.input", side_effect=[""])
     def test_select_from_list_default(self, mock_input):
         options = ["option1", "option2", "option3"]
         result = select_from_list(options, default="option2")
-        self.assertEqual(result, 1)
+        self.assertEqual(result, (1, "option2"))
