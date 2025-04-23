@@ -77,7 +77,7 @@ def select_from_list(options, identifier = "", selector="", default=""):
         names = options
     sel = -1
     options_sel = names.copy()
-    while sel<0:
+    while isinstance(sel, str) or (sel<0):
         for i, elem in enumerate(options_sel):
             if selector in elem:
                 print(f"{i}) {elem}")
@@ -95,8 +95,6 @@ def select_from_list(options, identifier = "", selector="", default=""):
             print(f"Options: {options_sel}")
             if len(options_sel) == 1:
                 sel = names.index(options_sel[0])
-            else:
-                sel = -1
         else:
             # Now we select the original number
             sel = names.index(options_sel[int(sel)])
