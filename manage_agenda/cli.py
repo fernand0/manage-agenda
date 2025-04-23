@@ -339,11 +339,13 @@ def adjust_event_times(event):
     end = safe_get(event, ["end", "dateTime"])
 
     if not start and end:
+        event["start"] = {}
         event["start"]["dateTime"] = end
         event["start"]["timeZone"] = safe_get(
             event, ["end", "timeZone"], "Europe/Madrid"
         )
     elif not end and start:
+        event["end"] = {}
         event["end"]["dateTime"] = start
         event["end"]["timeZone"] = safe_get(
             event, ["start", "timeZone"], "Europe/Madrid"
