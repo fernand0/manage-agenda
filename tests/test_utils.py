@@ -48,14 +48,14 @@ more text"""
     def test_adjust_event_times_start_missing(self):
         event = {"end": {"dateTime": "2024-01-01T11:00:00"}}
         result = adjust_event_times(event)
-        self.assertEqual(result["end"]["dateTime"], "2024-01-01T11:00:00")
-        self.assertEqual(result["end"]["timeZone"], "Europe/Madrid")
+        self.assertEqual(result["start"]["dateTime"], "2024-01-01T11:00:00")
+        self.assertEqual(result["start"]["timeZone"], "Europe/Madrid")
 
     def test_adjust_event_times_end_missing(self):
         event = {"start": {"dateTime": "2024-01-01T10:00:00"}}
         result = adjust_event_times(event)
-        self.assertEqual(result["start"]["dateTime"], "2024-01-01T10:00:00")
-        self.assertEqual(result["start"]["timeZone"], "Europe/Madrid")
+        self.assertEqual(result["end"]["dateTime"], "2024-01-01T10:00:00")
+        self.assertEqual(result["end"]["timeZone"], "Europe/Madrid")
 
     def test_adjust_event_times_timezones(self):
         event = {
