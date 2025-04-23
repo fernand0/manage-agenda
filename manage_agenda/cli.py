@@ -10,27 +10,27 @@ import argparse  # Import argparse at the top
 
 from collections import namedtuple
 
+# AI modules
 import google.generativeai as genai
 import ollama
 from ollama import chat, ChatResponse
 from mistralai import Mistral
 import googleapiclient
 
+# Gmail an Gcalendar access modules
 from socialModules import moduleImap, moduleRules  # Explicitly import modules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
 
-
 # --- Constants and Configuration ---
-DEFAULT_DATA_DIR = "~/Documents/data/msgs/"
+DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
-
 
 def setup_logging():
     """Configures logging to stdout."""
     logging.basicConfig(
         stream=sys.stdout,
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s %(levelname)s: %(message)s",
     )
 
@@ -63,17 +63,18 @@ def safe_get(data, keys, default=""):
         return default
 
 
-def select_from_list(options, selector="", default=""):
-    """Selects an option form a list
+def select_from_list(options, identifier = "", selector="", default=""):
+    """Selects an option form an iterable element, based on some identifier
 
     We can make an initial selection of elements that contain 'selector'
     We can select based on numbers or in substrings of the elements
     of the list.
     """
 
-    sel = ""
-    options_sel = options.copy()
-    while not sel:
+    names = [safe_get(el, [identifier,]) if isinstance(el, dict) else getattr(el, identifier) for el in options]
+    sel = -1
+    options_sel = names.copy()
+    while sel<0:
         for i, elem in enumerate(options_sel):
             if selector in elem:
                 print(f"{i}) {elem}")
@@ -82,31 +83,44 @@ def select_from_list(options, selector="", default=""):
         sel = input(msg)
         if sel == "":
             if default:
-                sel = options.index(default)
+                sel = names.index(default)
                 # indices_coincidentes = list(i for i, elemento in enumerate(mi_lista) if busqueda in elemento)
         elif sel.isdigit() and int(sel) not in range(len(options_sel)):
-            sel = ""
+            sel = -1
         elif not sel.isdigit():
             options_sel = [opt for opt in options_sel if sel in opt]
             print(f"Options: {options_sel}")
-            sel = ""
             if len(options_sel) == 1:
-                sel = options.index(options_sel[0])
+                sel = names.index(options_sel[0])
         else:
             # Now we select the original number
-            sel = options.index(options_sel[int(sel)])
+            sel = names.index(options_sel[int(sel)])
 
     logging.info(f"Sel: {sel}")
 
-    return sel
+    return sel, names[int(sel)]
 
 
 # --- API Abstraction ---
 class LLMClient:
     """Abstracts interactions with LLMs (Ollama, Gemini, Mistral)."""
 
-    def __init__(self, model=None):
-        self.model = model
+    def __init__(self, name_class=None):
+        if self.config:
+            try:
+                config_file = f"{CONFIGDIR}/.rss{name_class[:-6]}"
+                config = load_config(config_file)
+            except FileNotFoundError as e:
+                raise FileNotFoundError(
+                    f"Configuration file: {config_file} does not exist\n"
+                    f"You need to create it and add the API key"
+                )
+            except Exception as e:
+                raise Exception(e)
+
+            section = config.sections()[0]
+            self.api_key = config.get(section, "api_key")
+        self.model_name = None
 
     def generate_text(self, prompt):
         raise NotImplementedError("Subclasses must implement this method")
@@ -114,19 +128,25 @@ class LLMClient:
 
 class OllamaClient(LLMClient):
     def __init__(self, model_name=""):
+        name_class = self.__class__.__name__
+        self.config = False
+
+        super().__init__(name_class)
         if not model_name:
-            names = [el.model for el in self.list_models()]
-            sel = select_from_list(names)
-            model_name = names[int(sel)]
-        super().__init__(model_name)
+            # names = [el.model for el in self.list_models()]
+            models = self.list_models()
+            sel, name = select_from_list(models, identifier='model')
+            # model_name = names[int(sel)]
+            self.model_name = name
+        else:
+            self.model_name = model_name
 
         self.client = ollama.list()["models"][int(sel)]
 
     def generate_text(self, prompt):
         try:
-            logging.info(f"Name: {self.name}")
             response: ChatResponse = chat(
-                model=self.name, messages=[{"role": "user", "content": prompt}]
+                model=self.model_name, messages=[{"role": "user", "content": prompt}]
             )
             return response.message.content
         except Exception as e:
@@ -142,19 +162,22 @@ class GeminiClient(LLMClient):
     # def __init__(self, model_name="gemini-1.5-flash-latest"):
     def __init__(self, model_name=""):
         name_class = self.__class__.__name__
-        config = load_config(f"{CONFIGDIR}/.rss{name_class[:-6]}")
-        section = config.sections()[0]
-        api_key = config.get(section, "api_key")
-        genai.configure(api_key=api_key)
-        if not model_name:
-            names = [el.name for el in genai.list_models()]
-            sel = select_from_list(
-                names, selector="gemini", default="models/gemini-1.5-flash-latest"
-            )
-            model_name = names[int(sel)].split("/")[1]
-        super().__init__(model_name)
+        self.config = True
 
-        self.client = genai.GenerativeModel(model_name)
+        super().__init__(name_class)
+
+        genai.configure(api_key=self.api_key)
+        if not model_name:
+            #names = [el.name for el in genai.list_models()]
+            models = genai.list_models()
+            sel, name = select_from_list(
+                models, identifier='name', selector="gemini", default="models/gemini-1.5-flash-latest"
+            )
+            self.model_name = name.split("/")[1]
+        else:
+            self.model_name = model_name
+
+        self.client = genai.GenerativeModel(self.model_name)
 
     def generate_text(self, prompt):
         try:
@@ -172,20 +195,24 @@ class GeminiClient(LLMClient):
 class MistralClient(LLMClient):
     def __init__(self, model_name=""):
         name_class = self.__class__.__name__
-        config = load_config(f"{CONFIGDIR}/.rss{name_class[:-6]}")
-        section = config.sections()[0]  # The first one
-        api_key = config.get(section, "api_key")
-        self.client = Mistral(api_key=api_key)
-        if not model_name:
-            names = [el.id for el in self.list_models(self).data]
-            sel = select_from_list(names, default="mistral-small-latest")
-            model_name = names[int(sel)]
-        super().__init__(model_name)
+        self.config = True
+
+        super().__init__(name_class)
+        
+        self.client = Mistral(api_key=self.api_key)
+        if not self.model_name:
+            # names = [el.id for el in self.list_models(self).data]
+            models = self.list_models(self).data
+            sel, name = select_from_list(
+                models, identifier='id', default="mistral-small-latest"
+            )
+            # sel = select_from_list(names, default="mistral-small-latest")
+            self.model_name = name
 
     def generate_text(self, prompt):
         try:
             response = self.client.chat.complete(
-                model=self.name, messages=[{"content": prompt, "role": "user"}]
+                model=self.model_name, messages=[{"content": prompt, "role": "user"}]
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -256,16 +283,10 @@ def select_calendar(calendar_api):
     ]
 
     names = [safe_get(cal, ["summary"]) for cal in eligible_calendars]
-    selection = select_from_list(names)
+    selection, cal = select_from_list(eligible_calendars, 'summary')
 
-    if isinstance(selection, int) or selection.isnumeric():
-        return calendars[int(selection)]["id"]
-    # else:
-    #     for cal in eligible_calendars:
-    #         if selection in cal["summary"]:
-    #             return cal
-    #     logging.warning("Calendar not found.")
-    #     return None
+    print(f"Cal: {cal}")
+    return eligible_calendars[selection]['id']
 
 
 # --- File I/O ---
@@ -387,6 +408,7 @@ def process_email_cli(args, model):
     api_src.setLabels()
     label = api_src.getLabels(folder)
     if len(label) > 0:
+        label_id = safe_get(label[0], ['id'])
         api_src.setChannel(folder)
         api_src.setPosts()
 
@@ -512,13 +534,15 @@ def process_email_cli(args, model):
                 input("Delete tag? (Press Enter to continue)")
                 if "gmail" in api_src.service.lower():
                     try:
-                        res = api_src.deleteLabel(api_src.getChannel())
+                        label = api_src.getLabels(api_src.getChannel())
+                        logging.info(f"Msg: {post}")
+                        res = api_src.modifyLabels(post_id, label_id, None)
                         label_id = api_src.getLabels(api_src.getChannel())[0]["id"]
                         print(f"Label deleted: {res}")
-                        api_src.getClient().users().messages().modify(
-                            userId="me", id=post_id, body={"removeLabelIds": [label_id]}
-                        ).execute()
-                        logging.info(f"email {post_id} deleted.")
+                        # api_src.getClient().users().messages().modify(
+                        #     userId="me", id=post_id, body={"removeLabelIds": [label_id]}
+                        # ).execute()
+                        # logging.info(f"email {post_id} deleted.")
                     except googleapiclient.errors.httperror as e:
                         logging.error(f"Error deleting email: {e}")
                 else:
