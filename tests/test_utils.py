@@ -20,9 +20,9 @@ from manage_agenda.cli import (
 class TestUtils(unittest.TestCase):
     def test_extract_json(self):
         text = "Some text"
-```
-json\n{\"key\": \"value\"}\n
-```
+
+        json\n{\"key\": \"value\"}\n
+
 more text"
         expected_json = '{"key": "value"}'
         self.assertEqual(extract_json(text), expected_json)
