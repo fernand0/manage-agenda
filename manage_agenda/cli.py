@@ -328,8 +328,8 @@ def process_event_data(event, content):
     """
     event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
     # if "attendees" in event and event["attendees"]:
-    if safe_get(event, ["attendees"]):  # in event and event["attendees"]:
-        event["attendees"] = []  # Clear attendees
+    # if safe_get(event, ["attendees"]):  # in event and event["attendees"]:
+    event["attendees"] = []  # Clear attendees
     return event
 
 
