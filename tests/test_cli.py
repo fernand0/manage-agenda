@@ -4,6 +4,7 @@ from unittest.mock import patch, MagicMock
 from click.testing import CliRunner
 import datetime
 
+from collections import namedtuple
 
 class TestCli(unittest.TestCase):
     def setUp(self):
@@ -11,6 +12,7 @@ class TestCli(unittest.TestCase):
 
         self.cli = cli
         self.llm_name = "gemini"
+        self.Args = namedtuple("args", ["interactive", "delete", "source"])
         self.runner = CliRunner()
 
     def test_add_non_interactive(self):
@@ -30,7 +32,8 @@ class TestCli(unittest.TestCase):
                 self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
             )
             self.assertEqual(result.exit_code, 0)
-            mock_select_llm.assert_called_once_with(self.llm_name)
+            expected_args = self.Args(interactive=False, delete=True, source=self.llm_name)
+            mock_select_llm.assert_called_once_with(expected_args)
             mock_process_email_cli.assert_called_once()
     
     def test_add_select_llm_returns_none(self):
@@ -47,7 +50,8 @@ class TestCli(unittest.TestCase):
             )
             self.assertEqual(result.exit_code, 1)
             self.assertIn("Invalid LLM", result.output)
-            mock_select_llm.assert_called_once_with(self.llm_name)
+            expected_args = self.Args(interactive=False, delete=True, source=self.llm_name)
+            mock_select_llm.assert_called_once_with(expected_args)
             mock_process_email_cli.assert_not_called()
     
     def test_add_no_posts(self):
@@ -81,7 +85,8 @@ class TestCli(unittest.TestCase):
                     self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
                 )
                 self.assertEqual(result.exit_code, 0)
-                mock_select_llm.assert_called_once_with(self.llm_name)
+                expected_args = self.Args(interactive=False, delete=True, source=self.llm_name)
+                mock_select_llm.assert_called_once_with(expected_args)
                 mock_process_email_cli.assert_not_called()
                 
 
@@ -115,5 +120,6 @@ class TestCli(unittest.TestCase):
             )
             self.assertEqual(result.exit_code, 0)
             self.assertIn("Failed to get response from LLM", result.output)
-            mock_select_llm.assert_called_once_with(self.llm_name)
+            expected_args = self.Args(interactive=False, delete=True, source=self.llm_name)
+            mock_select_llm.assert_called_once_with(expected_args)
             mock_process_email_cli.assert_called_once()
