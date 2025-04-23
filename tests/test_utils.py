@@ -19,7 +19,7 @@ from manage_agenda.cli import (
 
 class TestUtils(unittest.TestCase):
     def test_extract_json(self):
-        text = "Some text
+        text = "Some text"
 ```
 json\n{\"key\": \"value\"}\n
 ```
