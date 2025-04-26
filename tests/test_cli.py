@@ -74,7 +74,7 @@ class TestCli(unittest.TestCase):
             
             mock_process_email_cli.side_effect = lambda args, model: None
             
-            with patch("manage_agenda.cli.moduleRules.moduleRules") as mock_module_rules:
+            with patch("manage_agenda.utils.moduleRules.moduleRules") as mock_module_rules:
                 mock_rules = MagicMock()
                 mock_rules.selectRule.return_value = ["mocked_rule"]
                 mock_rules.more.get.return_value = {"key":"value"}
