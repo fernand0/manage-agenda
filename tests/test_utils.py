@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 import json
 import datetime
 
+from manage_agenda import utils
+
 from manage_agenda.utils import (
     extract_json,
     process_event_data,
