@@ -2,6 +2,11 @@ import unittest
 from unittest.mock import MagicMock, patch
 import json
 import datetime
+import os
+import sys
+
+project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'manage_agenda'))
+sys.path.insert(0, project_dir)
 
 from manage_agenda.utils import (
     extract_json,
