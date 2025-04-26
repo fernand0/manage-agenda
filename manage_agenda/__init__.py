@@ -1,4 +1,4 @@
-from manage_agenda.utils import (
+from .utils import (
     extract_json,
     process_event_data,
     adjust_event_times,
