@@ -5,10 +5,7 @@ import datetime
 import os
 import sys
 
-project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'manage_agenda'))
-sys.path.insert(0, project_dir)
-
-from utils import (
+from manage_agenda.utils import (
     extract_json,
     process_event_data,
     adjust_event_times,
