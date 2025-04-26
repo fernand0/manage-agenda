@@ -21,6 +21,9 @@ dependencies = [
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["manage_agenda"] #, "manage_agenda.utils"]
+
 [project.urls]
 Homepage = "https://github.com/fernand0/manage-agenda"
 Changelog = "https://github.com/fernand0/manage-agenda/releases"

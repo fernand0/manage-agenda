@@ -2,8 +2,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 import json
 import datetime
-import os
-import sys
 
 from manage_agenda.utils import (
     extract_json,
