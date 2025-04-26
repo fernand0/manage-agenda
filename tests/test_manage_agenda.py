@@ -1,5 +1,5 @@
 from click.testing import CliRunner
-from manage_agenda.cli import cli
+from cli import cli
 
 
 def test_version():
