@@ -4,9 +4,7 @@ import json
 import datetime
 import sys
 
-sys.path.append("..")
-
-from manage_agenda import utils
+from .manage_agenda import utils
 
 from utils import (
     extract_json,
