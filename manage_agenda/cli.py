@@ -2,8 +2,7 @@ import click
 import os
 
 # Import auxiliary functions and classes from utils.py
-from manage_agenda import utils
-from utils import setup_logging, select_llm, process_email_cli, Args  # Import only what's needed
+from manage_agenda.utils import setup_logging, select_llm, process_email_cli, Args  # Import only what's needed
 
 
 @click.group()

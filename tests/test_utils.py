@@ -4,9 +4,8 @@ import json
 import datetime
 import sys
 
-from .manage_agenda import utils
 
-from utils import (
+from manage_agenda.utils import (
     extract_json,
     process_event_data,
     adjust_event_times,
