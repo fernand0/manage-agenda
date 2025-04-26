@@ -1,11 +1,8 @@
 import click
 import os
-from collections import namedtuple
 
 # Import auxiliary functions and classes from utils.py
-from utils import setup_logging, select_llm, process_email_cli  # Import only what's needed
-
-Args = namedtuple("args", ["interactive", "delete", "source"])
+from manage_agenda.utils import setup_logging, select_llm, process_email_cli, Args  # Import only what's needed
 
 
 @click.group()
