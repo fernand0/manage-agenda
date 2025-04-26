@@ -26,6 +26,7 @@ DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
 
+
 def setup_logging():
     """Configures logging to stdout."""
     logging.basicConfig(
@@ -63,7 +64,7 @@ def safe_get(data, keys, default=""):
         return default
 
 
-def select_from_list(options, identifier = "", selector="", default=""):
+def select_from_list(options, identifier="", selector="", default=""):
     """Selects an option form an iterable element, based on some identifier
 
     We can make an initial selection of elements that contain 'selector'
@@ -71,13 +72,23 @@ def select_from_list(options, identifier = "", selector="", default=""):
     of the list.
     """
 
-    if options and (isinstance(options[0], dict) or (hasattr(options[0], '__slots__'))):
-        names = [safe_get(el, [identifier,]) if isinstance(el, dict) else getattr(el, identifier) for el in options]
+    if options and (isinstance(options[0], dict) or (hasattr(options[0], "__slots__"))):
+        names = [
+            safe_get(
+                el,
+                [
+                    identifier,
+                ],
+            )
+            if isinstance(el, dict)
+            else getattr(el, identifier)
+            for el in options
+        ]
     else:
         names = options
     sel = -1
     options_sel = names.copy()
-    while isinstance(sel, str) or (sel<0):
+    while isinstance(sel, str) or (sel < 0):
         for i, elem in enumerate(options_sel):
             if selector in elem:
                 print(f"{i}) {elem}")
@@ -138,7 +149,7 @@ class OllamaClient(LLMClient):
         if not model_name:
             # names = [el.model for el in self.list_models()]
             models = self.list_models()
-            sel, name = select_from_list(models, identifier='model')
+            sel, name = select_from_list(models, identifier="model")
             # model_name = names[int(sel)]
             self.model_name = name
         else:
@@ -171,10 +182,13 @@ class GeminiClient(LLMClient):
 
         genai.configure(api_key=self.api_key)
         if not model_name:
-            #names = [el.name for el in genai.list_models()]
+            # names = [el.name for el in genai.list_models()]
             models = genai.list_models()
             sel, name = select_from_list(
-                models, identifier='name', selector="gemini", default="models/gemini-1.5-flash-latest"
+                models,
+                identifier="name",
+                selector="gemini",
+                default="models/gemini-1.5-flash-latest",
             )
             self.model_name = name.split("/")[1]
         else:
@@ -201,13 +215,13 @@ class MistralClient(LLMClient):
         self.config = True
 
         super().__init__(name_class)
-        
+
         self.client = Mistral(api_key=self.api_key)
         if not self.model_name:
             # names = [el.id for el in self.list_models(self).data]
             models = self.list_models(self).data
             sel, name = select_from_list(
-                models, identifier='id', default="mistral-small-latest"
+                models, identifier="id", default="mistral-small-latest"
             )
             # sel = select_from_list(names, default="mistral-small-latest")
             self.model_name = name
@@ -285,11 +299,11 @@ def select_calendar(calendar_api):
         cal for cal in calendars if "reader" not in cal.get("accessRole", "")
     ]
 
-    #names = [safe_get(cal, ["summary"]) for cal in eligible_calendars]
-    selection, cal = select_from_list(eligible_calendars, 'summary')
+    # names = [safe_get(cal, ["summary"]) for cal in eligible_calendars]
+    selection, cal = select_from_list(eligible_calendars, "summary")
 
     print(f"Cal: {cal}")
-    return eligible_calendars[selection]['id']
+    return eligible_calendars[selection]["id"]
 
 
 # --- File I/O ---
@@ -413,7 +427,7 @@ def process_email_cli(args, model):
     api_src.setLabels()
     label = api_src.getLabels(folder)
     if len(label) > 0:
-        label_id = safe_get(label[0], ['id'])
+        label_id = safe_get(label[0], ["id"])
         api_src.setChannel(folder)
         api_src.setPosts()
 

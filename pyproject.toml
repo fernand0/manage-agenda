@@ -32,3 +32,6 @@ manage-agenda = "manage_agenda.cli:cli"
 
 [project.optional-dependencies]
 test = ["pytest"]
+
+[tool.uv]
+dev-dependencies = ["pytest"]
