@@ -2,10 +2,13 @@ import unittest
 from unittest.mock import MagicMock, patch
 import json
 import datetime
+import sys
+
+sys.path.append("..")
 
 from manage_agenda import utils
 
-from manage_agenda.utils import (
+from utils import (
     extract_json,
     process_event_data,
     adjust_event_times,
