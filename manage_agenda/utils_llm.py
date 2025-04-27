@@ -6,6 +6,8 @@ from ollama import chat, ChatResponse
 from mistralai import Mistral
 from socialModules.configMod import CONFIGDIR
 
+from manage_agenda.utils_base import select_from_list
+
 # This shouln't go here?
 def load_config(config_file):
     """Loads configuration from a file.
@@ -93,7 +95,8 @@ class GeminiClient(LLMClient):
         genai.configure(api_key=self.api_key)
         if not model_name:
             # names = [el.name for el in genai.list_models()]
-            models = genai.list_models()
+            models = list(genai.list_models())
+            print(f"Models: {models}")
             sel, name = select_from_list(
                 models,
                 identifier="name",

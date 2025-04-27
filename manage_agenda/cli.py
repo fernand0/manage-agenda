@@ -43,5 +43,14 @@ def add(interactive, delete, source):
     process_email_cli(args, model)
 
 
+
+@cli.command()
+def gmail():
+    "Gmail related operations"
+    click.echo("Hola")
+
+
+
+
 if __name__ == "__main__":
     cli()
