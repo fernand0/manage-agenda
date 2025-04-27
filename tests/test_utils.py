@@ -5,6 +5,7 @@ import datetime
 import sys
 
 
+from manage_agenda.utils_base import select_from_list
 from manage_agenda.utils_llm import LLMClient
 from manage_agenda.utils import extract_json, process_event_data, adjust_event_times, create_event_dict, select_message, select_message_folder, select_calendar, safe_get, select_from_list
 
@@ -104,19 +105,19 @@ more text"""
         self.assertEqual(safe_get(data, ["a", "x", "c"]), "")
         self.assertEqual(safe_get(data, ["a", "b", "c", "d"]), "")
 
-    @patch("manage_agenda.utils.input", side_effect=["0"])
+    @patch("manage_agenda.utils_base.input", side_effect=["0"])
     def test_select_from_list_numeric(self, mock_input):
         options = ["option1", "option2", "option3"]
         result = select_from_list(options)
         self.assertEqual(result, (0, "option1"))
 
-    @patch("manage_agenda.utils.input", side_effect=["opt", "0"])
+    @patch("manage_agenda.utils_base.input", side_effect=["opt", "0"])
     def test_select_from_list_substring(self, mock_input):
         options = ["option1", "option2", "other"]
         result = select_from_list(options)
         self.assertEqual(result, (0, "option1"))
     
-    @patch("manage_agenda.utils.input", side_effect=[""])
+    @patch("manage_agenda.utils_base.input", side_effect=[""])
     def test_select_from_list_default(self, mock_input):
         options = ["option1", "option2", "option3"]
         result = select_from_list(options, default="option2")

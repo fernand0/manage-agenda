@@ -1,4 +1,5 @@
 import configparser
+import logging
 import os
 import google.generativeai as genai
 import ollama
@@ -51,6 +52,8 @@ class LLMClient:
     def generate_text(self, prompt):
         raise NotImplementedError("Subclasses must implement this method")
 
+    def get_name(self):
+        raise NotImplementedError("Subclasses must implement this method")
 
 class OllamaClient(LLMClient):
     def __init__(self, model_name=""):
@@ -95,8 +98,8 @@ class GeminiClient(LLMClient):
         genai.configure(api_key=self.api_key)
         if not model_name:
             # names = [el.name for el in genai.list_models()]
-            models = list(genai.list_models())
-            print(f"Models: {models}")
+            models = self.list_models()
+            print(f"MModels: {models}")
             sel, name = select_from_list(
                 models,
                 identifier="name",
@@ -119,7 +122,7 @@ class GeminiClient(LLMClient):
 
     @staticmethod
     def list_models():
-        return genai.list_models()
+        return list(genai.list_models())
 
 
 class MistralClient(LLMClient):
@@ -152,6 +155,3 @@ class MistralClient(LLMClient):
     @staticmethod
     def list_models(self):
         return self.client.models.list()
-
-
-

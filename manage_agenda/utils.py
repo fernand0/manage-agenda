@@ -8,6 +8,7 @@ from socialModules import moduleImap, moduleRules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
 from collections import namedtuple
 
+from manage_agenda.utils_base import safe_get, select_from_list
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
