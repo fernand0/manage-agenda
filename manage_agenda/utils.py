@@ -1,17 +1,14 @@
-import configparser
 import datetime
 import json
 import logging
 import os
 import sys
-import google.generativeai as genai
-import ollama
-from ollama import chat, ChatResponse
-from mistralai import Mistral
 import googleapiclient
 from socialModules import moduleImap, moduleRules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
 from collections import namedtuple
+
+from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
 
@@ -26,23 +23,6 @@ def setup_logging():
         format="%(asctime)s %(levelname)s: %(message)s",
     )
 
-
-def load_config(config_file):
-    """Loads configuration from a file.
-
-    Args:
-        config_file (str): Path to the configuration file.
-
-    Returns:
-        configparser.ConfigParser: The configuration object.
-    """
-    config = configparser.ConfigParser()
-    if os.path.exists(config_file):
-        config.read(config_file)
-    else:
-        logging.error(f"Configuration file not found: {config_file}")
-        raise FileNotFoundError(f"Config file not found: {config_file}")
-    return config
 
 
 def safe_get(data, keys, default=""):
@@ -65,7 +45,14 @@ def select_from_list(options, identifier="", selector="", default=""):
 
     if options and (isinstance(options[0], dict) or (hasattr(options[0], "__slots__"))):
         names = [
-            safe_get(el, [identifier,]) if isinstance(el, dict) else getattr(el, identifier)
+            safe_get(
+                el,
+                [
+                    identifier,
+                ],
+            )
+            if isinstance(el, dict)
+            else getattr(el, identifier)
             for el in options
         ]
     else:
@@ -97,129 +84,6 @@ def select_from_list(options, identifier="", selector="", default=""):
     logging.info(f"Sel: {sel}")
 
     return sel, names[int(sel)]
-
-
-# --- API Abstraction ---
-class LLMClient:
-    """Abstracts interactions with LLMs (Ollama, Gemini, Mistral)."""
-
-    def __init__(self, name_class=None):
-        if self.config:
-            try:
-                config_file = f"{CONFIGDIR}/.rss{name_class[:-6]}"
-                config = load_config(config_file)
-            except FileNotFoundError as e:
-                raise FileNotFoundError(
-                    f"Configuration file: {config_file} does not exist\n"
-                    f"You need to create it and add the API key"
-                )
-            except Exception as e:
-                raise Exception(e)
-
-            section = config.sections()[0]
-            self.api_key = config.get(section, "api_key")
-        self.model_name = None
-
-    def generate_text(self, prompt):
-        raise NotImplementedError("Subclasses must implement this method")
-
-
-class OllamaClient(LLMClient):
-    def __init__(self, model_name=""):
-        name_class = self.__class__.__name__
-        self.config = False
-
-        super().__init__(name_class)
-        if not model_name:
-            # names = [el.model for el in self.list_models()]
-            models = self.list_models()
-            sel, name = select_from_list(models, identifier="model")
-            # model_name = names[int(sel)]
-            self.model_name = name
-        else:
-            self.model_name = model_name
-
-        self.client = ollama.list()["models"][int(sel)]
-
-    def generate_text(self, prompt):
-        try:
-            response: ChatResponse = chat(
-                model=self.model_name, messages=[{"role": "user", "content": prompt}]
-            )
-            return response.message.content
-        except Exception as e:
-            logging.error(f"Error generating text with Ollama: {e}")
-            return None
-
-    @staticmethod
-    def list_models():
-        return ollama.list()["models"]
-
-
-class GeminiClient(LLMClient):
-    # def __init__(self, model_name="gemini-1.5-flash-latest"):
-    def __init__(self, model_name=""):
-        name_class = self.__class__.__name__
-        self.config = True
-
-        super().__init__(name_class)
-
-        genai.configure(api_key=self.api_key)
-        if not model_name:
-            # names = [el.name for el in genai.list_models()]
-            models = genai.list_models()
-            sel, name = select_from_list(
-                models, identifier="name", selector="gemini", default="models/gemini-1.5-flash-latest"
-            )
-            self.model_name = name.split("/")[1]
-        else:
-            self.model_name = model_name
-
-        self.client = genai.GenerativeModel(self.model_name)
-
-    def generate_text(self, prompt):
-        try:
-            response = self.client.generate_content(prompt)
-            return response.text
-        except Exception as e:
-            logging.error(f"Error generating text with Gemini: {e}")
-            return None
-
-    @staticmethod
-    def list_models():
-        return genai.list_models()
-
-
-class MistralClient(LLMClient):
-    def __init__(self, model_name=""):
-        name_class = self.__class__.__name__
-        self.config = True
-
-        super().__init__(name_class)
-
-        self.client = Mistral(api_key=self.api_key)
-        if not self.model_name:
-            # names = [el.id for el in self.list_models(self).data]
-            models = self.list_models(self).data
-            sel, name = select_from_list(
-                models, identifier="id", default="mistral-small-latest"
-            )
-            # sel = select_from_list(names, default="mistral-small-latest")
-            self.model_name = name
-
-    def generate_text(self, prompt):
-        try:
-            response = self.client.chat.complete(
-                model=self.model_name, messages=[{"content": prompt, "role": "user"}]
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logging.error(f"Error generating text with Mistral: {e}")
-            return None
-
-    @staticmethod
-    def list_models(self):
-        return self.client.models.list()
 
 
 # --- Data Access ---
@@ -372,8 +236,6 @@ def list_models_cli(args):
         print("Model listing not supported for this source.")
 
 
-
-
 def extract_json(text):
     # extract json (assuming response contains json within backticks)
     start_index = text.find("```")
@@ -383,6 +245,7 @@ def extract_json(text):
     ].strip()  # extract content between backticks
 
     return vcal_json
+
 
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""
@@ -412,7 +275,7 @@ def process_email_cli(args, model):
         api_src.setChannel(folder)
         api_src.setPosts()
 
-        if  api_src.getPosts():
+        if api_src.getPosts():
             for i, post in enumerate(api_src.getPosts()):
                 post_id = api_src.getPostId(post)
                 post_date = api_src.getPostDate(post)
@@ -448,7 +311,9 @@ def process_email_cli(args, model):
                 # else:
                 #     full_email_content = post_content
 
-                email_text = f"{post_title}\nDate:{post_date_time}\n{full_email_content}"
+                email_text = (
+                    f"{post_title}\nDate:{post_date_time}\n{full_email_content}"
+                )
                 write_file(f"{post_id}.txt", email_text)  # Save email text
 
                 # Generate event data
@@ -588,5 +453,3 @@ def select_llm(args):
     else:
         logging.error(f"Invalid LLM source: {args.source}")
         return None
-
-
