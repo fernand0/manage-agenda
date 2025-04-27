@@ -186,6 +186,41 @@ def extract_json(text):
 
     return vcal_json
 
+def list_emails_folder(args, folder="INBOX"):
+    """Lists emails and in folder."""
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+
+    # Select API source (Gmail)
+    api_src_type = "gmail"
+    if args.interactive:
+        api_src = rules.selectRuleInteractive(api_src_type)
+    else:
+        # The first configured gmail email in .rssBlogs
+        source_name = rules.selectRule(api_src_type, "")[0]
+        source_details = rules.more.get(source_name, {})
+        logging.info(f"Source: {source_name} - {source_details}")
+        api_src = rules.readConfigSrc("", source_name, source_details)
+
+    # Process emails
+    # folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
+    # folder = "zAgenda"
+    api_src.setPostsType("posts")
+    api_src.setLabels()
+    label = api_src.getLabels(folder)
+    if len(label) > 0:
+        label_id = safe_get(label[0], ["id"])
+        api_src.setChannel(folder)
+        api_src.setPosts()
+
+        if api_src.getPosts():
+            for i, post in enumerate(api_src.getPosts()):
+                if i< 10:
+                    post_id = api_src.getPostId(post)
+                    post_date = api_src.getPostDate(post)
+                    post_title = api_src.getPostTitle(post)
+                    print(f"{i}) {post_title}")
+
 
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""

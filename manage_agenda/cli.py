@@ -2,7 +2,7 @@ import click
 import os
 
 # Import auxiliary functions and classes from utils.py
-from .utils import setup_logging, select_llm, process_email_cli, Args  # Import only what's needed
+from .utils import setup_logging, select_llm, process_email_cli, Args, list_emails_folder  # Import only what's needed
 
 
 @click.group()
@@ -43,13 +43,20 @@ def add(interactive, delete, source):
     process_email_cli(args, model)
 
 
-
 @cli.command()
-def gmail():
+@click.option(
+    "-i",
+    "--interactive",
+    default=False,
+    help="Running in interactive mode",
+)
+def gmail(interactive):
     "Gmail related operations"
-    click.echo("Hola")
+    setup_logging() 
 
+    args = Args(interactive=interactive, delete=None, source=None)
 
+    list_emails_folder(args)
 
 
 if __name__ == "__main__":
