@@ -38,8 +38,3 @@ test = ["pytest"]
 
 [tool.uv]
 dev-dependencies = ["pytest"]
-
-[tool.pytest.ini_options]
-pythonpath = [
-  "."
-]
