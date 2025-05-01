@@ -33,7 +33,7 @@ class LLMClient:
     """Abstracts interactions with LLMs (Ollama, Gemini, Mistral)."""
 
     def __init__(self, name_class=None):
-        if self.config:
+        if hasattr(self, 'config') and self.config:
             try:
                 config_file = f"{CONFIGDIR}/.rss{name_class[:-6]}"
                 config = load_config(config_file)
