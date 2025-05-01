@@ -9,6 +9,7 @@ from socialModules.configMod import CONFIGDIR
 
 from manage_agenda.utils_base import select_from_list
 
+
 # This shouln't go here?
 def load_config(config_file):
     """Loads configuration from a file.
@@ -33,7 +34,7 @@ class LLMClient:
     """Abstracts interactions with LLMs (Ollama, Gemini, Mistral)."""
 
     def __init__(self, name_class=None):
-        if hasattr(self, 'config') and self.config:
+        if hasattr(self, "config") and self.config:
             try:
                 config_file = f"{CONFIGDIR}/.rss{name_class[:-6]}"
                 config = load_config(config_file)
@@ -54,6 +55,7 @@ class LLMClient:
 
     def get_name(self):
         raise NotImplementedError("Subclasses must implement this method")
+
 
 class OllamaClient(LLMClient):
     def __init__(self, model_name=""):

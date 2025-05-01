@@ -7,7 +7,17 @@ import sys
 
 from manage_agenda.utils_base import select_from_list
 from manage_agenda.utils_llm import LLMClient
-from manage_agenda.utils import extract_json, process_event_data, adjust_event_times, create_event_dict, select_message, select_message_folder, select_calendar, safe_get, select_from_list
+from manage_agenda.utils import (
+    extract_json,
+    process_event_data,
+    adjust_event_times,
+    create_event_dict,
+    select_message,
+    select_message_folder,
+    select_calendar,
+    safe_get,
+    select_from_list,
+)
 
 
 class TestUtils(unittest.TestCase):
@@ -91,7 +101,7 @@ more text"""
         mock_calendar_api = MagicMock()
         calendars = [{"summary": "Calendar1", "id": "id1", "accessRole": "owner"}]
         mock_calendar_api.getCalendarList.return_value = calendars
-        mock_select_from_list.return_value = (0, 'Calendar1')
+        mock_select_from_list.return_value = (0, "Calendar1")
 
         result = select_calendar(mock_calendar_api)
 
@@ -116,7 +126,7 @@ more text"""
         options = ["option1", "option2", "other"]
         result = select_from_list(options)
         self.assertEqual(result, (0, "option1"))
-    
+
     @patch("manage_agenda.utils_base.input", side_effect=[""])
     def test_select_from_list_default(self, mock_input):
         options = ["option1", "option2", "option3"]
@@ -128,4 +138,3 @@ more text"""
     #     options = ["option1", "option2", "option3"]
     #     result = select_from_list(options)
     #     self.assertEqual(result[0], 0)
-

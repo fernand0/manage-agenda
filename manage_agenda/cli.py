@@ -2,7 +2,13 @@ import click
 import os
 
 # Import auxiliary functions and classes from utils.py
-from .utils import setup_logging, select_llm, process_email_cli, Args, list_emails_folder  # Import only what's needed
+from .utils import (
+    setup_logging,
+    select_llm,
+    process_email_cli,
+    Args,
+    list_emails_folder,
+)  # Import only what's needed
 
 
 @click.group()
@@ -52,7 +58,7 @@ def add(interactive, delete, source):
 )
 def gmail(interactive):
     "Gmail related operations"
-    setup_logging() 
+    setup_logging()
 
     args = Args(interactive=interactive, delete=None, source=None)
 

@@ -1,30 +1,15 @@
 import datetime
 import json
-import logging
-import os
-import sys
 import googleapiclient
+import logging
 from socialModules import moduleImap, moduleRules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
 from collections import namedtuple
 
-from manage_agenda.utils_base import safe_get, select_from_list
+from manage_agenda.utils_base import safe_get, select_from_list, setup_logging, write_file
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
-
-DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
-
-
-def setup_logging():
-    """Configures logging to stdout."""
-    logging.basicConfig(
-        stream=sys.stdout,
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s: %(message)s",
-    )
-
-
 
 # --- Data Access ---
 def select_message(message_src, max_messages=50):
@@ -89,23 +74,6 @@ def select_calendar(calendar_api):
 
     print(f"Cal: {cal}")
     return eligible_calendars[selection]["id"]
-
-
-# --- File I/O ---
-def write_file(filename, content):
-    """Writes content to a file.
-
-    Args:
-        filename (str): The name of the file.
-        content (str): The content to write.
-    """
-    try:
-        with open(f"{DEFAULT_DATA_DIR}{filename}", "w") as file:
-            file.write(content)
-        logging.info(f"File written: {filename}")
-    except Exception as e:
-        logging.error(f"Error writing file {filename}: {e}")
-
 
 # --- Event Handling ---
 def create_event_dict():
@@ -186,6 +154,7 @@ def extract_json(text):
 
     return vcal_json
 
+
 def list_emails_folder(args, folder="INBOX"):
     """Lists emails and in folder."""
     rules = moduleRules.moduleRules()
@@ -215,7 +184,7 @@ def list_emails_folder(args, folder="INBOX"):
 
         if api_src.getPosts():
             for i, post in enumerate(api_src.getPosts()):
-                if i< 10:
+                if i < 10:
                     post_id = api_src.getPostId(post)
                     post_date = api_src.getPostDate(post)
                     post_title = api_src.getPostTitle(post)

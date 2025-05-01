@@ -1,4 +1,35 @@
 import logging
+import os
+import sys
+
+DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
+
+# --- File I/O ---
+def write_file(filename, content):
+    """Writes content to a file.
+
+    Args:
+        filename (str): The name of the file.
+        content (str): The content to write.
+    """
+    try:
+        with open(f"{DEFAULT_DATA_DIR}{filename}", "w") as file:
+            file.write(content)
+        logging.info(f"File written: {filename}")
+    except Exception as e:
+        logging.error(f"Error writing file {filename}: {e}")
+
+
+
+def setup_logging():
+    """Configures logging to stdout."""
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s: %(message)s",
+    )
+
+
 
 def safe_get(data, keys, default=""):
     """Safely retrieves nested values from a dictionary."""
@@ -9,6 +40,7 @@ def safe_get(data, keys, default=""):
     except (KeyError, TypeError):
         return default
 
+
 def select_from_list(options, identifier="", selector="", default=""):
     """Selects an option form an iterable element, based on some identifier
 
@@ -17,9 +49,11 @@ def select_from_list(options, identifier="", selector="", default=""):
     of the list.
     """
 
-    if (options and 
-        (isinstance(options[0], dict) or (hasattr(options[0], "__slots__"))
-         or hasattr(options[0], "name"))):
+    if options and (
+        isinstance(options[0], dict)
+        or (hasattr(options[0], "__slots__"))
+        or hasattr(options[0], "name")
+    ):
         names = [
             safe_get(
                 el,
@@ -60,6 +94,3 @@ def select_from_list(options, identifier="", selector="", default=""):
     logging.info(f"Sel: {sel}")
 
     return sel, names[int(sel)]
-
-
-
