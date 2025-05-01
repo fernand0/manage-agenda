@@ -35,8 +35,6 @@ def select_from_list(options, identifier="", selector="", default=""):
         names = options
     sel = -1
     options_sel = names.copy()
-    print(f"Names: {names}")
-    print(f'Type: {hasattr(options[0], "__slots__")}')
     while isinstance(sel, str) or (sel < 0):
         for i, elem in enumerate(options_sel):
             if selector in elem:

@@ -300,8 +300,9 @@ def process_email_cli(args, model):
                     "El inicio y el fin se pondrán en "
                     " los campos event['start']['dateTime']  y "
                     " event['end']['dateTime'] respectivamente,"
-                    f" y serán fechas "
-                    f"posteriores a {post_date_time}. El texto es:\n{email_text}"
+                    f" y serán fechas iguales o "
+                    f"posteriores a {post_date_time}. "
+                    f"El texto es:\n{email_text}"
                     " No añadas comentarios al resultado, que"
                     " se representará como un JSON."
                 )
@@ -376,10 +377,9 @@ def process_email_cli(args, model):
                     if "gmail" in api_src.service.lower():
                         try:
                             label = api_src.getLabels(api_src.getChannel())
-                            logging.info(f"Msg: {post}")
+                            logging.debug(f"Msg: {post}")
                             res = api_src.modifyLabels(post_id, label_id, None)
                             label_id = api_src.getLabels(api_src.getChannel())[0]["id"]
-                            print(f"Label deleted: {res}")
                             # api_src.getClient().users().messages().modify(
                             #     userId="me", id=post_id, body={"removeLabelIds": [label_id]}
                             # ).execute()
