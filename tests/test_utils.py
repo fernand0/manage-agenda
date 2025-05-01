@@ -122,3 +122,10 @@ more text"""
         options = ["option1", "option2", "option3"]
         result = select_from_list(options, default="option2")
         self.assertEqual(result, (1, "option2"))
+
+    @patch("manage_agenda.utils_base.input", side_effect=["-1"])
+    def test_select_from_list_negative(self, mock_input):
+        options = ["option1", "option2", "option3"]
+        result = select_from_list(options)
+        self.assertEqual(result[0], 0)
+
