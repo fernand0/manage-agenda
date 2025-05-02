@@ -11,47 +11,47 @@ from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
 
-# --- Data Access ---
-def select_message(message_src, max_messages=50):
-    """Selects a message from a list.
-
-    Args:
-        message_src: An object with methods to get posts.
-        max_messages (int): The maximum number of recent messages to display.
-
-    Returns:
-        The selected message or None if selection is invalid.
-    """
-    message_src.setPosts()
-    recent_messages = message_src.getPosts()[-max_messages:]
-
-    for i, msg in enumerate(recent_messages):
-        from_msg = message_src.getPostFrom(msg)
-        to_msg = message_src.getPostTo(msg)
-        subject_msg = message_src.getPostTitle(msg)
-        print(f"{i}) From: {from_msg}, Subject: {subject_msg}")
-
-    msg_number = input("Which message? ")
-    if msg_number.isnumeric() and 0 <= int(msg_number) < len(recent_messages):
-        return recent_messages[int(msg_number)]
-    else:
-        logging.warning("Invalid message selection.")
-        return None
-
-
-def select_message_folder(message_src, folder="INBOX"):
-    """Selects a message from a specific folder.
-
-    Args:
-        message_src: An object with methods to set channel and get posts.
-        folder (str): The folder to select from.
-
-    Returns:
-        The selected message or None if selection is invalid.
-    """
-    message_src.setChannel(folder)
-    logging.info(f"Selected folder: {message_src.getChannel()}")
-    return select_message(message_src)
+# # --- Data Access ---
+# def select_message(message_src, max_messages=50):
+#     """Selects a message from a list.
+# 
+#     Args:
+#         message_src: An object with methods to get posts.
+#         max_messages (int): The maximum number of recent messages to display.
+# 
+#     Returns:
+#         The selected message or None if selection is invalid.
+#     """
+#     message_src.setPosts()
+#     recent_messages = message_src.getPosts()[-max_messages:]
+# 
+#     for i, msg in enumerate(recent_messages):
+#         from_msg = message_src.getPostFrom(msg)
+#         to_msg = message_src.getPostTo(msg)
+#         subject_msg = message_src.getPostTitle(msg)
+#         print(f"{i}) From: {from_msg}, Subject: {subject_msg}")
+# 
+#     msg_number = input("Which message? ")
+#     if msg_number.isnumeric() and 0 <= int(msg_number) < len(recent_messages):
+#         return recent_messages[int(msg_number)]
+#     else:
+#         logging.warning("Invalid message selection.")
+#         return None
+# 
+# 
+# def select_message_folder(message_src, folder="INBOX"):
+#     """Selects a message from a specific folder.
+# 
+#     Args:
+#         message_src: An object with methods to set channel and get posts.
+#         folder (str): The folder to select from.
+# 
+#     Returns:
+#         The selected message or None if selection is invalid.
+#     """
+#     message_src.setChannel(folder)
+#     logging.info(f"Selected folder: {message_src.getChannel()}")
+#     return select_message(message_src)
 
 
 def select_calendar(calendar_api):
