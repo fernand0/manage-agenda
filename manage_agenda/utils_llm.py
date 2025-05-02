@@ -101,7 +101,6 @@ class GeminiClient(LLMClient):
         if not model_name:
             # names = [el.name for el in genai.list_models()]
             models = self.list_models()
-            print(f"MModels: {models}")
             sel, name = select_from_list(
                 models,
                 identifier="name",
