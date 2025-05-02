@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 import json
 import datetime
 import sys
@@ -113,26 +113,29 @@ more text"""
         self.assertEqual(safe_get(data, ["a", "x", "c"]), "")
         self.assertEqual(safe_get(data, ["a", "b", "c", "d"]), "")
 
-    @patch("manage_agenda.utils_base.input", side_effect=["0"])
-    def test_select_from_list_numeric(self, mock_input):
-        options = ["option1", "option2", "option3"]
-        result = select_from_list(options)
-        self.assertEqual(result, (0, "option1"))
-
-    @patch("manage_agenda.utils_base.input", side_effect=["opt", "0"])
-    def test_select_from_list_substring(self, mock_input):
-        options = ["option1", "option2", "other"]
-        result = select_from_list(options)
-        self.assertEqual(result, (0, "option1"))
-
-    @patch("manage_agenda.utils_base.input", side_effect=[""])
-    def test_select_from_list_default(self, mock_input):
-        options = ["option1", "option2", "option3"]
-        result = select_from_list(options, default="option2")
-        self.assertEqual(result, (1, "option2"))
-
-    # @patch("manage_agenda.utils_base.input", side_effect=["-1"])
-    # def test_select_from_list_negative(self, mock_input):
-    #     options = ["option1", "option2", "option3"]
-    #     result = select_from_list(options)
-    #     self.assertEqual(result[0], 0)
+    @patch('click.prompt', return_value='0')  # Simula la entrada del usuario "0"
+    @patch('os.popen')
+    @patch('click.echo')
+    @patch('click.echo_via_pager')
+    def test_list_of_strings_numeric_selection(self, mock_echo_via_pager, mock_echo, mock_popen, mock_prompt):
+        mock_popen.return_value.read.return_value = "24 80" # Simulamos el tamaño de la terminal
+        options = ["apple", "banana", "cherry"]
+        self.assertEqual(select_from_list(options), (0, "apple"))
+    
+    @patch('click.prompt', return_value='ban')
+    @patch('os.popen')
+    @patch('click.echo')
+    @patch('click.echo_via_pager')
+    def test_list_of_strings_substring_selection(self, mock_echo_via_pager, mock_echo, mock_popen, mock_prompt):
+        mock_popen.return_value.read.return_value = "24 80"
+        options = ["apple", "banana", "cherry"]
+        self.assertEqual(select_from_list(options), (1, "banana"))
+    
+    @patch('click.prompt', return_value='')
+    @patch('os.popen')
+    @patch('click.echo')
+    @patch('click.echo_via_pager')
+    def test_list_of_strings_default_selection(self, mock_echo_via_pager, mock_echo, mock_popen, mock_prompt):
+        mock_popen.return_value.read.return_value = "24 80"
+        options = ["apple", "banana", "cherry"]
+        self.assertEqual(select_from_list(options, default="banana"), (1, "banana"))
