@@ -12,8 +12,6 @@ from manage_agenda.utils import (
     process_event_data,
     adjust_event_times,
     create_event_dict,
-    select_message,
-    select_message_folder,
     select_calendar,
     safe_get,
     select_from_list,
@@ -76,25 +74,25 @@ more text"""
         self.assertIn("summary", event_dict)
         self.assertIn("start", event_dict)
 
-    @patch("manage_agenda.utils.input", return_value="0")
-    def test_select_message(self, mock_input):
-        mock_message_src = MagicMock()
-        mock_message_src.setPosts.return_value = None
-        mock_message_src.getPosts.return_value = ["message1", "message2"]
-        mock_message_src.getPostFrom.return_value = "sender"
-        mock_message_src.getPostTitle.return_value = "subject"
-        result = select_message(mock_message_src)
-        self.assertEqual(result, "message1")
+    # @patch("manage_agenda.utils.input", return_value="0")
+    # def test_select_message(self, mock_input):
+    #     mock_message_src = MagicMock()
+    #     mock_message_src.setPosts.return_value = None
+    #     mock_message_src.getPosts.return_value = ["message1", "message2"]
+    #     mock_message_src.getPostFrom.return_value = "sender"
+    #     mock_message_src.getPostTitle.return_value = "subject"
+    #     result = select_message(mock_message_src)
+    #     self.assertEqual(result, "message1")
 
-    @patch("manage_agenda.utils.select_message")
-    def test_select_message_folder(self, mock_select_message):
-        mock_message_src = MagicMock()
-        mock_message_src.getChannel.return_value = "INBOX"
-        mock_select_message.return_value = "selected_message"
-        result = select_message_folder(mock_message_src, folder="INBOX")
-        mock_message_src.setChannel.assert_called_once_with("INBOX")
-        mock_select_message.assert_called_once()
-        self.assertEqual(result, "selected_message")
+    # @patch("manage_agenda.utils.select_message")
+    # def test_select_message_folder(self, mock_select_message):
+    #     mock_message_src = MagicMock()
+    #     mock_message_src.getChannel.return_value = "INBOX"
+    #     mock_select_message.return_value = "selected_message"
+    #     result = select_message_folder(mock_message_src, folder="INBOX")
+    #     mock_message_src.setChannel.assert_called_once_with("INBOX")
+    #     mock_select_message.assert_called_once()
+    #     self.assertEqual(result, "selected_message")
 
     @patch("manage_agenda.utils.select_from_list")
     def test_select_calendar(self, mock_select_from_list):

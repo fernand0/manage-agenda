@@ -53,7 +53,6 @@ Args = namedtuple("args", ["interactive", "delete", "source"])
 #     logging.info(f"Selected folder: {message_src.getChannel()}")
 #     return select_message(message_src)
 
-
 def select_calendar(calendar_api):
     """Selects a Google Calendar.
 
