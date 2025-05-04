@@ -4,8 +4,9 @@ import json
 import datetime
 import sys
 
+from socialModules.configMod import select_from_list
 
-from manage_agenda.utils_base import select_from_list
+# from manage_agenda.utils_base import select_from_list
 from manage_agenda.utils_llm import LLMClient
 from manage_agenda.utils import (
     extract_json,
@@ -14,7 +15,7 @@ from manage_agenda.utils import (
     create_event_dict,
     select_calendar,
     safe_get,
-    select_from_list,
+    # select_from_list,
 )
 
 

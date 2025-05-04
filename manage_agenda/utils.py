@@ -3,10 +3,10 @@ import json
 import googleapiclient
 import logging
 from socialModules import moduleImap, moduleRules
-from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg
+from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg, select_from_list
 from collections import namedtuple
 
-from manage_agenda.utils_base import safe_get, select_from_list, setup_logging, write_file
+from manage_agenda.utils_base import safe_get, setup_logging, write_file#, select_from_list 
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
 Args = namedtuple("args", ["interactive", "delete", "source"])

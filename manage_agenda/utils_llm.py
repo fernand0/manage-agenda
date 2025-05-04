@@ -7,7 +7,7 @@ from ollama import chat, ChatResponse
 from mistralai import Mistral
 from socialModules.configMod import CONFIGDIR
 
-from manage_agenda.utils_base import select_from_list
+# from manage_agenda.utils_base import select_from_list
 
 
 # This shouln't go here?
