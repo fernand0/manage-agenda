@@ -8,6 +8,7 @@ from mistralai import Mistral
 from socialModules.configMod import CONFIGDIR
 
 # from manage_agenda.utils_base import select_from_list
+from socialModules.configMod import select_from_list
 
 
 # This shouln't go here?
