@@ -3,10 +3,10 @@ import json
 import googleapiclient
 import logging
 from socialModules import moduleImap, moduleRules
-from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg, select_from_list
+from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg, select_from_list, safe_get
 from collections import namedtuple
 
-from manage_agenda.utils_base import safe_get, setup_logging, write_file#, select_from_list 
+from manage_agenda.utils_base import setup_logging, write_file#, select_from_list 
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
@@ -145,11 +145,16 @@ def list_models_cli(args):
 
 def extract_json(text):
     # extract json (assuming response contains json within backticks)
-    start_index = text.find("```")
-    end_index = text.find("```", start_index + 1)
-    vcal_json = text[
-        start_index + 8 : end_index
-    ].strip()  # extract content between backticks
+    if '```' in text:
+        start_index = text.find("```")
+        end_index = text.find("```", start_index + 1)
+        vcal_json = text[
+            start_index + 8 : end_index
+        ].strip()  # extract content between backticks
+    elif '<think>' in text:
+        start_index = text.find("/think")
+        vcal_json = text[
+            start_index + 9 :].strip()
 
     return vcal_json
 

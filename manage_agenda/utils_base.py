@@ -32,16 +32,6 @@ def setup_logging():
 
 
 
-def safe_get(data, keys, default=""):
-    """Safely retrieves nested values from a dictionary."""
-    try:
-        for key in keys:
-            data = data[key]
-        return data
-    except (KeyError, TypeError):
-        return default
-
-
 # def select_from_list(options, identifier="", selector="", default=""):
 #     """selects an option form an iterable element, based on some identifier
 # 
