@@ -319,9 +319,11 @@ def process_email_cli(args, model):
                 start_time = safe_get(event, ["start", "dateTime"])
                 # end_time = event["end"].get("dateTime")
                 end_time = safe_get(event, ["end", "dateTime"])
+                print(f"==================================")
+                print(f"Subject: {post_title}")
                 print(f"Start: {start_time}")
                 print(f"End: {end_time}")
-                print(f"Subject: {post_title}")
+                print(f"==================================")
 
                 selected_calendar = select_calendar(api_dst)
                 if not selected_calendar:
@@ -339,7 +341,7 @@ def process_email_cli(args, model):
                     calendar_result = api_dst.publishPost(
                         post={"event": event, "idCal": selected_calendar}, api=api_dst
                     )
-                    print(f"Calendar event created: {calendar_result}")
+                    print(f"Calendar event created") #: {calendar_result}")
                     # print(f"Calendar event created: {calendar_result.get('htmlLink')}")
                 except googleapiclient.errors.HttpError as e:
                     logging.error(f"Error creating calendar event: {e}")
