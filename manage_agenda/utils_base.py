@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 
+LOGDIR = ""
 DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
 
 # --- File I/O ---
@@ -24,8 +25,14 @@ def write_file(filename, content):
 
 def setup_logging():
     """Configures logging to stdout."""
+    if not LOGDIR:
+        logFile = f"/tmp/manage_agenda.log"
+    else:
+        logFile = f"{LOGDIR}/manage_agenda.log"
+
     logging.basicConfig(
-        stream=sys.stdout,
+        filename = logFile,
+        # stream=sys.stdout,
         level=logging.INFO,
         format="%(asctime)s %(levelname)s: %(message)s",
     )
