@@ -26,7 +26,7 @@ def setup_logging():
     """Configures logging to stdout."""
     logging.basicConfig(
         stream=sys.stdout,
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s %(levelname)s: %(message)s",
     )
 
