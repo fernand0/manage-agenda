@@ -165,14 +165,16 @@ def process_email_cli(args, model):
         api_src = rules.selectRuleInteractive(api_src_type)
     else:
         # The first configured gmail email in .rssBlogs
-        source_name = rules.selectRule(api_src_type, "")[0]
+        rules_all = rules.selectRule(api_src_type, "")
+        print(f"Rules all: {rules_all}")
+        source_name = rules_all[0]
         source_details = rules.more.get(source_name, {})
         logging.info(f"Source: {source_name} - {source_details}")
         api_src = rules.readConfigSrc("", source_name, source_details)
 
     # Process emails
-    # folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
-    folder = "zAgenda"
+    folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
+    #folder = "zAgenda"
     api_src.setPostsType("posts")
     api_src.setLabels()
     label = api_src.getLabels(folder)
@@ -190,11 +192,21 @@ def process_email_cli(args, model):
                 print(f"{i}) Title: {post_title}")
                 post_content = api_src.getPostContent(post)
                 logging.debug(f"Text: {post_content}")
-                post_date_time = datetime.datetime.fromtimestamp(int(post_date) / 1000)
-                logging.debug(f"Date: {post_date_time}")
+                if post_date.isdigit():
+                    post_date_time = datetime.datetime.fromtimestamp(int(post_date) / 1000)
+                else:
+                    from email.utils import parsedate_to_datetime
+                    post_date_time = parsedate_to_datetime(post_date)
 
-                time_difference = datetime.datetime.now() - post_date_time
-                logging.debug(f"Date: {post_date_time} Diff: {time_difference.days}")
+                logging.debug(f"Datee: {post_date_time}")
+
+                try:
+                    import pytz
+                    time_difference = pytz.timezone('Europe/Madrid').localize(datetime.datetime.now()) - post_date_time
+                    logging.debug(f"Date: {post_date_time} Diff: {time_difference.days}")
+                except:
+                    # FIXME
+                    time_difference = datetime.datetime.now() - datetime.datetime.now()
 
                 if time_difference.days > 7:
                     print(f"Too old ({time_difference.days} days), skipping.")
@@ -257,7 +269,10 @@ def process_email_cli(args, model):
                     api_dst = rules.selectRuleInteractive(api_dst_type)
                 else:
                     # The first configured google calendar in .rssBlogs
-                    api_dst_name = rules.selectRule(api_dst_type, "")[0]
+                    rules_all = rules.selectRule(api_dst_type, "")
+                    print(f"Rules all: {rules_all}")
+                    api_dst_name = rules_all[0]
+                    # api_dst_name = rules.selectRule(api_dst_type, "")[0]
                     api_dst_details = rules.more.get(api_dst_name, {})
                     api_dst = rules.readConfigSrc("", api_dst_name, api_dst_details)
 
