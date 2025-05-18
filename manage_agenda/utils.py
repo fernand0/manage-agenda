@@ -54,8 +54,6 @@ def process_event_data(event, content):
         content (str): The content of the email.
     """
     event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
-    # if "attendees" in event and event["attendees"]:
-    # if safe_get(event, ["attendees"]):  # in event and event["attendees"]:
     event["attendees"] = []  # Clear attendees
     return event
 
@@ -84,21 +82,20 @@ def adjust_event_times(event):
         event["end"]["timeZone"] = "Europe/Madrid"
     return event
 
-
-def list_models_cli(args):
-    """Lists available LLMs."""
-    "Not used. Maybe interesting?"
-    if args.source == "ollama":
-        models = OllamaClient.list_models()
-        for i, model in enumerate(models):
-            print(f"{i}) {model['model']}")
-    elif args.source == "gemini":
-        models = GeminiClient.list_models()
-        for i, model in enumerate(models):
-            if "gemini" in model.name:
-                print(f"{i}) {model.name}")
-    else:
-        print("Model listing not supported for this source.")
+# def list_models_cli(args):
+#     """Lists available LLMs."""
+#     "Not used. Maybe interesting?"
+#     if args.source == "ollama":
+#         models = OllamaClient.list_models()
+#         for i, model in enumerate(models):
+#             print(f"{i}) {model['model']}")
+#     elif args.source == "gemini":
+#         models = GeminiClient.list_models()
+#         for i, model in enumerate(models):
+#             if "gemini" in model.name:
+#                 print(f"{i}) {model.name}")
+#     else:
+#         print("Model listing not supported for this source.")
 
 
 def extract_json(text):
@@ -166,10 +163,8 @@ def process_email_cli(args, model):
     else:
         # The first configured gmail email in .rssBlogs
         rules_all = rules.selectRule(api_src_type, "")
-        print(f"Rules all: {rules_all}")
         source_name = rules_all[0]
         source_details = rules.more.get(source_name, {})
-        logging.info(f"Source: {source_name} - {source_details}")
         api_src = rules.readConfigSrc("", source_name, source_details)
 
     # Process emails
@@ -178,9 +173,9 @@ def process_email_cli(args, model):
     api_src.setPostsType("posts")
     api_src.setLabels()
     label = api_src.getLabels(folder)
+    print(f"Label: {label}")
     if len(label) > 0:
-        label_id = safe_get(label[0], ["id"])
-        api_src.setChannel(folder)
+        api_src.setChannel(label[0])
         api_src.setPosts()
 
         if api_src.getPosts():
@@ -198,8 +193,6 @@ def process_email_cli(args, model):
                     from email.utils import parsedate_to_datetime
                     post_date_time = parsedate_to_datetime(post_date)
 
-                logging.debug(f"Datee: {post_date_time}")
-
                 try:
                     import pytz
                     time_difference = pytz.timezone('Europe/Madrid').localize(datetime.datetime.now()) - post_date_time
@@ -213,7 +206,7 @@ def process_email_cli(args, model):
                     continue
 
                 # Get full email body
-                if "gmail" in api_src.service.lower():
+                #if "gmail" in api_src.service.lower():
                     # email_result = (
                     #     api_src.getClient()
                     #     .users()
@@ -221,11 +214,13 @@ def process_email_cli(args, model):
                     #     .get(userId="me", id=post_id)
                     #     .execute()
                     # )
-                    email_result = api_src.getMessage(post_id)
-                    full_email_content = api_src.getPostBody(email_result)
+                #email_result = api_src.getMessage(post_id)
+                email_result = post
+                print(f"email: {email_result}")
+                full_email_content = api_src.getPostBody(email_result)
 
-                    if hasattr(full_email_content, "decode"):
-                        full_email_content = full_email_content.decode("utf-8")
+                if hasattr(full_email_content, "decode"):
+                    full_email_content = full_email_content.decode("utf-8")
                 # else:
                 #     full_email_content = post_content
 
@@ -326,7 +321,8 @@ def process_email_cli(args, model):
                         try:
                             label = api_src.getLabels(api_src.getChannel())
                             logging.debug(f"Msg: {post}")
-                            res = api_src.modifyLabels(post_id, label_id, None)
+                            logging.info(f"Labellls: {label}")
+                            res = api_src.modifyLabels(post_id, label[0], None)
                             label_id = api_src.getLabels(api_src.getChannel())[0]["id"]
                             # api_src.getClient().users().messages().modify(
                             #     userId="me", id=post_id, body={"removeLabelIds": [label_id]}
