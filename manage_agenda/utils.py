@@ -143,7 +143,7 @@ def list_emails_folder(args, folder="INBOX"):
 
         if api_src.getPosts():
             for i, post in enumerate(api_src.getPosts()):
-                if i < 10:
+                if True: #i < 10:
                     post_id = api_src.getPostId(post)
                     post_date = api_src.getPostDate(post)
                     post_title = api_src.getPostTitle(post)
@@ -317,19 +317,16 @@ def process_email_cli(args, model):
                 # Delete email (optional)
                 if args.delete:
                     input("Delete tag? (Press Enter to continue)")
-                    if "gmail" in api_src.service.lower():
-                        try:
-                            label = api_src.getLabels(api_src.getChannel())
-                            logging.debug(f"Msg: {post}")
-                            logging.info(f"Labellls: {label}")
-                            res = api_src.modifyLabels(post_id, label[0], None)
-                            label_id = api_src.getLabels(api_src.getChannel())[0]["id"]
-                            # api_src.getClient().users().messages().modify(
-                            #     userId="me", id=post_id, body={"removeLabelIds": [label_id]}
-                            # ).execute()
-                            # logging.info(f"email {post_id} deleted.")
-                        except googleapiclient.errors.httperror as e:
-                            logging.error(f"Error deleting email: {e}")
+                    if True: #"gmail" in api_src.service.lower():
+                        # label = api_src.getLabels(api_src.getChannel())
+                        # logging.debug(f"Msg: {post}")
+                        # logging.info(f"Labellls: {label}")
+                        res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
+                        #label_id = api_src.getLabels(api_src.getChannel())[0]["id"]
+                        # api_src.getClient().users().messages().modify(
+                        #     userId="me", id=post_id, body={"removeLabelIds": [label_id]}
+                        # ).execute()
+                        # logging.info(f"email {post_id} deleted.")
                     else:
                         flag = "\\Deleted"
                         api_src.getClient().store(post_id, "+FLAGS", flag)
