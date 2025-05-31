@@ -24,7 +24,8 @@ def write_file(filename, content):
 
 
 def setup_logging():
-    """Configures logging to stdout."""
+    """Configures logging to stdout or a file."""
+    print(f"Setting logging")
     if not LOGDIR:
         logFile = f"/tmp/manage_agenda.log"
     else:
@@ -33,10 +34,9 @@ def setup_logging():
     logging.basicConfig(
         filename = logFile,
         # stream=sys.stdout,
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s %(levelname)s: %(message)s",
     )
-
 
 
 # def select_from_list(options, identifier="", selector="", default=""):
