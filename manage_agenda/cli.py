@@ -5,8 +5,9 @@ import os
 from .utils import (
     setup_logging,
     select_llm,
-    process_email_cli,
     Args,
+    authorize,
+    process_email_cli,
     list_emails_folder,
 )  # Import only what's needed
 
@@ -47,6 +48,20 @@ def add(interactive, delete, source):
     print(f"Model: {model}")
 
     process_email_cli(args, model)
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    default=False,
+    help="Running in interactive mode",
+)
+def auth(interactive):
+    "Auth related operations"
+    setup_logging()
+
+    args = Args(interactive=interactive, delete=None, source=None)
+    authorize(args)
 
 
 @cli.command()

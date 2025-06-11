@@ -113,6 +113,12 @@ def extract_json(text):
 
     return vcal_json
 
+def authorize(args):
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    if args.interactive:
+        service = input("Service? ")
+    api_src = rules.selectRuleInteractive(service)
 
 def list_emails_folder(args, folder="INBOX"):
     """Lists emails and in folder."""
