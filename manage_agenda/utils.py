@@ -120,13 +120,12 @@ def authorize(args):
         service = input("Service? ")
     api_src = rules.selectRuleInteractive(service)
 
-def list_emails_folder(args, folder="INBOX"):
-    """Lists emails and in folder."""
+def select_account(args, api_src_type="gmail"):
+
     rules = moduleRules.moduleRules()
     rules.checkRules()
 
     # Select API source (Gmail)
-    api_src_type = "gmail"
     if args.interactive:
         api_src = rules.selectRuleInteractive(api_src_type)
     else:
@@ -135,25 +134,48 @@ def list_emails_folder(args, folder="INBOX"):
         source_details = rules.more.get(source_name, {})
         logging.info(f"Source: {source_name} - {source_details}")
         api_src = rules.readConfigSrc("", source_name, source_details)
+    return api_src
 
-    # Process emails
-    # folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
-    # folder = "zAgenda"
-    api_src.setPostsType("posts")
-    api_src.setLabels()
-    label = api_src.getLabels(folder)
-    if len(label) > 0:
-        label_id = safe_get(label[0], ["id"])
-        api_src.setChannel(folder)
+
+def list_events_folder(args, api_src, calendar=""):
+    """Lists events in calendar."""
+    if api_src.getClient():
         api_src.setPosts()
-
         if api_src.getPosts():
             for i, post in enumerate(api_src.getPosts()):
-                if True: #i < 10:
-                    post_id = api_src.getPostId(post)
-                    post_date = api_src.getPostDate(post)
-                    post_title = api_src.getPostTitle(post)
-                    print(f"{i}) {post_title}")
+                print("1")
+                post_id = api_src.getPostId(post)
+                print("2")
+                post_date = api_src.getPostDate(post)
+                print("3")
+                post_title = api_src.getPostTitle(post)
+                print(f"{i}) {post_title}")
+    else:
+        print("Some problem with the account")
+
+def list_emails_folder(args, api_src, folder="INBOX"):
+    """Lists emails and in folder."""
+    if api_src.getClient():
+        # Process emails
+        # folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
+        # folder = "zAgenda"
+        api_src.setPostsType("posts")
+        api_src.setLabels()
+        label = api_src.getLabels(folder)
+        if len(label) > 0:
+            label_id = safe_get(label[0], ["id"])
+            api_src.setChannel(folder)
+            api_src.setPosts()
+
+            if api_src.getPosts():
+                for i, post in enumerate(api_src.getPosts()):
+                    if True: #i < 10:
+                        post_id = api_src.getPostId(post)
+                        post_date = api_src.getPostDate(post)
+                        post_title = api_src.getPostTitle(post)
+                        print(f"{i}) {post_title}")
+    else:
+        print("Some problem with the account")
 
 
 def process_email_cli(args, model):
