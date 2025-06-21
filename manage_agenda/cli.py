@@ -4,8 +4,9 @@ import os
 # Import auxiliary functions and classes from utils.py
 from .utils import (
     select_llm,
-    process_email_cli,
     Args,
+    authorize,
+    process_email_cli,
     select_account,
     list_emails_folder,
     list_events_folder,
@@ -57,6 +58,22 @@ def add(interactive, delete, source):
     print(f"Model: {model}")
 
     process_email_cli(args, model)
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    default=False,
+    help="Running in interactive mode",
+)
+def auth(interactive):
+    "Auth related operations"
+
+    args = Args(interactive=interactive, delete=None, source=None)
+    #print(f"Args: {args}")
+    #api_src = select_account(args, api_src_type="g")
+    authorize(args)
+
 
 @cli.command()
 @click.option(

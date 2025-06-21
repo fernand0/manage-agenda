@@ -113,6 +113,13 @@ def extract_json(text):
 
     return vcal_json
 
+def authorize(args):
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    if args.interactive:
+        service = input("Service? ")
+    api_src = rules.selectRuleInteractive(service)
+
 def select_account(args, api_src_type="gmail"):
 
     rules = moduleRules.moduleRules()
