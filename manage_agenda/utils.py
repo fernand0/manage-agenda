@@ -136,11 +136,8 @@ def list_events_folder(args, api_src, calendar=""):
         api_src.setPosts()
         if api_src.getPosts():
             for i, post in enumerate(api_src.getPosts()):
-                print("1")
                 post_id = api_src.getPostId(post)
-                print("2")
                 post_date = api_src.getPostDate(post)
-                print("3")
                 post_title = api_src.getPostTitle(post)
                 print(f"{i}) {post_title}")
     else:
