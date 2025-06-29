@@ -119,6 +119,7 @@ def authorize(args):
     if args.interactive:
         service = input("Service? ")
     api_src = rules.selectRuleInteractive(service)
+    return api_src
 
 def select_account(args, api_src_type="gmail"):
 
