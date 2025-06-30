@@ -270,7 +270,8 @@ def process_email_cli(args, model):
                     f"posteriores a {post_date_time}. "
                     f"El texto es:\n{email_text}"
                     " No añadas comentarios al resultado, que"
-                    " se representará como un JSON."
+                    " se representará como un JSON respetando"
+                    " las comillas." 
                 )
                 print(f"Prompt:\n{prompt}")
                 print(f"\nEnd Prompt:")
@@ -389,7 +390,7 @@ def select_llm(args):
         if args.interactive:
             model = GeminiClient()
         else:
-            model = GeminiClient("gemini-1.5-flash-latest")
+            model = GeminiClient("gemini-2.5-flash")
         return model
     elif args.source == "mistral":
         model = MistralClient()

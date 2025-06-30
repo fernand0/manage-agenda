@@ -106,7 +106,7 @@ class GeminiClient(LLMClient):
                 models,
                 identifier="name",
                 selector="gemini",
-                default="models/gemini-1.5-flash-latest",
+                default="models/gemini-2.0-flash",
             )
             self.model_name = name.split("/")[1]
         else:
