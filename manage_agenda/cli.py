@@ -96,6 +96,7 @@ def auth(interactive):
         print(msg)
     else:
         print(f"This account has been correctly authorized")
+        api_src.info()
 
 
 @cli.command()
