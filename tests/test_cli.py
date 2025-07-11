@@ -7,7 +7,34 @@ import datetime
 from collections import namedtuple
 
 
-class TestCli(unittest.TestCase):
+class TestCliCommands(unittest.TestCase):
+    def setUp(self):
+        from manage_agenda import cli
+        self.cli = cli
+        self.runner = CliRunner()
+
+    @patch("manage_agenda.cli.authorize")
+    def test_auth_command(self, mock_authorize):
+        result = self.runner.invoke(self.cli.cli, ["auth"])
+        self.assertEqual(result.exit_code, 0)
+        mock_authorize.assert_called_once()
+
+    @patch("manage_agenda.cli.select_account")
+    @patch("manage_agenda.cli.list_events_folder")
+    def test_gcalendar_command(self, mock_list_events_folder, mock_select_account):
+        result = self.runner.invoke(self.cli.cli, ["gcalendar"])
+        self.assertEqual(result.exit_code, 0)
+        mock_select_account.assert_called_once()
+        mock_list_events_folder.assert_called_once()
+
+    @patch("manage_agenda.cli.select_account")
+    @patch("manage_agenda.cli.list_emails_folder")
+    def test_gmail_command(self, mock_list_emails_folder, mock_select_account):
+        result = self.runner.invoke(self.cli.cli, ["gmail"])
+        self.assertEqual(result.exit_code, 0)
+        mock_select_account.assert_called_once()
+        mock_list_emails_folder.assert_called_once()
+
     def setUp(self):
         from manage_agenda import cli
 
