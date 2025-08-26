@@ -7,7 +7,7 @@ from socialModules import moduleImap, moduleRules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg, select_from_list, safe_get
 from collections import namedtuple
 
-from manage_agenda.utils_base import setup_logging, write_file#, select_from_list
+from manage_agenda.utils_base import setup_logging, write_file, format_time#, select_from_list
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
 Args = namedtuple("args", ["interactive", "delete", "source", "verbose"])
@@ -54,7 +54,7 @@ def process_event_data(event, content):
         event (dict): The event dictionary.
         content (str): The content of the email.
     """
-    event["description"] = f"{safe_get(event, ["description"])}\n\nMessage:\n{content}"
+    event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
     event["attendees"] = []  # Clear attendees
     return event
 
@@ -286,7 +286,8 @@ def process_email_cli(args, model):
                 llm_response = model.generate_text(prompt)
                 end_time = time.time()
                 if args.verbose:
-                    print(f"AI call took {end_time - start_time:.2f} seconds")
+                    elapsed_time = end_time - start_time
+                    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
                 if not llm_response:
                     print("Failed to get response from LLM, skipping.")
                     continue  # Skip to the next email
@@ -373,7 +374,6 @@ def process_email_cli(args, model):
                         logging.info(f"Email {post_id} marked for deletion.")
         else:
             print(f"There are no posts tagged with label {folder}")
-
 
 def select_llm(args):
     """Selects and initializes the appropriate LLM client."""
