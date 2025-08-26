@@ -6,7 +6,7 @@ from socialModules import moduleImap, moduleRules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg, select_from_list, safe_get
 from collections import namedtuple
 
-from manage_agenda.utils_base import setup_logging, write_file#, select_from_list 
+from manage_agenda.utils_base import setup_logging, write_file#, select_from_list
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
 Args = namedtuple("args", ["interactive", "delete", "source"])
@@ -266,6 +266,8 @@ def process_email_cli(args, model):
                     " event['end']['dateTime'] respectivamente,"
                     f" y serán fechas iguales o "
                     f"posteriores a {post_date_time}. "
+                    # "Si no se indica otra cosa la fecha y hora "
+                    # "es local en España "
                     f"El texto es:\n{email_text}"
                     " No añadas comentarios al resultado, que"
                     " se representará como un JSON."
