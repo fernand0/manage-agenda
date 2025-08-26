@@ -10,7 +10,7 @@ from collections import namedtuple
 from manage_agenda.utils_base import setup_logging, write_file#, select_from_list
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
-Args = namedtuple("args", ["interactive", "delete", "source"])
+Args = namedtuple("args", ["interactive", "delete", "source", "verbose"])
 
 def select_calendar(calendar_api):
     """Selects a Google Calendar.
@@ -54,7 +54,7 @@ def process_event_data(event, content):
         event (dict): The event dictionary.
         content (str): The content of the email.
     """
-    event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
+    event["description"] = f"{safe_get(event, ["description"])}\n\nMessage:\n{content}"
     event["attendees"] = []  # Clear attendees
     return event
 
@@ -200,7 +200,8 @@ def process_email_cli(args, model):
     api_src.setPostsType("posts")
     api_src.setLabels()
     label = api_src.getLabels(folder)
-    print(f"Label: {label}")
+    if args.verbose:
+        print(f"Label: {label}")
     if len(label) > 0:
         api_src.setChannel(label[0])
         api_src.setPosts()
@@ -211,7 +212,8 @@ def process_email_cli(args, model):
                 post_date = api_src.getPostDate(post)
                 post_title = api_src.getPostTitle(post)
 
-                print(f"{i}) Title: {post_title}")
+                if args.verbose:
+                    print(f"{i}) Title: {post_title}")
                 post_content = api_src.getPostContent(post)
                 logging.debug(f"Text: {post_content}")
                 if post_date.isdigit():
@@ -229,7 +231,8 @@ def process_email_cli(args, model):
                     time_difference = datetime.datetime.now() - datetime.datetime.now()
 
                 if time_difference.days > 7:
-                    print(f"Too old ({time_difference.days} days), skipping.")
+                    if args.verbose:
+                        print(f"Too old ({time_difference.days} days), skipping.")
                     continue
 
                 # Get full email body
@@ -243,7 +246,8 @@ def process_email_cli(args, model):
                     # )
                 #email_result = api_src.getMessage(post_id)
                 email_result = post
-                print(f"email: {email_result}")
+                if args.verbose:
+                    print(f"email: {email_result}")
                 full_email_content = api_src.getPostBody(email_result)
 
                 if hasattr(full_email_content, "decode"):
@@ -273,19 +277,22 @@ def process_email_cli(args, model):
                     " No añadas comentarios al resultado, que"
                     " se representará como un JSON."
                 )
-                print(f"Prompt:\n{prompt}")
-                print(f"\nEnd Prompt:")
+                if args.verbose:
+                    print(f"Prompt:\n{prompt}")
+                    print(f"\nEnd Prompt:")
 
                 # Get AI reply
                 start_time = time.time()
                 llm_response = model.generate_text(prompt)
                 end_time = time.time()
-                print(f"AI call took {end_time - start_time:.2f} seconds")
+                if args.verbose:
+                    print(f"AI call took {end_time - start_time:.2f} seconds")
                 if not llm_response:
                     print("Failed to get response from LLM, skipping.")
                     continue  # Skip to the next email
 
-                print(f"Reply:\n{llm_response}")
+                if args.verbose:
+                    print(f"Reply:\n{llm_response}")
 
                 vcal_json = extract_json(llm_response)
                 write_file(f"{post_id}.vcal", vcal_json)  # Save vCal data
@@ -297,7 +304,8 @@ def process_email_cli(args, model):
                 else:
                     # The first configured google calendar in .rssBlogs
                     rules_all = rules.selectRule(api_dst_type, "")
-                    print(f"Rules all: {rules_all}")
+                    if args.verbose:
+                        print(f"Rules all: {rules_all}")
                     api_dst_name = rules_all[0]
                     # api_dst_name = rules.selectRule(api_dst_type, "")[0]
                     api_dst_details = rules.more.get(api_dst_name, {})
@@ -373,18 +381,18 @@ def select_llm(args):
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="ollama"
+                interactive=args.interactive, delete=args.delete, source="ollama", verbose=args.verbose
             )
         elif selection == "m":
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="mistral"
+                interactive=args.interactive, delete=args.delete, source="mistral", verbose=args.verbose
             )
         else:
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="gemini"
+                interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose
             )
     else:
-        args = Args(interactive=args.interactive, delete=args.delete, source="gemini")
+        args = Args(interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose)
 
     if args.source == "ollama":
         model = OllamaClient()

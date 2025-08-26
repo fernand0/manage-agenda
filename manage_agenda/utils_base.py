@@ -23,7 +23,7 @@ def write_file(filename, content):
 
 
 
-def setup_logging():
+def setup_logging(verbose=False):
     """Configures logging to stdout or a file."""
     print(f"Setting logging")
     if not LOGDIR:
@@ -31,10 +31,11 @@ def setup_logging():
     else:
         logFile = f"{LOGDIR}/manage_agenda.log"
 
+    level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         filename = logFile,
         # stream=sys.stdout,
-        level=logging.DEBUG,
+        level=level,
         format="%(asctime)s %(levelname)s: %(message)s",
     )
 
