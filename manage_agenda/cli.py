@@ -84,7 +84,23 @@ def auth(ctx, interactive):
     #api_src = select_account(args, api_src_type="g")
     api_src = authorize(args)
     if not api_src.getClient():
-        msg = ('1. Enable the Gcalendar API:\n'  # Corrected newline escape
-          '   Go to the Google Cloud Console. https://console.cloud.google.com/
-'  # Corrected newline escape
-          "   If you don't have a project, create one.
+        msg = """1. Enable the Gcalendar API:
+               Go to the Google Cloud Console. https://console.cloud.google.com/
+               If you don't have a project, create one.
+               Search for "Gmail API" in the API Library.
+               Enable the Gmail API.
+            2. Create Credentials:
+               In the Google Cloud Console, go to "APIs & Services" > "Credentials".
+               Click "Create credentials" and choose "OAuth client ID".
+               You might be asked to configure the consent screen first.
+               If so, click "Configure consent screen", choose "External",
+                 give your app a name, and save.
+               Back on the "Create credentials" page, select "Web application"
+                 as the Application type.
+               Give your OAuth 2.0 client a name.
+               Add http://localhost:8080 to "Authorized JavaScript origins".
+               Add http://localhost:8080/oauth2callback to "Authorized redirect URIs".
+               Click "Create".
+               Download the resulting JSON file (this is your credentials.json file).
+               and rename (or make a link) to: {api_src.confName((api_src.getServer(),
+               api_src.getNick()))}"""

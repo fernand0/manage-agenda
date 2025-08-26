@@ -285,9 +285,8 @@ def process_email_cli(args, model):
                 start_time = time.time()
                 llm_response = model.generate_text(prompt)
                 end_time = time.time()
-                if args.verbose:
-                    elapsed_time = end_time - start_time
-                    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+                elapsed_time = end_time - start_time
+                print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
                 if not llm_response:
                     print("Failed to get response from LLM, skipping.")
                     continue  # Skip to the next email
