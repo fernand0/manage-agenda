@@ -1,4 +1,5 @@
 import datetime
+import time
 import json
 import googleapiclient
 import logging
@@ -276,7 +277,10 @@ def process_email_cli(args, model):
                 print(f"\nEnd Prompt:")
 
                 # Get AI reply
+                start_time = time.time()
                 llm_response = model.generate_text(prompt)
+                end_time = time.time()
+                print(f"AI call took {end_time - start_time:.2f} seconds")
                 if not llm_response:
                     print("Failed to get response from LLM, skipping.")
                     continue  # Skip to the next email
