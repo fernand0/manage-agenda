@@ -13,7 +13,7 @@ class TestCli(unittest.TestCase):
 
         self.cli = cli
         self.llm_name = "gemini"
-        self.Args = namedtuple("args", ["interactive", "delete", "source"])
+        self.Args = namedtuple("args", ["interactive", "delete", "source", "verbose"])
         self.runner = CliRunner()
 
     def test_add_non_interactive(self):
@@ -36,7 +36,7 @@ class TestCli(unittest.TestCase):
             )
             self.assertEqual(result.exit_code, 0)
             expected_args = self.Args(
-                interactive=False, delete=False, source=self.llm_name
+                interactive=False, delete=False, source=self.llm_name, verbose=False
             )
             mock_select_llm.assert_called_once_with(expected_args)
             mock_process_email_cli.assert_called_once()
@@ -95,7 +95,7 @@ class TestCli(unittest.TestCase):
                 )
                 self.assertEqual(result.exit_code, 0)
                 expected_args = self.Args(
-                    interactive=False, delete=False, source=self.llm_name
+                    interactive=False, delete=False, source=self.llm_name, verbose=False
                 )
                 mock_select_llm.assert_called_once_with(expected_args)
                 mock_process_email_cli.assert_called_once()
