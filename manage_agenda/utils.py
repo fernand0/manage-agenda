@@ -381,18 +381,18 @@ def select_llm(args):
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="ollama", verbose=args.verbose
+                interactive=args.interactive, delete=args.delete, source="ollama", verbose=args.verbose, destination=args.destination, text=args.text
             )
         elif selection == "m":
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="mistral", verbose=args.verbose
+                interactive=args.interactive, delete=args.delete, source="mistral", verbose=args.verbose, destination=args.destination, text=args.text
             )
         else:
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose
+                interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose, destination=args.destination, text=args.text
             )
     else:
-        args = Args(interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose)
+        args = Args(interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose, destination=args.destination, text=args.text)
 
     if args.source == "ollama":
         model = OllamaClient()

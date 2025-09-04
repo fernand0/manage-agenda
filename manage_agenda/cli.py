@@ -45,22 +45,23 @@ def cli(ctx, verbose):
     help="Running in interactive mode",
 )
 @click.option(
-    "-d",
-    "--delete",
-    default=True,
-    help="Delete tag",
-)
-@click.option(
     "-s",
     "--source",
     default="gemini",
     help="Select LLM",
 )
 @click.pass_context
-def add(ctx, interactive, delete, source):
+def add(ctx, interactive, source):
     """Add entries to the calendar"""
     verbose = ctx.obj['VERBOSE']
-    args = Args(interactive=interactive, delete=delete, source=source, verbose=verbose)
+    args = Args(
+        interactive=interactive,
+        delete=None,
+        source=source,
+        verbose=verbose,
+        destination=None,
+        text=None,
+    )
 
     model = select_llm(args)
 
