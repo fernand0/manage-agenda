@@ -10,6 +10,9 @@ from .utils import (
     select_account,
     list_emails_folder,
     list_events_folder,
+    copy_events_cli,
+    delete_events_cli,
+    move_events_cli,
 )  # Import only what's needed
 
 from .utils_base import (
@@ -104,3 +107,121 @@ def auth(ctx, interactive):
                Download the resulting JSON file (this is your credentials.json file).
                and rename (or make a link) to: {api_src.confName((api_src.getServer(),
                api_src.getNick()))}"""
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default=None,
+    help="Select source calendar",
+)
+@click.option(
+    "-d",
+    "--destination",
+    default=None,
+    help="Select destination calendar",
+)
+@click.option(
+    "-t",
+    "--text",
+    default=None,
+    help="Select text in title",
+)
+@click.pass_context
+def copy(ctx, interactive, source, destination, text):
+    """Copy entries from one calendar to another"""
+    verbose = ctx.obj['VERBOSE']
+    args = Args(
+        interactive=interactive,
+        delete=None,
+        source=source,
+        verbose=verbose,
+        destination=destination,
+        text=text,
+    )
+
+    copy_events_cli(args)
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default=None,
+    help="Select source calendar",
+)
+@click.option(
+    "-t",
+    "--text",
+    default=None,
+    help="Select text in title",
+)
+@click.pass_context
+def delete(ctx, interactive, source, text):
+    """Delete entries from a calendar"""
+    verbose = ctx.obj['VERBOSE']
+    args = Args(
+        interactive=interactive,
+        delete=None,
+        source=source,
+        verbose=verbose,
+        destination=None,
+        text=text,
+    )
+
+    delete_events_cli(args)
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default=None,
+    help="Select source calendar",
+)
+@click.option(
+    "-d",
+    "--destination",
+    default=None,
+    help="Select destination calendar",
+)
+@click.option(
+    "-t",
+    "--text",
+    default=None,
+    help="Select text in title",
+)
+@click.pass_context
+def move(ctx, interactive, source, destination, text):
+    """Move entries from one calendar to another"""
+    verbose = ctx.obj['VERBOSE']
+    args = Args(
+        interactive=interactive,
+        delete=None,
+        source=source,
+        verbose=verbose,
+        destination=destination,
+        text=text,
+    )
+
+    move_events_cli(args)
+
