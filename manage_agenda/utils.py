@@ -212,8 +212,7 @@ def process_email_cli(args, model):
                 post_date = api_src.getPostDate(post)
                 post_title = api_src.getPostTitle(post)
 
-                if args.verbose:
-                    print(f"{i}) Title: {post_title}")
+                print(f"Processing Title: {post_title}", flush=True)
                 post_content = api_src.getPostContent(post)
                 logging.debug(f"Text: {post_content}")
                 if post_date.isdigit():
@@ -282,6 +281,7 @@ def process_email_cli(args, model):
                     print(f"\nEnd Prompt:")
 
                 # Get AI reply
+                print(f"Calling LLM")
                 start_time = time.time()
                 llm_response = model.generate_text(prompt)
                 end_time = time.time()
