@@ -132,6 +132,24 @@ python -m manage_agenda --help
 ```
 --->
 
+## Commands
+
+### `add`
+
+This command allows you to add entries to your calendar from email messages.
+
+### `copy`
+
+This command allows you to copy events from one calendar to another. You can filter the events by text and select which ones to copy.
+
+### `delete`
+
+This command allows you to delete events from a calendar. You can filter the events by text and select which ones to delete.
+
+### `move`
+
+This command allows you to move events from one calendar to another. This is equivalent to copying the events and then deleting them from the source calendar.
+
 
 ## Development
 
