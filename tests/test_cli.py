@@ -13,14 +13,13 @@ class TestCli(unittest.TestCase):
 
         self.cli = cli
         self.llm_name = "gemini"
-        self.Args = namedtuple("args", ["interactive", "delete", "source", "verbose"])
+        self.Args = namedtuple("args", ["interactive", "delete", "source", "verbose", "destination", "text"])
         self.runner = CliRunner()
 
     def test_add_non_interactive(self):
-        with (
-            patch("manage_agenda.cli.select_llm") as mock_select_llm,
-            patch("manage_agenda.cli.process_email_cli") as mock_process_email_cli,
-        ):
+        with patch("manage_agenda.utils.GeminiClient") as mock_gemini_client, patch(
+            "manage_agenda.cli.process_email_cli"
+        ) as mock_process_email_cli:
             # Mock the LLM client
             mock_llm_client = MagicMock()
 
@@ -28,17 +27,13 @@ class TestCli(unittest.TestCase):
                 return '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}'
 
             mock_llm_client.generate_text.side_effect = generate_text_side_effect
-            mock_select_llm.return_value = mock_llm_client
+            mock_gemini_client.return_value = mock_llm_client
             self._mock_api(mock_process_email_cli)
 
             result = self.runner.invoke(
-                self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
+                self.cli.cli, ["add", "-s", self.llm_name]
             )
             self.assertEqual(result.exit_code, 0)
-            expected_args = self.Args(
-                interactive=False, delete=False, source=self.llm_name, verbose=False
-            )
-            mock_select_llm.assert_called_once_with(expected_args)
             mock_process_email_cli.assert_called_once()
 
     # def test_add_select_llm_returns_none(self):
@@ -60,10 +55,9 @@ class TestCli(unittest.TestCase):
     #         mock_process_email_cli.assert_not_called()
 
     def test_add_no_posts(self):
-        with (
-            patch("manage_agenda.cli.select_llm") as mock_select_llm,
-            patch("manage_agenda.cli.process_email_cli") as mock_process_email_cli,
-        ):
+        with patch("manage_agenda.utils.GeminiClient") as mock_gemini_client, patch(
+            "manage_agenda.cli.process_email_cli"
+        ) as mock_process_email_cli:
             # Mock the LLM client
             mock_llm_client = MagicMock()
 
@@ -71,7 +65,7 @@ class TestCli(unittest.TestCase):
                 return '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}'
 
             mock_llm_client.generate_text.side_effect = generate_text_side_effect
-            mock_select_llm.return_value = mock_llm_client
+            mock_gemini_client.return_value = mock_llm_client
 
             # Mock api_src to return no posts
             mock_api_src = MagicMock()
@@ -91,13 +85,9 @@ class TestCli(unittest.TestCase):
                 mock_module_rules.return_value = mock_rules
 
                 result = self.runner.invoke(
-                    self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
+                    self.cli.cli, ["add", "-s", self.llm_name]
                 )
                 self.assertEqual(result.exit_code, 0)
-                expected_args = self.Args(
-                    interactive=False, delete=False, source=self.llm_name, verbose=False
-                )
-                mock_select_llm.assert_called_once_with(expected_args)
                 mock_process_email_cli.assert_called_once()
 
     def _mock_api(self, mock_process_email_cli):

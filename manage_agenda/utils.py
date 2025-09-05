@@ -10,7 +10,8 @@ from collections import namedtuple
 from manage_agenda.utils_base import setup_logging, write_file, format_time#, select_from_list
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 
-Args = namedtuple("args", ["interactive", "delete", "source", "verbose"])
+Args = namedtuple("args", ["interactive", "delete", "source", "verbose", "destination", "text"])
+
 
 def select_calendar(calendar_api):
     """Selects a Google Calendar.
@@ -380,18 +381,18 @@ def select_llm(args):
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="ollama", verbose=args.verbose
+                interactive=args.interactive, delete=args.delete, source="ollama", verbose=args.verbose, destination=args.destination, text=args.text
             )
         elif selection == "m":
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="mistral", verbose=args.verbose
+                interactive=args.interactive, delete=args.delete, source="mistral", verbose=args.verbose, destination=args.destination, text=args.text
             )
         else:
             args = Args(
-                interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose
+                interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose, destination=args.destination, text=args.text
             )
     else:
-        args = Args(interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose)
+        args = Args(interactive=args.interactive, delete=args.delete, source="gemini", verbose=args.verbose, destination=args.destination, text=args.text)
 
     if args.source == "ollama":
         model = OllamaClient()
@@ -408,3 +409,236 @@ def select_llm(args):
     else:
         logging.error(f"Invalid LLM source: {args.source}")
         return None
+
+def copy_events_cli(args):
+    """Copies events from a source calendar to a destination calendar."""
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    api_cal = rules.selectRuleInteractive("gcalendar")
+    
+    if args.source:
+        my_calendar = args.source
+    else:
+        my_calendar = select_calendar(api_cal)
+    
+    today = datetime.datetime.now()
+    the_date = today.isoformat(timespec="seconds") + "Z"
+    
+    res = (api_cal.getClient().events()
+                .list(
+                    calendarId=my_calendar,
+                    timeMin=the_date,
+                    singleEvents=True,
+                    eventTypes='default',
+                    orderBy="startTime",
+                )
+                .execute()
+           )
+
+    print("Upcoming events (up to 20):")
+    for event in res['items'][:20]:
+        print(f"- {api_cal.getPostTitle(event)}")
+
+    text_filter = args.text
+    if args.interactive and not text_filter:
+        text_filter = input("Text to filter by (leave empty for no filter): ")
+    
+    events_to_copy = []
+    for event in res['items']:
+        if api_cal.getPostTitle(event):
+            if text_filter in api_cal.getPostTitle(event):
+                events_to_copy.append(event)
+
+    if not events_to_copy:
+        print("No events found matching the criteria.")
+        return
+
+    print("Select events to copy:")
+    for i, event in enumerate(events_to_copy):
+        print(f"{i}) {api_cal.getPostTitle(event)}")
+    
+    print(f"{len(events_to_copy)}) All")
+
+    selection = input("Which event(s) to copy? (comma-separated, or 'all') ")
+
+    selected_events = []
+    if selection.lower() == 'all' or selection == str(len(events_to_copy)):
+        selected_events = events_to_copy
+    else:
+        try:
+            indices = [int(i.strip()) for i in selection.split(',')]
+            for i in indices:
+                if 0 <= i < len(events_to_copy):
+                    selected_events.append(events_to_copy[i])
+        except ValueError:
+            print("Invalid selection.")
+            return
+
+    if args.destination:
+        my_calendar_dst = args.destination
+    else:
+        my_calendar_dst = select_calendar(api_cal)
+
+    for event in selected_events:
+        my_event = {'summary': event['summary'],
+                   'description': event['description'],
+                   'start': event['start'],
+                   'end': event['end'],
+                   }
+        if 'location' in event:
+                   my_event['location'] = event['location']
+        
+        api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
+        print(f"Copied event: {my_event['summary']}")
+
+def delete_events_cli(args):
+    """Deletes events from a calendar."""
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    api_cal = rules.selectRuleInteractive("gcalendar")
+    
+    if args.source:
+        my_calendar = args.source
+    else:
+        my_calendar = select_calendar(api_cal)
+    
+    today = datetime.datetime.now()
+    the_date = today.isoformat(timespec="seconds") + "Z"
+    
+    res = (api_cal.getClient().events()
+                .list(
+                    calendarId=my_calendar,
+                    timeMin=the_date,
+                    singleEvents=True,
+                    eventTypes='default',
+                    orderBy="startTime",
+                )
+                .execute()
+           )
+
+    print("Upcoming events (up to 20):")
+    for event in res['items'][:20]:
+        print(f"- {api_cal.getPostTitle(event)}")
+
+    text_filter = args.text
+    if args.interactive and not text_filter:
+        text_filter = input("Text to filter by (leave empty for no filter): ")
+    
+    events_to_delete = []
+    for event in res['items']:
+        if api_cal.getPostTitle(event):
+            if text_filter in api_cal.getPostTitle(event):
+                events_to_delete.append(event)
+
+    if not events_to_delete:
+        print("No events found matching the criteria.")
+        return
+
+    print("Select events to delete:")
+    for i, event in enumerate(events_to_delete):
+        print(f"{i}) {api_cal.getPostTitle(event)}")
+    
+    print(f"{len(events_to_delete)}) All")
+
+    selection = input("Which event(s) to delete? (comma-separated, or 'all') ")
+
+    selected_events = []
+    if selection.lower() == 'all' or selection == str(len(events_to_delete)):
+        selected_events = events_to_delete
+    else:
+        try:
+            indices = [int(i.strip()) for i in selection.split(',')]
+            for i in indices:
+                if 0 <= i < len(events_to_delete):
+                    selected_events.append(events_to_delete[i])
+        except ValueError:
+            print("Invalid selection.")
+            return
+
+    for event in selected_events:
+        api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event['id']).execute()
+        print(f"Deleted event: {event['summary']}")
+
+def move_events_cli(args):
+    """Moves events from a source calendar to a destination calendar."""
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    api_cal = rules.selectRuleInteractive("gcalendar")
+    
+    if args.source:
+        my_calendar = args.source
+    else:
+        my_calendar = select_calendar(api_cal)
+    
+    today = datetime.datetime.now()
+    the_date = today.isoformat(timespec="seconds") + "Z"
+    
+    res = (api_cal.getClient().events()
+                .list(
+                    calendarId=my_calendar,
+                    timeMin=the_date,
+                    singleEvents=True,
+                    eventTypes='default',
+                    orderBy="startTime",
+                )
+                .execute()
+           )
+
+    print("Upcoming events (up to 20):")
+    for event in res['items'][:20]:
+        print(f"- {api_cal.getPostTitle(event)}")
+
+    text_filter = args.text
+    if args.interactive and not text_filter:
+        text_filter = input("Text to filter by (leave empty for no filter): ")
+    
+    events_to_move = []
+    for event in res['items']:
+        if api_cal.getPostTitle(event):
+            if text_filter in api_cal.getPostTitle(event):
+                events_to_move.append(event)
+
+    if not events_to_move:
+        print("No events found matching the criteria.")
+        return
+
+    print("Select events to move:")
+    for i, event in enumerate(events_to_move):
+        print(f"{i}) {api_cal.getPostTitle(event)}")
+    
+    print(f"{len(events_to_move)}) All")
+
+    selection = input("Which event(s) to move? (comma-separated, or 'all') ")
+
+    selected_events = []
+    if selection.lower() == 'all' or selection == str(len(events_to_move)):
+        selected_events = events_to_move
+    else:
+        try:
+            indices = [int(i.strip()) for i in selection.split(',')]
+            for i in indices:
+                if 0 <= i < len(events_to_move):
+                    selected_events.append(events_to_move[i])
+        except ValueError:
+            print("Invalid selection.")
+            return
+
+    if args.destination:
+        my_calendar_dst = args.destination
+    else:
+        my_calendar_dst = select_calendar(api_cal)
+
+    for event in selected_events:
+        my_event = {'summary': event['summary'],
+                   'description': event['description'],
+                   'start': event['start'],
+                   'end': event['end'],
+                   }
+        if 'location' in event:
+                   my_event['location'] = event['location']
+        
+        api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
+        print(f"Copied event: {my_event['summary']}")
+        api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event['id']).execute()
+        print(f"Deleted event: {event['summary']}")
+
