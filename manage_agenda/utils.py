@@ -322,6 +322,105 @@ def process_email_cli(args, model):
                     logging.error(f"Error: {e}")
                     continue
 
+                # --- New logic starts here ---
+                retries = 0
+                max_retries = 3 # Limit AI retries
+                data_complete = False
+
+                while not data_complete and retries <= max_retries:
+                    summary = event.get('summary')
+                    start_datetime = event.get('start', {}).get('dateTime')
+
+                    if summary and start_datetime:
+                        data_complete = True
+                        break
+
+                    if args.interactive:
+                        print("Missing event information:")
+                        if not summary:
+                            print("- Summary")
+                        if not start_datetime:
+                            print("- Start Date/Time")
+
+                        choice = input("Options: (m)anual input, (a)nother AI, (s)kip email: ").lower()
+
+                        if choice == 'm':
+                            if not summary:
+                                new_summary = input("Enter Summary: ")
+                                if new_summary:
+                                    event['summary'] = new_summary
+                            if not start_datetime:
+                                new_start_datetime_str = input("Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): ")
+                                if new_start_datetime_str:
+                                    try:
+                                        # Assuming YYYY-MM-DD HH:MM:SS format for simplicity
+                                        new_start_datetime = datetime.datetime.strptime(new_start_datetime_str, "%Y-%m-%d %H:%M:%S")
+                                        event.setdefault('start', {})['dateTime'] = new_start_datetime.isoformat()
+                                        event['start'].setdefault('timeZone', 'Europe/Madrid') # Set default timezone
+                                    except ValueError:
+                                        print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
+                                        # Do not set data_complete to True, so loop continues
+                                        continue # Continue the while loop
+                            data_complete = True # Assume data is complete after manual input attempt
+                        elif choice == 'a':
+                            retries += 1
+                            if retries > max_retries:
+                                print("Max AI retries reached. Skipping email.")
+                                break # Exit the while loop to skip this email
+
+                            print("Selecting another AI model...")
+                            # Temporarily store current model and args to restore later if needed
+                            original_model = model
+                            original_args_source = args.source
+
+                            # Create new args for select_llm to allow user to choose
+                            # Ensure all args are passed to select_llm
+                            new_args = Args(
+                                interactive=True, # Force interactive selection for new AI
+                                delete=args.delete,
+                                source=None, # Let user choose
+                                verbose=args.verbose,
+                                destination=args.destination,
+                                text=args.text
+                            )
+                            new_model = select_llm(new_args)
+
+                            if new_model:
+                                model = new_model # Use the newly selected model
+                                print(f"Trying with new AI model: {model.__class__.__name__}")
+                                llm_response = model.generate_text(prompt)
+                                if llm_response:
+                                    vcal_json = extract_json(llm_response)
+                                    try:
+                                        event = json.loads(vcal_json)
+                                        # Data completeness will be checked at the start of the next loop iteration
+                                    except json.JSONDecodeError as e:
+                                        logging.error(f"Invalid JSON from new AI: {vcal_json}. Error: {e}")
+                                        # Keep data_complete as False, loop will continue or exit if retries exhausted
+                                else:
+                                    print("New AI model failed to generate a response.")
+                                    # Keep data_complete as False, loop will continue or exit if retries exhausted
+                            else:
+                                print("No new AI model selected or available. Skipping email.")
+                                break # Exit the while loop to skip this email
+                        elif choice == 's':
+                            # Skip email logic will go here
+                            break # Exit the while loop to skip this email
+                        else:
+                            print("Invalid choice. Please try again.")
+                            retries += 1 # Count as a retry if invalid choice
+                            continue # Continue the while loop
+                    else: # Non-interactive mode
+                        if not summary or not start_datetime:
+                            logging.warning(f"Missing summary or start_datetime for email {post_id}. Skipping.")
+                            break # Exit the while loop to skip this email
+                        else:
+                            data_complete = True # Should not happen if we are here
+                
+                if not data_complete:
+                    continue # Skip to the next email if data is still not complete after loop
+                # --- New logic ends here ---
+
                 event = process_event_data(event, full_email_content)
                 write_file(f"{post_id}.json", json.dumps(event))  # Save event JSON
 
@@ -359,16 +458,15 @@ def process_email_cli(args, model):
                     logging.error(f"Error creating calendar event: {e}")
 
                 # Delete email (optional)
-                if args.delete:
-                    delete_confirmed = False
-                    if args.interactive:
-                        confirmation = input("Do you want to remove the label from the email? (y/n): ")
-                        if confirmation.lower() == 'y':
-                            delete_confirmed = True
-                    else:
+                delete_confirmed = False
+                if args.interactive:
+                    confirmation = input("Do you want to remove the label from the email? (y/n): ")
+                    if confirmation.lower() == 'y':
                         delete_confirmed = True
+                elif args.delete: # Only auto-confirm if not interactive but delete flag is set
+                    delete_confirmed = True
 
-                    if delete_confirmed:
+                if delete_confirmed:
                         if "imap" not in api_src.service.lower():
                             res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
                             logging.info(f"Label removed from email {post_id}.")
