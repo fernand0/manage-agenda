@@ -62,26 +62,17 @@ def process_event_data(event, content):
 
 def adjust_event_times(event):
     """Adjusts event start/end times if one is missing."""
-    start = safe_get(event, ["start", "dateTime"])
-    end = safe_get(event, ["end", "dateTime"])
+    start = event.setdefault("start", {})
+    end = event.setdefault("end", {})
 
-    if not start and end:
-        event["start"] = {}
-        event["start"]["dateTime"] = end
-        event["start"]["timeZone"] = safe_get(
-            event, ["end", "timeZone"], "Europe/Madrid"
-        )
-    elif not end and start:
-        event["end"] = {}
-        event["end"]["dateTime"] = start
-        event["end"]["timeZone"] = safe_get(
-            event, ["start", "timeZone"], "Europe/Madrid"
-        )
+    if "dateTime" not in start and "dateTime" in end:
+        start["dateTime"] = end["dateTime"]
+    elif "dateTime" not in end and "dateTime" in start:
+        end["dateTime"] = start["dateTime"]
 
-    if not safe_get(event, ["start", "timeZone"]):
-        event["start"]["timeZone"] = "Europe/Madrid"
-    if not safe_get(event, ["end", "timeZone"]):
-        event["end"]["timeZone"] = "Europe/Madrid"
+    start.setdefault("timeZone", "Europe/Madrid")
+    end.setdefault("timeZone", "Europe/Madrid")
+
     return event
 
 # def list_models_cli(args):
@@ -357,21 +348,22 @@ def process_email_cli(args, model):
 
                 # Delete email (optional)
                 if args.delete:
-                    input("Delete tag? (Press Enter to continue)")
-                    if True: #"gmail" in api_src.service.lower():
-                        # label = api_src.getLabels(api_src.getChannel())
-                        # logging.debug(f"Msg: {post}")
-                        # logging.info(f"Labellls: {label}")
-                        res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
-                        #label_id = api_src.getLabels(api_src.getChannel())[0]["id"]
-                        # api_src.getClient().users().messages().modify(
-                        #     userId="me", id=post_id, body={"removeLabelIds": [label_id]}
-                        # ).execute()
-                        # logging.info(f"email {post_id} deleted.")
+                    delete_confirmed = False
+                    if args.interactive:
+                        confirmation = input("Do you want to remove the label from the email? (y/n): ")
+                        if confirmation.lower() == 'y':
+                            delete_confirmed = True
                     else:
-                        flag = "\\Deleted"
-                        api_src.getClient().store(post_id, "+FLAGS", flag)
-                        logging.info(f"Email {post_id} marked for deletion.")
+                        delete_confirmed = True
+
+                    if delete_confirmed:
+                        if "imap" not in api_src.service.lower():
+                            res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
+                            logging.info(f"Label removed from email {post_id}.")
+                        else:
+                            flag = "\\Deleted"
+                            api_src.getClient().store(post_id, "+FLAGS", flag)
+                            logging.info(f"Email {post_id} marked for deletion.")
         else:
             print(f"There are no posts tagged with label {folder}")
 
