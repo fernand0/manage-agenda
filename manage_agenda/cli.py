@@ -82,7 +82,7 @@ def add(ctx, interactive, source):
 def auth(ctx, interactive):
     """Auth related operations"""
     verbose = ctx.obj['VERBOSE']
-    args = Args(interactive=interactive, delete=None, source=None, verbose=verbose)
+    args = Args(interactive=interactive, delete=None, source=None, verbose=verbose, destination=None, text=None)
     if verbose:
         print(f"Args: {args}")
     #api_src = select_account(args, api_src_type="g")
@@ -91,26 +91,59 @@ def auth(ctx, interactive):
         msg = ('1. Enable the Gcalendar API:\n'
           '   Go to the Google Cloud Console. https://console.cloud.google.com/\n'
           "   If you don't have a project, create one.\n"
-          '   Search for "Gmail API" in the API Library.\n' 
+          '   Search for "Gmail API" in the API Library.\n'
           '   Enable the Gmail API.\n'
-          '2. Create Credentials:\n' 
+          '2. Create Credentials:\n'
           '   In the Google Cloud Console, go to "APIs & Services" > "Credentials".\n'
-          '   Click "Create credentials" and choose "OAuth client ID".\n' 
+          '   Click "Create credentials" and choose "OAuth client ID".\n'
           '   You might be asked to configure the consent screen first. '
           '   If so, click "Configure consent screen", choose "External",'
-          '     give your app a name, and save.\n' 
+          '     give your app a name, and save.\n'
           '   Back on the "Create credentials" page, select "Web application" '
-          '     as the Application type.\n' 
-          '   Give your OAuth 2.0 client a name.\n' 
-          '   Add http://localhost:8080 to "Authorized JavaScript origins".\n' 
-          '   Add http://localhost:8080/oauth2callback to "Authorized redirect URIs".\n' 
-          '   Click "Create".\n' 
+          '     as the Application type.\n'
+          '   Give your OAuth 2.0 client a name.\n'
+          '   Add http://localhost:8080 to "Authorized JavaScript origins".\n'
+          '   Add http://localhost:8080/oauth2callback to "Authorized redirect URIs".\n'
+          '   Click "Create".\n'
           '   Download the resulting JSON file (this is your credentials.json file).\n'
           f'  and rename (or make a link) to: {api_src.confName((api_src.getServer(), api_src.getNick()))}')
         print(msg)
     else:
         print(f"This account has been correctly authorized")
         api_src.info()
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.pass_context
+def gcalendar(ctx, interactive):
+    """List events from Google Calendar"""
+    verbose = ctx.obj['VERBOSE']
+    args = Args(interactive=interactive, delete=None, source=None, verbose=verbose, destination=None, text=None)
+    api_src = select_account(args, api_src_type="gcalendar")
+    list_events_folder(args, api_src)
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.pass_context
+def gmail(ctx, interactive):
+    """List emails from Gmail"""
+    verbose = ctx.obj['VERBOSE']
+    args = Args(interactive=interactive, delete=None, source=None, verbose=verbose, destination=None, text=None)
+    api_src = select_account(args, api_src_type="gmail")
+    list_emails_folder(args, api_src)
+
 
 @cli.command()
 @click.option(
