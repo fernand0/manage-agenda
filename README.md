@@ -150,10 +150,18 @@ This command allows you to delete events from a calendar. You can filter the eve
 
 This command allows you to move events from one calendar to another. This is equivalent to copying the events and then deleting them from the source calendar.
 
+### `gcalendar`
+
+This command allows you to list events from your Google Calendar.
+
+### `gmail`
+
+This command allows you to list emails from your Gmail account.
+
 
 ## Development
 
-Tests check nothing but the correct structure of the project (using the template).
+Tests now cover core functionalities and are more comprehensive.
 
 To contribute to this tool, first checkout the code. Then create a new virtual environment:
 ```bash
