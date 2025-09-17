@@ -62,16 +62,28 @@ def process_event_data(event, content):
 
 def adjust_event_times(event):
     """Adjusts event start/end times if one is missing."""
-    start = event.setdefault("start", {})
-    end = event.setdefault("end", {})
+    start = event.get("start")
+    end = event.get("end")
 
-    if "dateTime" not in start and "dateTime" in end:
-        start["dateTime"] = end["dateTime"]
-    elif "dateTime" not in end and "dateTime" in start:
-        end["dateTime"] = start["dateTime"]
+    if not isinstance(start, dict):
+        start = {}
+        event["start"] = start
+    if not isinstance(end, dict):
+        end = {}
+        event["end"] = end
 
-    start.setdefault("timeZone", "Europe/Madrid")
-    end.setdefault("timeZone", "Europe/Madrid")
+    start_time = start.get("dateTime")
+    end_time = end.get("dateTime")
+
+    if start_time and not end_time:
+        end["dateTime"] = start_time
+    elif end_time and not start_time:
+        start["dateTime"] = end_time
+
+    if "dateTime" in start:
+        start.setdefault("timeZone", "Europe/Madrid")
+    if "dateTime" in end:
+        end.setdefault("timeZone", "Europe/Madrid")
 
     return event
 
