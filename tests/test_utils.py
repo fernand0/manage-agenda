@@ -4,6 +4,7 @@ import json
 import datetime
 import sys
 from collections import namedtuple
+from email.utils import formatdate
 
 from socialModules.configMod import select_from_list
 
@@ -25,11 +26,10 @@ from manage_agenda.utils import (
     process_email_cli,
 )
 
-from email.utils import formatdate
 
 class TestProcessEmailCli(unittest.TestCase):
     def setUp(self):
-        self.Args = namedtuple("args", ["interactive", "delete", "source"])
+        self.Args = namedtuple("args", ["interactive", "delete", "source", "verbose", "destination", "text"])
 
     @patch("manage_agenda.utils.moduleRules.moduleRules")
     @patch("manage_agenda.utils.select_calendar")
@@ -37,12 +37,12 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.json.loads")
     @patch("manage_agenda.utils.input", return_value="")
     def test_process_email_cli_success(self, mock_input, mock_json_loads, mock_write_file, mock_select_calendar, mock_module_rules):
-        args = self.Args(interactive=False, delete=True, source="gemini")
+        args = self.Args(interactive=False, delete=True, source="gemini", verbose=False, destination="", text="")
         mock_model = MagicMock()
         mock_model.generate_text.return_value = '''```json
-{"summary": "Test Event"}
+{"summary": "Test Event", "start": {"dateTime": "2024-01-01T10:00:00"}, "end": {"dateTime": "2024-01-01T11:00:00"}}
 ```'''
-        mock_json_loads.return_value = {"summary": "Test Event", "start": {"dateTime": ""}, "end": {"dateTime": ""}}
+        mock_json_loads.return_value = {"summary": "Test Event", "start": {"dateTime": "2024-01-01T10:00:00"}, "end": {"dateTime": "2024-01-01T11:00:00"}}
 
         mock_api_src = MagicMock()
         mock_api_src.service = "gmail"
@@ -71,17 +71,18 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_api_src.modifyLabels.assert_called_once()
 
 
-class TestListFunctions(unittest.TestCase):
-    def setUp(self):
-        self.Args = namedtuple("args", ["interactive", "delete", "source"])
+        self.Args = namedtuple("args", ["interactive", "delete", "source", "verbose", "destination", "text"])
 
     @patch("builtins.print")
     def test_list_events_folder_with_posts(self, mock_print):
         mock_api_src = MagicMock()
         mock_api_src.getClient.return_value = True
-        mock_api_src.getPosts.return_value = ["post1", "post2"]
-        mock_api_src.getPostTitle.side_effect = ["Title 1", "Title 2"]
-        args = self.Args(interactive=False, delete=False, source="any")
+        # Configure setPosts to set the return value for getPosts
+        mock_api_src.setPosts.side_effect = lambda: setattr(mock_api_src, 'getPosts', MagicMock(return_value=["post1", "post2"]))
+        mock_api_src.getPostId.return_value = "post_id"
+        mock_api_src.getPostDate.return_value = "post_date"
+        mock_api_src.getPostTitle.return_value = "post_title"
+        args = self.Args(interactive=False, delete=False, source="any", verbose=False, destination="", text="")
         list_events_folder(args, mock_api_src)
         mock_api_src.setPosts.assert_called_once()
         self.assertEqual(mock_print.call_count, 2)
@@ -90,8 +91,7 @@ class TestListFunctions(unittest.TestCase):
     def test_list_events_folder_no_posts(self, mock_print):
         mock_api_src = MagicMock()
         mock_api_src.getClient.return_value = True
-        mock_api_src.getPosts.return_value = []
-        args = self.Args(interactive=False, delete=False, source="any")
+        args = self.Args(interactive=False, delete=False, source="any", verbose=False, destination="", text="")
         list_events_folder(args, mock_api_src)
         mock_api_src.setPosts.assert_called_once()
         mock_print.assert_not_called()
@@ -102,8 +102,7 @@ class TestListFunctions(unittest.TestCase):
         mock_api_src.getClient.return_value = True
         mock_api_src.getLabels.return_value = [{"id": "label1"}]
         mock_api_src.getPosts.return_value = ["post1", "post2"]
-        mock_api_src.getPostTitle.side_effect = ["Title 1", "Title 2"]
-        args = self.Args(interactive=False, delete=False, source="any")
+        args = self.Args(interactive=False, delete=False, source="any", verbose=False, destination="", text="")
         list_emails_folder(args, mock_api_src)
         mock_api_src.setPosts.assert_called_once()
         self.assertEqual(mock_print.call_count, 2)
@@ -113,8 +112,7 @@ class TestListFunctions(unittest.TestCase):
         mock_api_src = MagicMock()
         mock_api_src.getClient.return_value = True
         mock_api_src.getLabels.return_value = [{"id": "label1"}]
-        mock_api_src.getPosts.return_value = []
-        args = self.Args(interactive=False, delete=False, source="any")
+        args = self.Args(interactive=False, delete=False, source="any", verbose=False, destination="", text="")
         list_emails_folder(args, mock_api_src)
         mock_api_src.setPosts.assert_called_once()
         mock_print.assert_not_called()
@@ -224,13 +222,9 @@ more text"""
         options = ["apple", "banana", "cherry"]
         self.assertEqual(select_from_list(options, default="banana"), (1, "banana"))
 
-class TestAccountFunctions(unittest.TestCase):
-    def setUp(self):
-        self.Args = namedtuple("args", ["interactive", "delete", "source"])
-
     @patch("manage_agenda.utils.moduleRules.moduleRules")
     def test_authorize_interactive(self, mock_module_rules):
-        args = self.Args(interactive=True, delete=False, source="any")
+        args = self.Args(interactive=True, delete=False, source="any", verbose=False, destination="", text="")
         mock_rules = MagicMock()
         mock_module_rules.return_value = mock_rules
         with patch("manage_agenda.utils.input", return_value="gmail"):
@@ -240,7 +234,7 @@ class TestAccountFunctions(unittest.TestCase):
 
     @patch("manage_agenda.utils.moduleRules.moduleRules")
     def test_select_account_interactive(self, mock_module_rules):
-        args = self.Args(interactive=True, delete=False, source="any")
+        args = self.Args(interactive=True, delete=False, source="any", verbose=False, destination="", text="")
         mock_rules = MagicMock()
         mock_module_rules.return_value = mock_rules
         select_account(args)
@@ -249,7 +243,7 @@ class TestAccountFunctions(unittest.TestCase):
 
     @patch("manage_agenda.utils.moduleRules.moduleRules")
     def test_select_account_non_interactive(self, mock_module_rules):
-        args = self.Args(interactive=False, delete=False, source="any")
+        args = self.Args(interactive=False, delete=False, source="any", verbose=False, destination="", text="")
         mock_rules = MagicMock()
         mock_rules.selectRule.return_value = ["test_rule"]
         mock_rules.more.get.return_value = {"key": "value"}
@@ -260,12 +254,12 @@ class TestAccountFunctions(unittest.TestCase):
         mock_rules.readConfigSrc.assert_called_once_with("", "test_rule", {"key": "value"})
 
     def setUp(self):
-        self.Args = namedtuple("args", ["interactive", "delete", "source"])
+        self.Args = namedtuple("args", ["interactive", "delete", "source", "verbose", "destination", "text"])
 
     @patch("manage_agenda.utils.input", return_value="l")
     @patch("manage_agenda.utils.OllamaClient")
     def test_select_llm_interactive_ollama(self, mock_ollama_client, mock_input):
-        args = self.Args(interactive=True, delete=False, source="any")
+        args = self.Args(interactive=True, delete=False, source="any", verbose=False, destination="", text="")
         model = select_llm(args)
         mock_ollama_client.assert_called_once()
         self.assertEqual(model, mock_ollama_client.return_value)
@@ -273,7 +267,7 @@ class TestAccountFunctions(unittest.TestCase):
     @patch("manage_agenda.utils.input", return_value="m")
     @patch("manage_agenda.utils.MistralClient")
     def test_select_llm_interactive_mistral(self, mock_mistral_client, mock_input):
-        args = self.Args(interactive=True, delete=False, source="any")
+        args = self.Args(interactive=True, delete=False, source="any", verbose=False, destination="", text="")
         model = select_llm(args)
         mock_mistral_client.assert_called_once()
         self.assertEqual(model, mock_mistral_client.return_value)
@@ -281,7 +275,7 @@ class TestAccountFunctions(unittest.TestCase):
     @patch("manage_agenda.utils.input", return_value="g")
     @patch("manage_agenda.utils.GeminiClient")
     def test_select_llm_interactive_gemini_explicit(self, mock_gemini_client, mock_input):
-        args = self.Args(interactive=True, delete=False, source="any")
+        args = self.Args(interactive=True, delete=False, source="any", verbose=False, destination="", text="")
         model = select_llm(args)
         mock_gemini_client.assert_called_once()
         self.assertEqual(model, mock_gemini_client.return_value)
@@ -289,7 +283,7 @@ class TestAccountFunctions(unittest.TestCase):
     @patch("manage_agenda.utils.input", return_value="anything_else")
     @patch("manage_agenda.utils.GeminiClient")
     def test_select_llm_interactive_gemini_default(self, mock_gemini_client, mock_input):
-        args = self.Args(interactive=True, delete=False, source="any")
+        args = self.Args(interactive=True, delete=False, source="any", verbose=False, destination="", text="")
         model = select_llm(args)
         mock_gemini_client.assert_called_once()
         self.assertEqual(model, mock_gemini_client.return_value)
@@ -301,21 +295,21 @@ class TestAccountFunctions(unittest.TestCase):
         # Because of a bug, non-interactive mode always uses Gemini
         
         # Source is 'gemini'
-        args = self.Args(interactive=False, delete=False, source="gemini")
+        args = self.Args(interactive=False, delete=False, source="gemini", verbose=False, destination="", text="")
         model = select_llm(args)
         mock_gemini_client.assert_called_with("gemini-1.5-flash-latest")
         self.assertEqual(model, mock_gemini_client.return_value)
         
         # Source is 'ollama', but should be 'gemini'
-        args = self.Args(interactive=False, delete=False, source="ollama")
+        args = self.Args(interactive=False, delete=False, source="ollama", verbose=False, destination="", text="")
         model = select_llm(args)
         
         # Source is 'mistral', but should be 'gemini'
-        args = self.Args(interactive=False, delete=False, source="mistral")
+        args = self.Args(interactive=False, delete=False, source="mistral", verbose=False, destination="", text="")
         model = select_llm(args)
 
         # Source is 'invalid', but should be 'gemini'
-        args = self.Args(interactive=False, delete=False, source="invalid")
+        args = self.Args(interactive=False, delete=False, source="invalid", verbose=False, destination="", text="")
         model = select_llm(args)
 
         # Check that only Gemini was called, 4 times.

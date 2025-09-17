@@ -22,8 +22,7 @@ def write_file(filename, content):
         logging.error(f"Error writing file {filename}: {e}")
 
 
-
-def setup_logging():
+def setup_logging(verbose=False):
     """Configures logging to stdout or a file."""
     print(f"Setting logging")
     if not LOGDIR:
@@ -31,13 +30,20 @@ def setup_logging():
     else:
         logFile = f"{LOGDIR}/manage_agenda.log"
 
+    level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         filename = logFile,
         # stream=sys.stdout,
-        level=logging.DEBUG,
+        level=level,
         format="%(asctime)s %(levelname)s: %(message)s",
     )
 
+
+def format_time(seconds):
+    """Formats seconds into a human-readable string."""
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return f"{int(h)}h {int(m)}m {s:.2f}s"
 
 # def select_from_list(options, identifier="", selector="", default=""):
 #     """selects an option form an iterable element, based on some identifier
