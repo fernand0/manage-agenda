@@ -60,17 +60,26 @@ def process_event_data(event, content):
 
 def adjust_event_times(event):
     """Adjusts event start/end times if one is missing."""
-    start = event.setdefault("start", {})
-    end = event.setdefault("end", {})
+    start = safe_get(event, ["start", "dateTime"])
+    end = safe_get(event, ["end", "dateTime"])
 
-    if "dateTime" not in start and "dateTime" in end:
-        start["dateTime"] = end["dateTime"]
-    elif "dateTime" not in end and "dateTime" in start:
-        end["dateTime"] = start["dateTime"]
+    if not start and end:
+        event["start"] = {}
+        event["start"]["dateTime"] = end
+        event["start"]["timeZone"] = safe_get(
+            event, ["end", "timeZone"], "Europe/Madrid"
+        )
+    elif not end and start:
+        event["end"] = {}
+        event["end"]["dateTime"] = start
+        event["end"]["timeZone"] = safe_get(
+            event, ["start", "timeZone"], "Europe/Madrid"
+        )
 
-    start.setdefault("timeZone", "Europe/Madrid")
-    end.setdefault("timeZone", "Europe/Madrid")
-
+    if not safe_get(event, ["start", "timeZone"]):
+        event["start"]["timeZone"] = "Europe/Madrid"
+    if not safe_get(event, ["end", "timeZone"]):
+        event["end"]["timeZone"] = "Europe/Madrid"
     return event
 
 # def list_models_cli(args):
