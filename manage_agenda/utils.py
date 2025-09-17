@@ -342,21 +342,22 @@ def process_email_cli(args, model):
 
                 # Delete email (optional)
                 if args.delete:
-                    input("Delete tag? (Press Enter to continue)")
-                    if True: #"gmail" in api_src.service.lower():
-                        # label = api_src.getLabels(api_src.getChannel())
-                        # logging.debug(f"Msg: {post}")
-                        # logging.info(f"Labellls: {label}")
-                        res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
-                        #label_id = api_src.getLabels(api_src.getChannel())[0]["id"]
-                        # api_src.getClient().users().messages().modify(
-                        #     userId="me", id=post_id, body={"removeLabelIds": [label_id]}
-                        # ).execute()
-                        # logging.info(f"email {post_id} deleted.")
+                    delete_confirmed = False
+                    if args.interactive:
+                        confirmation = input("Do you want to remove the label from the email? (y/n): ")
+                        if confirmation.lower() == 'y':
+                            delete_confirmed = True
                     else:
-                        flag = "\\Deleted"
-                        api_src.getClient().store(post_id, "+FLAGS", flag)
-                        logging.info(f"Email {post_id} marked for deletion.")
+                        delete_confirmed = True
+
+                    if delete_confirmed:
+                        if "imap" not in api_src.service.lower():
+                            res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
+                            logging.info(f"Label removed from email {post_id}.")
+                        else:
+                            flag = "\\Deleted"
+                            api_src.getClient().store(post_id, "+FLAGS", flag)
+                            logging.info(f"Email {post_id} marked for deletion.")
         else:
             print(f"There are no posts tagged with label {folder}")
 
