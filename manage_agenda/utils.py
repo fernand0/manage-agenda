@@ -234,9 +234,16 @@ def process_email_cli(args, model):
                     time_difference = datetime.datetime.now() - datetime.datetime.now()
 
                 if time_difference.days > 7:
-                    if args.verbose:
-                        print(f"Too old ({time_difference.days} days), skipping.")
-                    continue
+                    if args.interactive:
+                        confirmation = input(
+                            f"El correo tiene {time_difference.days} dias. ¿Desea procesarlo? (y/n): "
+                        )
+                        if confirmation.lower() != "y":
+                            continue
+                    else:
+                        if args.verbose:
+                            print(f"Too old ({time_difference.days} days), skipping.")
+                        continue
 
                 # Get full email body
                 #if "gmail" in api_src.service.lower():
