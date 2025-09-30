@@ -7,6 +7,7 @@ from .utils import (
     Args,
     authorize,
     process_email_cli,
+    process_web_cli,
     select_account,
     list_emails_folder,
     list_events_folder,
@@ -36,7 +37,7 @@ def cli(ctx, verbose):
     setup_logging(verbose)
 
 
-@cli.command()
+@cli.group(invoke_without_command=True)
 @click.option(
     "-i",
     "--interactive",
@@ -52,7 +53,42 @@ def cli(ctx, verbose):
 )
 @click.pass_context
 def add(ctx, interactive, source):
-    """Add entries to the calendar"""
+    """Add entries to the calendar (defaults to 'mail')."""
+    if ctx.invoked_subcommand is None:
+        verbose = ctx.obj['VERBOSE']
+        args = Args(
+            interactive=interactive,
+            delete=None,
+            source=source,
+            verbose=verbose,
+            destination=None,
+            text=None,
+        )
+
+        model = select_llm(args)
+
+        if verbose:
+            print(f"Model: {model}")
+
+        process_email_cli(args, model)
+
+@add.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default="gemini",
+    help="Select LLM",
+)
+@click.pass_context
+def mail(ctx, interactive, source):
+    """Add entries to the calendar from email."""
     verbose = ctx.obj['VERBOSE']
     args = Args(
         interactive=interactive,
@@ -69,6 +105,41 @@ def add(ctx, interactive, source):
         print(f"Model: {model}")
 
     process_email_cli(args, model)
+
+@add.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default="gemini",
+    help="Select LLM",
+)
+@click.pass_context
+def web(ctx, interactive, source):
+    """Add entries to the calendar from a web page."""
+    verbose = ctx.obj['VERBOSE']
+    args = Args(
+        interactive=interactive,
+        delete=None,
+        source=source,
+        verbose=verbose,
+        destination=None,
+        text=None,
+    )
+
+    model = select_llm(args)
+
+    if verbose:
+        print(f"Model: {model}")
+
+    process_web_cli(args, model)
+
 
 @cli.command()
 @click.option(
@@ -89,23 +160,23 @@ def auth(ctx, interactive):
     api_src = authorize(args)
     if not api_src.getClient():
         msg = ('1. Enable the Gcalendar API:\n'
-          '   Go to the Google Cloud Console. https://console.cloud.google.com/\n'
+          '   Go to the Google Cloud Console. https://console.cloud.google.com/'
           "   If you don't have a project, create one.\n"
-          '   Search for "Gmail API" in the API Library.\n'
-          '   Enable the Gmail API.\n'
-          '2. Create Credentials:\n'
-          '   In the Google Cloud Console, go to "APIs & Services" > "Credentials".\n'
-          '   Click "Create credentials" and choose "OAuth client ID".\n'
+          '   Search for "Gmail API" in the API Library. '
+          '   Enable the Gmail API. '
+          '2. Create Credentials: '
+          '   In the Google Cloud Console, go to "APIs & Services" > "Credentials". '
+          '   Click "Create credentials" and choose "OAuth client ID".  '
           '   You might be asked to configure the consent screen first. '
           '   If so, click "Configure consent screen", choose "External",'
           '     give your app a name, and save.\n'
           '   Back on the "Create credentials" page, select "Web application" '
-          '     as the Application type.\n'
-          '   Give your OAuth 2.0 client a name.\n'
-          '   Add http://localhost:8080 to "Authorized JavaScript origins".\n'
-          '   Add http://localhost:8080/oauth2callback to "Authorized redirect URIs".\n'
-          '   Click "Create".\n'
-          '   Download the resulting JSON file (this is your credentials.json file).\n'
+          '     as the Application type. '
+          '   Give your OAuth 2.0 client a name. '
+          '   Add http://localhost:8080 to "Authorized JavaScript origins". '
+          '   Add http://localhost:8080/oauth2callback to "Authorized redirect URIs". '
+          '   Click "Create". '
+          '   Download the resulting JSON file (this is your credentials.json file). '
           f'  and rename (or make a link) to: {api_src.confName((api_src.getServer(), api_src.getNick()))}')
         print(msg)
     else:
@@ -261,4 +332,3 @@ def move(ctx, interactive, source, destination, text):
     )
 
     move_events_cli(args)
-
