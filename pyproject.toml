@@ -15,6 +15,7 @@ dependencies = [
     "ollama",
     "setuptools",
     "social-modules @ git+https://github.com/fernand0/socialModules.git",
+    "beautifulsoup4",
 ]
 
 [build-system]

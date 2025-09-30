@@ -486,6 +486,8 @@ def process_email_cli(args, model):
 
 import urllib.request
 
+from bs4 import BeautifulSoup
+
 def process_web_cli(args, model):
     """Processes web pages and creates calendar events."""
 
@@ -500,9 +502,20 @@ def process_web_cli(args, model):
     
     try:
         with urllib.request.urlopen(url) as response:
-            web_content = response.read().decode('utf-8')
+            web_content_html = response.read().decode('utf-8')
+        
+        soup = BeautifulSoup(web_content_html, 'html.parser')
+        web_content = soup.get_text()
+
+        print("\n--- First 10 lines of web content ---")
+        for i, line in enumerate(web_content.splitlines()):
+            if i >= 10:
+                break
+            print(line)
+        print("-------------------------------------")
+
     except Exception as e:
-        print(f"Error fetching URL: {e}")
+        print(f"Error fetching or parsing URL: {e}")
         return
 
 
