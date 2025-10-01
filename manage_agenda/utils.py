@@ -500,9 +500,18 @@ def process_email_cli(args, model):
                             res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
                             logging.info(f"Label removed from email {post_id}.")
                         else:
-                            flag = "\Deleted"
-                            api_src.getClient().store(post_id, "+FLAGS", flag)
-                            logging.info(f"Email {post_id} marked for deletion.")
+                            flag = "\\Deleted"
+                            try:
+                                api_src.getClient().store(post_id, "+FLAGS", flag)
+                                logging.info(f"Email {post_id} marked for deletion.")
+                            except Exception as e:
+                                logging.warning(f"IMAP store failed: {e}. Reconnecting and retrying...")
+                                try:
+                                    api_src.checkConnected()
+                                    api_src.getClient().store(post_id, "+FLAGS", flag)
+                                    logging.info(f"Email {post_id} marked for deletion after reconnect.")
+                                except Exception as e2:
+                                    logging.error(f"Failed to mark email for deletion after reconnect: {e2}")
         else:
             print(f"There are no posts tagged with label {folder}")
 
