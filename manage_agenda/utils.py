@@ -135,7 +135,17 @@ def authorize(args):
     rules.checkRules()
     if args.interactive:
         service = input("Service? ")
-    api_src = rules.selectRuleInteractive(service)
+        api_src = rules.selectRuleInteractive(service)
+    else:
+        # The first configured service in .rssBlogs
+        rules_all = rules.selectRule("", "")
+        if not rules_all:
+            logging.warning("No services configured.")
+            return None
+        source_name = rules_all[0]
+        source_details = rules.more.get(source_name, {})
+        logging.info(f"Source: {source_name} - {source_details}")
+        api_src = rules.readConfigSrc("", source_name, source_details)
     return api_src
 
 def select_account(args, api_src_type="gmail"):
@@ -435,7 +445,7 @@ def process_email_cli(args, model):
                             break # Exit the while loop to skip this email
                         else:
                             data_complete = True # Should not happen if we are here
-                
+
                 if not data_complete:
                     continue # Skip to the next email if data is still not complete after loop
                 # --- New logic ends here ---
@@ -509,13 +519,13 @@ def process_web_cli(args, model):
     url = input("URL: ")
 
     print(f"Processing URL: {url}", flush=True)
-    
+
     post_date_time = datetime.datetime.now()
-    
+
     try:
         with urllib.request.urlopen(url) as response:
             web_content_html = response.read().decode('utf-8')
-        
+
         soup = BeautifulSoup(web_content_html, 'html.parser')
         web_content = soup.get_text()
 
@@ -533,7 +543,7 @@ def process_web_cli(args, model):
 
     # Generate event data
     event = create_event_dict()
-    
+
     prompt = (
         f"Rellenar los datos del diccionario {event}.\n"
         "Buscamos datos relativos a una actividad. "
@@ -565,18 +575,18 @@ def process_web_cli(args, model):
         print(f"Reply:\n{llm_response}")
 
     vcal_json = extract_json(llm_response)
-    
+
     # Select calendar
     api_dst_type = "gcalendar"
     if args.interactive:
         api_dst = rules.selectRuleInteractive(api_dst_type)
     else:
-        
+
         rules_all = rules.selectRule(api_dst_type, "")
         if args.verbose:
             print(f"Rules all: {rules_all}")
         api_dst_name = rules_all[0]
-        
+
         api_dst_details = rules.more.get(api_dst_name, {})
         api_dst = rules.readConfigSrc("", api_dst_name, api_dst_details)
 
@@ -618,13 +628,13 @@ def process_web_cli(args, model):
                     new_start_datetime_str = input("Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): ")
                     if new_start_datetime_str:
                         try:
-                            
+
                             new_start_datetime = datetime.datetime.strptime(new_start_datetime_str, "%Y-%m-%d %H:%M:%S")
                             event.setdefault('start', {})['dateTime'] = new_start_datetime.isoformat()
                             event['start'].setdefault('timeZone', 'Europe/Madrid') # Set default timezone
                         except ValueError:
                             print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
-                            
+
                             continue # Continue the while loop
                 data_complete = True # Assume data is complete after manual input attempt
             elif choice == 'a':
@@ -634,11 +644,11 @@ def process_web_cli(args, model):
                     break # Exit the while loop to skip this email
 
                 print("Selecting another AI model...")
-                
+
                 original_model = model
                 original_args_source = args.source
 
-                
+
                 new_args = Args(
                     interactive=True, # Force interactive selection for new AI
                     delete=args.delete,
@@ -657,18 +667,18 @@ def process_web_cli(args, model):
                         vcal_json = extract_json(llm_response)
                         try:
                             event = json.loads(vcal_json)
-                            
+
                         except json.JSONDecodeError as e:
                             logging.error(f"Invalid JSON from new AI: {vcal_json}. Error: {e}")
-                            
+
                     else:
                         print("New AI model failed to generate a response.")
-                        
+
                 else:
                     print("No new AI model selected or available. Skipping email.")
                     break # Exit the while loop to skip this email
             elif choice == 's':
-                
+
                 break # Exit the while loop to skip this email
             else:
                 print("Invalid choice. Please try again.")
@@ -680,19 +690,19 @@ def process_web_cli(args, model):
                 break # Exit the while loop to skip this email
             else:
                 data_complete = True # Should not happen if we are here
-    
+
     if not data_complete:
-        return 
+        return
     # --- New logic ends here ---
 
     event = process_event_data(event, web_content)
-    
+
 
     event = adjust_event_times(event)
 
-    
+
     start_time = safe_get(event, ["start", "dateTime"])
-    
+
     end_time = safe_get(event, ["end", "dateTime"])
     print(f"==================================")
     print(f"Subject: {url}")
@@ -706,12 +716,12 @@ def process_web_cli(args, model):
         return
 
     try:
-        
+
         calendar_result = api_dst.publishPost(
             post={"event": event, "idCal": selected_calendar}, api=api_dst
         )
-        print(f"Calendar event created") 
-        
+        print(f"Calendar event created")
+
     except googleapiclient.errors.HttpError as e:
         logging.error(f"Error creating calendar event: {e}")
 
@@ -755,15 +765,15 @@ def copy_events_cli(args):
     rules = moduleRules.moduleRules()
     rules.checkRules()
     api_cal = rules.selectRuleInteractive("gcalendar")
-    
+
     if args.source:
         my_calendar = args.source
     else:
         my_calendar = select_calendar(api_cal)
-    
+
     today = datetime.datetime.now()
     the_date = today.isoformat(timespec="seconds") + "Z"
-    
+
     res = (api_cal.getClient().events()
                 .list(
                     calendarId=my_calendar,
@@ -782,7 +792,7 @@ def copy_events_cli(args):
     text_filter = args.text
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
-    
+
     events_to_copy = []
     for event in res['items']:
         if api_cal.getPostTitle(event):
@@ -796,7 +806,7 @@ def copy_events_cli(args):
     print("Select events to copy:")
     for i, event in enumerate(events_to_copy):
         print(f"{i}) {api_cal.getPostTitle(event)}")
-    
+
     print(f"{len(events_to_copy)}) All")
 
     selection = input("Which event(s) to copy? (comma-separated, or 'all') ")
@@ -827,7 +837,7 @@ def copy_events_cli(args):
                    }
         if 'location' in event:
                    my_event['location'] = event['location']
-        
+
         api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
         print(f"Copied event: {my_event['summary']}")
 
@@ -836,15 +846,15 @@ def delete_events_cli(args):
     rules = moduleRules.moduleRules()
     rules.checkRules()
     api_cal = rules.selectRuleInteractive("gcalendar")
-    
+
     if args.source:
         my_calendar = args.source
     else:
         my_calendar = select_calendar(api_cal)
-    
+
     today = datetime.datetime.now()
     the_date = today.isoformat(timespec="seconds") + "Z"
-    
+
     res = (api_cal.getClient().events()
                 .list(
                     calendarId=my_calendar,
@@ -863,7 +873,7 @@ def delete_events_cli(args):
     text_filter = args.text
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
-    
+
     events_to_delete = []
     for event in res['items']:
         if api_cal.getPostTitle(event):
@@ -877,7 +887,7 @@ def delete_events_cli(args):
     print("Select events to delete:")
     for i, event in enumerate(events_to_delete):
         print(f"{i}) {api_cal.getPostTitle(event)}")
-    
+
     print(f"{len(events_to_delete)}) All")
 
     selection = input("Which event(s) to delete? (comma-separated, or 'all') ")
@@ -904,15 +914,15 @@ def move_events_cli(args):
     rules = moduleRules.moduleRules()
     rules.checkRules()
     api_cal = rules.selectRuleInteractive("gcalendar")
-    
+
     if args.source:
         my_calendar = args.source
     else:
         my_calendar = select_calendar(api_cal)
-    
+
     today = datetime.datetime.now()
     the_date = today.isoformat(timespec="seconds") + "Z"
-    
+
     res = (api_cal.getClient().events()
                 .list(
                     calendarId=my_calendar,
@@ -931,7 +941,7 @@ def move_events_cli(args):
     text_filter = args.text
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
-    
+
     events_to_move = []
     for event in res['items']:
         if api_cal.getPostTitle(event):
@@ -945,7 +955,7 @@ def move_events_cli(args):
     print("Select events to move:")
     for i, event in enumerate(events_to_move):
         print(f"{i}) {api_cal.getPostTitle(event)}")
-    
+
     print(f"{len(events_to_move)}) All")
 
     selection = input("Which event(s) to move? (comma-separated, or 'all') ")
@@ -976,7 +986,7 @@ def move_events_cli(args):
                    }
         if 'location' in event:
                    my_event['location'] = event['location']
-        
+
         api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
         print(f"Copied event: {my_event['summary']}")
         api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event['id']).execute()
