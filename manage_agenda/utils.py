@@ -500,7 +500,7 @@ def process_email_cli(args, model):
                             res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
                             logging.info(f"Label removed from email {post_id}.")
                         else:
-                            flag = "\\Deleted"
+                            flag = "\Deleted"
                             api_src.getClient().store(post_id, "+FLAGS", flag)
                             logging.info(f"Email {post_id} marked for deletion.")
         else:
@@ -774,7 +774,8 @@ def copy_events_cli(args):
     today = datetime.datetime.now()
     the_date = today.isoformat(timespec="seconds") + "Z"
 
-    res = (api_cal.getClient().events()
+    res = (
+        api_cal.getClient().events()
                 .list(
                     calendarId=my_calendar,
                     timeMin=the_date,
@@ -855,7 +856,8 @@ def delete_events_cli(args):
     today = datetime.datetime.now()
     the_date = today.isoformat(timespec="seconds") + "Z"
 
-    res = (api_cal.getClient().events()
+    res = (
+        api_cal.getClient().events()
                 .list(
                     calendarId=my_calendar,
                     timeMin=the_date,
@@ -923,7 +925,8 @@ def move_events_cli(args):
     today = datetime.datetime.now()
     the_date = today.isoformat(timespec="seconds") + "Z"
 
-    res = (api_cal.getClient().events()
+    res = (
+        api_cal.getClient().events()
                 .list(
                     calendarId=my_calendar,
                     timeMin=the_date,
@@ -991,4 +994,3 @@ def move_events_cli(args):
         print(f"Copied event: {my_event['summary']}")
         api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event['id']).execute()
         print(f"Deleted event: {event['summary']}")
-

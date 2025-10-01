@@ -51,7 +51,7 @@ def cli(ctx, verbose):
     default="gemini",
     help="Select LLM",
 )
-@click.pass_context
+@click.click.pass_context
 def add(ctx, interactive, source):
     """Add entries to the calendar (defaults to 'mail')."""
     if ctx.invoked_subcommand is None:
@@ -86,7 +86,7 @@ def add(ctx, interactive, source):
     default="gemini",
     help="Select LLM",
 )
-@click.pass_context
+@click.click.pass_context
 def mail(ctx, interactive, source):
     """Add entries to the calendar from email."""
     verbose = ctx.obj['VERBOSE']
@@ -120,7 +120,7 @@ def mail(ctx, interactive, source):
     default="gemini",
     help="Select LLM",
 )
-@click.pass_context
+@click.click.pass_context
 def web(ctx, interactive, source):
     """Add entries to the calendar from a web page."""
     verbose = ctx.obj['VERBOSE']
@@ -149,7 +149,7 @@ def web(ctx, interactive, source):
     default=False,
     help="Running in interactive mode",
 )
-@click.pass_context
+@click.click.pass_context
 def auth(ctx, interactive):
     """Auth related operations"""
     verbose = ctx.obj['VERBOSE']
@@ -160,9 +160,9 @@ def auth(ctx, interactive):
     api_src = authorize(args)
     if not api_src.getClient():
         msg = ('1. Enable the Gcalendar API:\n'
-          '   Go to the Google Cloud Console. https://console.cloud.google.com/'
+          '   Go to the Google Cloud Console. https://console.cloud. google.com/'
           "   If you don't have a project, create one.\n"
-          '   Search for "Gmail/Gcalendar API" in the API Library. '
+          '   Search for "Gmail API" in the API Library. '
           '   Enable the Gmail API. '
           '2. Create Credentials: '
           '   In the Google Cloud Console, go to "APIs & Services" > "Credentials". '
@@ -170,20 +170,17 @@ def auth(ctx, interactive):
           '   You might be asked to configure the consent screen first. '
           '   If so, click "Configure consent screen", choose "External",'
           '     give your app a name, and save.\n'
-          '   Back on the "Create credentials" page, select "Desktop application" '
+          '   Back on the "Create credentials" page, select "Web application" '
           '     as the Application type. '
           '   Give your OAuth 2.0 client a name. '
-               # '   Add http://localhost:8080 to "Authorized JavaScript origins". '
-               # '   Add http://localhost:8080/oauth2callback to "Authorized redirect URIs". '
+          '   Add http://localhost:8080 to "Authorized JavaScript origins". '
+          '   Add http://localhost:8080/oauth2callback to "Authorized redirect URIs". '
           '   Click "Create". '
           '   Download the resulting JSON file (this is your credentials.json file). '
           f'  and rename (or make a link) to: {api_src.confName((api_src.getServer(), api_src.getNick()))}')
         print(msg)
     else:
         print(f"This account has been correctly authorized")
-        print(f"{api_src}")
-        print(f"Maybe you should consider using the interactive mode")
-
 
 @cli.command()
 @click.option(
@@ -193,7 +190,7 @@ def auth(ctx, interactive):
     default=False,
     help="Running in interactive mode",
 )
-@click.pass_context
+@click.click.pass_context
 def gcalendar(ctx, interactive):
     """List events from Google Calendar"""
     verbose = ctx.obj['VERBOSE']
@@ -209,7 +206,7 @@ def gcalendar(ctx, interactive):
     default=False,
     help="Running in interactive mode",
 )
-@click.pass_context
+@click.click.pass_context
 def gmail(ctx, interactive):
     """List emails from Gmail"""
     verbose = ctx.obj['VERBOSE']
@@ -244,7 +241,7 @@ def gmail(ctx, interactive):
     default=None,
     help="Select text in title",
 )
-@click.pass_context
+@click.click.pass_context
 def copy(ctx, interactive, source, destination, text):
     """Copy entries from one calendar to another"""
     verbose = ctx.obj['VERBOSE']
@@ -279,7 +276,7 @@ def copy(ctx, interactive, source, destination, text):
     default=None,
     help="Select text in title",
 )
-@click.pass_context
+@click.click.pass_context
 def delete(ctx, interactive, source, text):
     """Delete entries from a calendar"""
     verbose = ctx.obj['VERBOSE']
@@ -320,7 +317,7 @@ def delete(ctx, interactive, source, text):
     default=None,
     help="Select text in title",
 )
-@click.pass_context
+@click.click.pass_context
 def move(ctx, interactive, source, destination, text):
     """Move entries from one calendar to another"""
     verbose = ctx.obj['VERBOSE']
