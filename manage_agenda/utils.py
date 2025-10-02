@@ -516,6 +516,7 @@ def process_email_cli(args, model):
             print(f"There are no posts tagged with label {folder}")
 
 import urllib.request
+import re
 
 from bs4 import BeautifulSoup
 
@@ -537,6 +538,8 @@ def process_web_cli(args, model):
 
         soup = BeautifulSoup(web_content_html, 'html.parser')
         web_content = soup.get_text()
+
+        web_content = re.sub(r'\n{3,}', '\n\n', web_content)
 
         print("\n--- First 10 lines of web content ---")
         for i, line in enumerate(web_content.splitlines()):
@@ -704,7 +707,9 @@ def process_web_cli(args, model):
         return
     # --- New logic ends here ---
 
-    event = process_event_data(event, web_content)
+    description = safe_get(event, ['description']) or ''
+    event['description'] = f"{description}\n\nURL: {url}\n\n{web_content}"
+    event['attendees'] = []
 
 
     event = adjust_event_times(event)
