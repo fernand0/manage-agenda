@@ -708,7 +708,7 @@ def process_web_cli(args, model):
     # --- New logic ends here ---
 
     description = safe_get(event, ['description']) or ''
-    event['description'] = f"{description}\n\nURL: {url}\n\n{web_content}"
+    event['description'] = f"URL: {url}\n\n{description}\n\n{web_content}"
     event['attendees'] = []
 
 
