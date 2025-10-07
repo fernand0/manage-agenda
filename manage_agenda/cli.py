@@ -54,42 +54,19 @@ def cli(ctx, verbose):
 @click.pass_context
 def add(ctx, interactive, source):
     """Add entries to the calendar (defaults to 'mail')."""
+    ctx.obj['interactive'] = interactive
+    ctx.obj['source'] = source
     if ctx.invoked_subcommand is None:
-        verbose = ctx.obj['VERBOSE']
-        args = Args(
-            interactive=interactive,
-            delete=None,
-            source=source,
-            verbose=verbose,
-            destination=None,
-            text=None,
-        )
+        ctx.invoke(mail)
 
-        model = select_llm(args)
-
-        if verbose:
-            print(f"Model: {model}")
-
-        process_email_cli(args, model)
 
 @add.command()
-@click.option(
-    "-i",
-    "--interactive",
-    is_flag=True,
-    default=False,
-    help="Running in interactive mode",
-)
-@click.option(
-    "-s",
-    "--source",
-    default="gemini",
-    help="Select LLM",
-)
 @click.pass_context
-def mail(ctx, interactive, source):
+def mail(ctx):
     """Add entries to the calendar from email."""
     verbose = ctx.obj['VERBOSE']
+    interactive = ctx.obj['interactive']
+    source = ctx.obj['source']
     args = Args(
         interactive=interactive,
         delete=None,
@@ -106,24 +83,14 @@ def mail(ctx, interactive, source):
 
     process_email_cli(args, model)
 
+
 @add.command()
-@click.option(
-    "-i",
-    "--interactive",
-    is_flag=True,
-    default=False,
-    help="Running in interactive mode",
-)
-@click.option(
-    "-s",
-    "--source",
-    default="gemini",
-    help="Select LLM",
-)
 @click.pass_context
-def web(ctx, interactive, source):
+def web(ctx):
     """Add entries to the calendar from a web page."""
     verbose = ctx.obj['VERBOSE']
+    interactive = ctx.obj['interactive']
+    source = ctx.obj['source']
     args = Args(
         interactive=interactive,
         delete=None,
