@@ -319,7 +319,8 @@ def process_email_cli(args, model):
                 llm_response = model.generate_text(prompt)
                 end_time = time.time()
                 elapsed_time = end_time - start_time
-                print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+                print(f"AI call took {format_time(elapsed_time)} "
+                      f"({elapsed_time:.2f} seconds)")
                 if not llm_response:
                     print("Failed to get response from LLM, skipping.")
                     continue  # Skip to the next email
@@ -328,6 +329,8 @@ def process_email_cli(args, model):
                     print(f"Reply:\n{llm_response}")
 
                 vcal_json = extract_json(llm_response)
+                if args.verbose:
+                    print(f"Json:\n{vcal_json}")
                 write_file(f"{post_id}.vcal", vcal_json)  # Save vCal data
 
                 # Select calendar
@@ -342,7 +345,8 @@ def process_email_cli(args, model):
                     api_dst_name = rules_all[0]
                     # api_dst_name = rules.selectRule(api_dst_type, "")[0]
                     api_dst_details = rules.more.get(api_dst_name, {})
-                    api_dst = rules.readConfigSrc("", api_dst_name, api_dst_details)
+                    api_dst = rules.readConfigSrc("", api_dst_name, 
+                                                  api_dst_details)
 
                 try:
                     event = json.loads(vcal_json)
