@@ -144,7 +144,7 @@ def get_event_from_llm(model, prompt, verbose=False):
         print(f"Json:\n{vcal_json}")
 
     try:
-        event = json.loads(vcal_json)
+        event = json.loads(vcal_json.replace('\\','').replace('\n',' '))
         return event, vcal_json
     except json.JSONDecodeError as e:
         logging.error(f"Invalid JSON in vCal data: {vcal_json}")
@@ -352,7 +352,7 @@ def process_email_cli(args, model):
                     api_dst_name = rules_all[0]
                     # api_dst_name = rules.selectRule(api_dst_type, "")[0]
                     api_dst_details = rules.more.get(api_dst_name, {})
-                    api_dst = rules.readConfigSrc("", api_dst_name, 
+                    api_dst = rules.readConfigSrc("", api_dst_name,
                                                   api_dst_details)
 
                 # --- New logic starts here ---
