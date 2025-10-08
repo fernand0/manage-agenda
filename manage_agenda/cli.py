@@ -127,7 +127,7 @@ def auth(ctx, interactive):
     api_src = authorize(args)
     if not api_src.getClient():
         msg = ('1. Enable the Gcalendar API:\n'
-          '   Go to the Google Cloud Console. https://console.cloud.google.com/'
+          '   Go to the Google Cloud Console. https://console.cloud. google.com/'
           "   If you don't have a project, create one.\n"
           '   Search for "Gmail API" in the API Library. '
           '   Enable the Gmail API. '
@@ -148,7 +148,6 @@ def auth(ctx, interactive):
         print(msg)
     else:
         print(f"This account has been correctly authorized")
-        api_src.info()
 
 @cli.command()
 @click.option(
