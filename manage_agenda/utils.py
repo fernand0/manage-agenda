@@ -62,8 +62,6 @@ def process_event_data(event, content):
 
 def adjust_event_times(event):
     """Adjusts event start/end times if one is missing."""
-def adjust_event_times(event):
-    """Adjusts event start/end times if one is missing."""
     start = event.get("start")
     end = event.get("end")
 
@@ -86,12 +84,6 @@ def adjust_event_times(event):
         start.setdefault("timeZone", "Europe/Madrid")
     if "dateTime" in end:
         end.setdefault("timeZone", "Europe/Madrid")
-
-    if not safe_get(event, ["start", "timeZone"]):
-        event["start"]["timeZone"] = "Europe/Madrid"
-    if not safe_get(event, ["end", "timeZone"]):
-        event["end"]["timeZone"] = "Europe/Madrid"
-    return event
 
     if not safe_get(event, ["start", "timeZone"]):
         event["start"]["timeZone"] = "Europe/Madrid"
@@ -129,6 +121,35 @@ def extract_json(text):
             start_index + 9 :].strip()
 
     return vcal_json
+
+
+def get_event_from_llm(model, prompt, verbose=False):
+    """Gets event data from LLM, handling response and JSON parsing."""
+    print("Calling LLM")
+    start_time = time.time()
+    llm_response = model.generate_text(prompt)
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+
+    if not llm_response:
+        print("Failed to get response from LLM.")
+        return None, None
+
+    if verbose:
+        print(f"Reply:\n{llm_response}")
+
+    vcal_json = extract_json(llm_response)
+    if verbose:
+        print(f"Json:\n{vcal_json}")
+
+    try:
+        event = json.loads(vcal_json)
+        return event, vcal_json
+    except json.JSONDecodeError as e:
+        logging.error(f"Invalid JSON in vCal data: {vcal_json}")
+        logging.error(f"Error: {e}")
+        return None, None
 
 def authorize(args):
     rules = moduleRules.moduleRules()
@@ -314,23 +335,9 @@ def process_email_cli(args, model):
                     print(f"\nEnd Prompt:")
 
                 # Get AI reply
-                print(f"Calling LLM")
-                start_time = time.time()
-                llm_response = model.generate_text(prompt)
-                end_time = time.time()
-                elapsed_time = end_time - start_time
-                print(f"AI call took {format_time(elapsed_time)} "
-                      f"({elapsed_time:.2f} seconds)")
-                if not llm_response:
-                    print("Failed to get response from LLM, skipping.")
+                event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
+                if not event:
                     continue  # Skip to the next email
-
-                if args.verbose:
-                    print(f"Reply:\n{llm_response}")
-
-                vcal_json = extract_json(llm_response)
-                if args.verbose:
-                    print(f"Json:\n{vcal_json}")
                 write_file(f"{post_id}.vcal", vcal_json)  # Save vCal data
 
                 # Select calendar
@@ -347,13 +354,6 @@ def process_email_cli(args, model):
                     api_dst_details = rules.more.get(api_dst_name, {})
                     api_dst = rules.readConfigSrc("", api_dst_name, 
                                                   api_dst_details)
-
-                try:
-                    event = json.loads(vcal_json)
-                except json.JSONDecodeError as e:
-                    logging.error(f"Invalid JSON in vCal data: {vcal_json}")
-                    logging.error(f"Error: {e}")
-                    continue
 
                 # --- New logic starts here ---
                 retries = 0
@@ -421,18 +421,13 @@ def process_email_cli(args, model):
                             if new_model:
                                 model = new_model # Use the newly selected model
                                 print(f"Trying with new AI model: {model.__class__.__name__}")
-                                llm_response = model.generate_text(prompt)
-                                if llm_response:
-                                    vcal_json = extract_json(llm_response)
-                                    try:
-                                        event = json.loads(vcal_json)
-                                        # Data completeness will be checked at the start of the next loop iteration
-                                    except json.JSONDecodeError as e:
-                                        logging.error(f"Invalid JSON from new AI: {vcal_json}. Error: {e}")
-                                        # Keep data_complete as False, loop will continue or exit if retries exhausted
+                                new_event, new_vcal_json = get_event_from_llm(model, prompt, args.verbose)
+                                if new_event:
+                                    event = new_event
+                                    vcal_json = new_vcal_json
+                                    # Data completeness will be checked at the start of the next loop iteration
                                 else:
                                     print("New AI model failed to generate a response.")
-                                    # Keep data_complete as False, loop will continue or exit if retries exhausted
                             else:
                                 print("No new AI model selected or available. Skipping email.")
                                 break # Exit the while loop to skip this email
@@ -577,20 +572,9 @@ def process_web_cli(args, model):
         print(f"\nEnd Prompt:")
 
     # Get AI reply
-    print(f"Calling LLM")
-    start_time = time.time()
-    llm_response = model.generate_text(prompt)
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
-    if not llm_response:
-        print("Failed to get response from LLM, skipping.")
+    event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
+    if not event:
         return
-
-    if args.verbose:
-        print(f"Reply:\n{llm_response}")
-
-    vcal_json = extract_json(llm_response)
 
     # Select calendar
     api_dst_type = "gcalendar"
@@ -605,13 +589,6 @@ def process_web_cli(args, model):
 
         api_dst_details = rules.more.get(api_dst_name, {})
         api_dst = rules.readConfigSrc("", api_dst_name, api_dst_details)
-
-    try:
-        event = json.loads(vcal_json)
-    except json.JSONDecodeError as e:
-        logging.error(f"Invalid JSON in vCal data: {vcal_json}")
-        logging.error(f"Error: {e}")
-        return
 
     # --- New logic starts here ---
     retries = 0
@@ -678,15 +655,10 @@ def process_web_cli(args, model):
                 if new_model:
                     model = new_model # Use the newly selected model
                     print(f"Trying with new AI model: {model.__class__.__name__}")
-                    llm_response = model.generate_text(prompt)
-                    if llm_response:
-                        vcal_json = extract_json(llm_response)
-                        try:
-                            event = json.loads(vcal_json)
-
-                        except json.JSONDecodeError as e:
-                            logging.error(f"Invalid JSON from new AI: {vcal_json}. Error: {e}")
-
+                    new_event, new_vcal_json = get_event_from_llm(model, prompt, args.verbose)
+                    if new_event:
+                        event = new_event
+                        vcal_json = new_vcal_json
                     else:
                         print("New AI model failed to generate a response.")
 
