@@ -323,12 +323,15 @@ def process_email_cli(args, model):
                     api_dst = rules.readConfigSrc("", api_dst_name, api_dst_details)
 
                 try:
-                    event = json.loads(vcal_json)
+                    # event = json.loads(vcal_json)
+                    event = json.loads(vcal_json.replace('\\','').replace('\n',' '))
                 except json.JSONDecodeError as e:
                     logging.error(f"Invalid JSON in vCal data: {vcal_json}")
                     logging.error(f"Error: {e}")
                     continue
 
+                if args.verbose:
+                    print(f"Event: {event}")
                 # --- New logic starts here ---
                 retries = 0
                 max_retries = 3 # Limit AI retries
@@ -559,7 +562,6 @@ def process_web_cli(args, model):
     if args.interactive:
         api_dst = rules.selectRuleInteractive(api_dst_type)
     else:
-        
         rules_all = rules.selectRule(api_dst_type, "")
         if args.verbose:
             print(f"Rules all: {rules_all}")
@@ -569,12 +571,16 @@ def process_web_cli(args, model):
         api_dst = rules.readConfigSrc("", api_dst_name, api_dst_details)
 
     try:
-        event = json.loads(vcal_json)
+        # event = json.loads(vcal_json)
+        event = json.loads(vcal_json.replace('\\','').replace('\n',' '))
     except json.JSONDecodeError as e:
         logging.error(f"Invalid JSON in vCal data: {vcal_json}")
         logging.error(f"Error: {e}")
         return
 
+        
+    if args.verbose:
+        print(f"Rules all: {event}")
     # --- New logic starts here ---
     retries = 0
     max_retries = 3 # Limit AI retries
@@ -644,8 +650,7 @@ def process_web_cli(args, model):
                     if llm_response:
                         vcal_json = extract_json(llm_response)
                         try:
-                            event = json.loads(vcal_json)
-                            
+                            event = json.loads(vcal_json.replace('\\','').replace('\n',' '))
                         except json.JSONDecodeError as e:
                             logging.error(f"Invalid JSON from new AI: {vcal_json}. Error: {e}")
                             
@@ -656,7 +661,6 @@ def process_web_cli(args, model):
                     print("No new AI model selected or available. Skipping email.")
                     break # Exit the while loop to skip this email
             elif choice == 's':
-                
                 break # Exit the while loop to skip this email
             else:
                 print("Invalid choice. Please try again.")
