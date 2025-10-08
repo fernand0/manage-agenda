@@ -527,7 +527,7 @@ def process_web_cli(args, model):
         "Buscamos datos relativos a una actividad. "
         "El inicio y el fin se pondrán en "
         " los campos event['start']['dateTime']  y "
-        " event['end']['dateTime'] respectivamente',"
+        " event['end']['dateTime'] respectivamente,"
         f" y serán fechas iguales o "
         f"posteriores a {post_date_time}. "
         f"El texto es:\n{web_content}"
