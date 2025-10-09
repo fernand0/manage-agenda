@@ -144,7 +144,19 @@ def get_event_from_llm(model, prompt, verbose=False):
         print(f"Json:\n{vcal_json}")
 
     try:
-        event = json.loads(vcal_json.replace('\\','').replace('\n',' '))
+        ll = vcal_json
+        # ll = vcal_json.replace('\\n','\n')
+        # if verbose:
+        #     print(f"Json n:\n{ll}")
+        ll = ll.replace('\\',' ')
+        if verbose:
+            print(f"Json nn:\n{ll}")
+        # lines = ll.split('\n')
+        # with open('/tmp/kk.txt','w', encoding='utf-8') as fL:
+        #     fL.write(ll)
+        # # print(f"Line: {lines[3]}")
+        # # print(f"Line c: {lines[3][208]}")
+        event = json.loads(ll)
         return event, vcal_json
     except json.JSONDecodeError as e:
         logging.error(f"Invalid JSON in vCal data: {vcal_json}")
@@ -302,14 +314,18 @@ def process_email_cli(args, model):
                 if args.verbose:
                     print(f"email: {email_result}")
                 full_email_content = api_src.getPostBody(email_result)
+                full_email_content = full_email_content.replace('\r','')
+                post_title = post_title.replace('\r','').replace('\n','')
+                if args.verbose:
+                    print(f"email: {full_email_content}")
 
-                if hasattr(full_email_content, "decode"):
-                    full_email_content = full_email_content.decode("utf-8")
-                # else:
-                #     full_email_content = post_content
+                # if hasattr(full_email_content, "decode"):
+                #     full_email_content = full_email_content.decode("utf-8")
+                # # else:
+                # #     full_email_content = post_content
 
                 email_text = (
-                    f"{post_title}\nDate:{post_date_time}\n{full_email_content}"
+                        f"\nSubject:{post_title}\nDate:{post_date_time}\n{full_email_content}"
                 )
                 write_file(f"{post_id}.txt", email_text)  # Save email text
 
@@ -334,10 +350,15 @@ def process_email_cli(args, model):
                     print(f"Prompt:\n{prompt}")
                     print(f"\nEnd Prompt:")
 
+                #prompt = prompt.replace('\\n','\n')
+                if args.verbose:
+                    print(f"Prompt:\n{prompt}")
                 # Get AI reply
                 event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
                 if not event:
                     continue  # Skip to the next email
+                if args.verbose:
+                    print(f"Event: {event}")
                 write_file(f"{post_id}.vcal", vcal_json)  # Save vCal data
 
                 # Select calendar
@@ -450,9 +471,13 @@ def process_email_cli(args, model):
                 # --- New logic ends here ---
 
                 event = process_event_data(event, full_email_content)
+                if args.verbose:
+                    print(f"Event processed: {event}")
                 write_file(f"{post_id}.json", json.dumps(event))  # Save event JSON
 
                 event = adjust_event_times(event)
+                if args.verbose:
+                    print(f"Event adj: {event}")
 
                 # start_time = event["start"].get("dateTime")
                 start_time = safe_get(event, ["start", "dateTime"])
@@ -566,6 +591,8 @@ def process_web_cli(args, model):
         f"El texto es:\n{web_content}"
         " No añadas comentarios al resultado, que"
         " se representará como un JSON."
+        " Debe ser un JSON válido, si tiene algún "
+        " problema corrígelo."
     )
     if args.verbose:
         print(f"Prompt:\n{prompt}")
@@ -575,6 +602,8 @@ def process_web_cli(args, model):
     event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
     if not event:
         return
+    if args.verbose:
+        print(f"Event:\n{event}")
 
     # Select calendar
     api_dst_type = "gcalendar"
@@ -687,9 +716,13 @@ def process_web_cli(args, model):
     event['description'] = f"URL: {url}\n\n{description}\n\n{web_content}"
     event['attendees'] = []
 
+    if args.verbose:
+        print(f"Event:\n{event}")
 
     event = adjust_event_times(event)
 
+    if args.verbose:
+        print(f"Event adjust:\n{event}")
 
     start_time = safe_get(event, ["start", "dateTime"])
 
