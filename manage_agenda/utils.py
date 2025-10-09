@@ -471,22 +471,33 @@ def process_email_cli(args, model):
                     print("No calendar selected, skipping event creation.")
                     continue
 
+                # ...existing code...
+
                 try:
-                    # calendar_result = (
-                    #    api_dst.getClient()
-                    #    .events()
-                    #    .insert(calendarId=selected_calendar, body=event)
-                    #    .execute()
-                    # )
-                    # print(f"Calendar event created: {calendar_result.get('htmlLink')}")
                     calendar_result = api_dst.publishPost(
                         post={"event": event, "idCal": selected_calendar}, api=api_dst
                     )
-                    print(f"Calendar event created") #: {calendar_result}")
-                    # print(f"Calendar event created: {calendar_result.get('htmlLink')}")
+                    print(f"Calendar event created")
                 except googleapiclient.errors.HttpError as e:
                     logging.error(f"Error creating calendar event: {e}")
 
+                # --- CORRECCIÓN DE TIMEZONE ---
+                # Si el resultado contiene el error de timezone, lo corregimos y reintentamos
+                if "Invalid time zone definition for end time.'" in calendar_result:
+                    print("Corrigiendo zona horaria inválida en 'end'...")
+                    if event.get("end"):
+                        event["end"]["timeZone"] = "Europe/Madrid"
+                    if event.get("start"):
+                        event["start"]["timeZone"] = "Europe/Madrid"
+                    try:
+                        calendar_result = api_dst.publishPost(
+                            post={"event": event, "idCal": selected_calendar}, api=api_dst
+                        )
+                        print("Calendar event re-creado tras corregir zona horaria.")
+                    except Exception as e:
+                        logging.error(f"Error tras corregir zona horaria: {e}")
+
+# ...existing code...
                 # Delete email (optional)
                 delete_confirmed = False
                 if args.interactive:
