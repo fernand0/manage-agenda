@@ -522,16 +522,16 @@ class moduleImap(Content):  # , Queue):
         return msg_data[int(msg_number)]  # messages[-10+int(msg_number)-1]
 
     def get_headers_content(self, M, msg, header_name=""):
-        result = None # Initialize result variable
-        if header_name: # If header_name is provided
+        result = None  # Initialize result variable
+        if header_name:  # If header_name is provided
             textHeader = M.getHeader(msg, header_name)
             textHeader = email.header.decode_header(str(textHeader))
             textHeader = str(email.header.make_header(textHeader))
             if textHeader != "None":
-                result = textHeader # Assign to result
+                result = textHeader  # Assign to result
             else:
-                result = "" # Assign to result
-        else: # If header_name is empty, behave as before
+                result = ""  # Assign to result
+        else:  # If header_name is empty, behave as before
             textHeaders = []
             nameHeaders = []
             for header in msgHeaders:
@@ -541,8 +541,8 @@ class moduleImap(Content):  # , Queue):
                 if textHeader != "None":
                     textHeaders.append(f"{textHeader}")
                     nameHeaders.append(f"{header}")
-            result = textHeaders, nameHeaders # Assign tuple to result
-        return result # Single return statement
+            result = textHeaders, nameHeaders  # Assign tuple to result
+        return result  # Single return statement
 
     def selectHeaderAuto(self, M, msg):
         # i = 1 # Removed unused variable
@@ -565,7 +565,7 @@ class moduleImap(Content):  # , Queue):
             # textHeader = email.header.decode_header(str(textHeader))
             # textHeader = str(email.header.make_header(textHeader))
             logging.info(f"Filter: (header) {header} (text) {textHeader}")
-            if 'Subject' not in header:
+            if "Subject" not in header:
                 pos = textHeader.find("<")
                 if pos >= 0:
                     textHeader = textHeader[pos + 1 : textHeader.find(">", pos + 1)]
@@ -1079,8 +1079,9 @@ class moduleImap(Content):  # , Queue):
         logging.info(f"folderM: {folderM}")
         folders = [self.nameFolder(fol) for fol in data]
         if folderM:
-            folders_sel = [self.nameFolder(fol) for fol in data
-                           if folderM in self.nameFolder(fol)]
+            folders_sel = [
+                self.nameFolder(fol) for fol in data if folderM in self.nameFolder(fol)
+            ]
         # Dirty trick? We add at the end (the last that will appear on the
         # terminal the selected folders, if any
         folders = folders + folders_sel
@@ -1426,13 +1427,13 @@ class moduleImap(Content):  # , Queue):
         logMsg(msgLog, 1, 0)
 
         res = "OK"
-        msgList = msgs.split(',')
+        msgList = msgs.split(",")
         chunk_size = 500
 
         for i in range(0, len(msgList), chunk_size):
-            chunk = msgList[i:i + chunk_size]
-            chunk_str = ','.join(chunk)
-            
+            chunk = msgList[i : i + chunk_size]
+            chunk_str = ",".join(chunk)
+
             try:
                 status, resultMsg = M.copy(chunk_str, folder)
                 if status != "OK":

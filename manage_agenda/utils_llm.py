@@ -19,20 +19,18 @@ def evaluate_models(prompt):
     results = []
     models = OllamaClient.list_models()
     for model_info in models:
-        model_name = model_info['model']
+        model_name = model_info["model"]
         print(f"Evaluating model: {model_name}")
         client = OllamaClient(model_name=model_name)
-        
+
         start_time = time.time()
         response = client.generate_text(prompt)
         end_time = time.time()
-        
+
         duration = end_time - start_time
-        results.append({
-            "model": model_name,
-            "response": response,
-            "duration": duration
-        })
+        results.append(
+            {"model": model_name, "response": response, "duration": duration}
+        )
 
     print("\n--- Evaluation Results ---")
     for result in results:
@@ -40,6 +38,7 @@ def evaluate_models(prompt):
         print(f"Time taken: {result['duration']:.2f} seconds")
         print(f"Response: {result['response']}")
         print("--------------------")
+
 
 # This shouln't go here?
 def load_config(config_file):
