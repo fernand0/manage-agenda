@@ -4,9 +4,19 @@ import time
 import json
 import googleapiclient
 import logging
+import pytz # Added pytz import
 from socialModules import moduleImap, moduleRules
 from socialModules.configMod import CONFIGDIR, DATADIR, checkFile, fileNamePath, logMsg, select_from_list, safe_get
 from collections import namedtuple
+
+# Define the default CET timezone using a specific IANA name.
+# 'CET' is an abbreviation, so we use a common IANA timezone that observes CET.
+# For example, 'Europe/Berlin' or 'Europe/Paris'. Let's use 'Europe/Berlin'.
+try:
+    DEFAULT_NAIVE_TIMEZONE = pytz.timezone('Europe/Berlin')
+except pytz.exceptions.UnknownTimeZoneError:
+    print("Error: 'Europe/Berlin' is not a recognized timezone by pytz. Falling back to UTC.")
+    DEFAULT_NAIVE_TIMEZONE = pytz.utc
 
 from manage_agenda.utils_base import setup_logging, write_file, format_time#, select_from_list
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
@@ -62,7 +72,7 @@ def process_event_data(event, content):
 
 
 def adjust_event_times(event):
-    """Adjusts event start/end times if one is missing."""
+    """Adjusts event start/end times, localizing naive times to CET and converting all to UTC."""
     start = event.get("start")
     end = event.get("end")
 
@@ -73,25 +83,104 @@ def adjust_event_times(event):
         end = {}
         event["end"] = end
 
-    start_time = start.get("dateTime")
-    end_time = end.get("dateTime")
+    # Process start time
+    start_time_str = start.get("dateTime")
+    if start_time_str:
+        try:
+            start_dt = datetime.datetime.fromisoformat(start_time_str)
+            
+            # Check if a timezone name is provided in the event data
+            input_tz_name = start.get("timeZone")
+            
+            if start_dt.tzinfo is None: # Naive datetime
+                if input_tz_name:
+                    try:
+                        # Validate and use the provided timezone name
+                        local_tz = pytz.timezone(input_tz_name)
+                        start_dt = local_tz.localize(start_dt)
+                    except pytz.exceptions.UnknownTimeZoneError:
+                        print(f"Validation Error: Unknown timezone "
+                              f"'{input_tz_name}' for start time. Falling back to default CET.")
+                        start_dt = DEFAULT_NAIVE_TIMEZONE.localize(start_dt)
+                else:
+                    # No timezone info and no timezone name provided, use default CET
+                    start_dt = DEFAULT_NAIVE_TIMEZONE.localize(start_dt)
+            # If it's already timezone-aware (e.g., from +HH:MM offset), no localization needed
+            
+            # Convert to UTC and update event
+            event["start"]["dateTime"] = start_dt.astimezone(pytz.utc).isoformat()
+            event["start"]["timeZone"] = "UTC" # Explicitly set timezone to UTC
+        except ValueError:
+            print(f"Validation Error: Start time '{start_time_str}' is not a valid ISO 8601 format. Skipping adjustment.")
+            # Optionally, remove the invalid dateTime or handle as needed
+            # del event["start"]["dateTime"]
+    else:
+        # If start_time_str is missing but end_time_str is present, infer start_time
+        end_time_str = end.get("dateTime")
+        if end_time_str:
+            try:
+                end_dt = datetime.datetime.fromisoformat(end_time_str)
+                # If end_dt is naive, localize it to default CET for inference
+                if end_dt.tzinfo is None:
+                    end_dt = DEFAULT_NAIVE_TIMEZONE.localize(end_dt)
+                start_dt = end_dt - timedelta(minutes=30) # Default duration
+                event["start"]["dateTime"] = start_dt.astimezone(pytz.utc).isoformat()
+                event["start"]["timeZone"] = "UTC"
+            except ValueError:
+                print(f"Validation Error: End time '{end_time_str}' is not a valid ISO 8601 format for inferring start time. Skipping adjustment.")
 
-    if start_time and not end_time:
-        start_dt = datetime.datetime.fromisoformat(start_time)
-        end_dt = start_dt + timedelta(minutes=30)
-        end["dateTime"] = end_dt.isoformat()
-    elif end_time and not start_time:
-        start["dateTime"] = end_time
 
-    if "dateTime" in start:
-        start.setdefault("timeZone", "Europe/Madrid")
-    if "dateTime" in end:
-        end.setdefault("timeZone", "Europe/Madrid")
+    # Process end time
+    end_time_str = end.get("dateTime")
+    if end_time_str:
+        try:
+            end_dt = datetime.datetime.fromisoformat(end_time_str)
+            
+            # Check if a timezone name is provided in the event data
+            input_tz_name = end.get("timeZone")
 
-    if not safe_get(event, ["start", "timeZone"]):
-        event["start"]["timeZone"] = "Europe/Madrid"
-    if not safe_get(event, ["end", "timeZone"]):
-        event["end"]["timeZone"] = "Europe/Madrid"
+            if end_dt.tzinfo is None: # Naive datetime
+                if input_tz_name:
+                    try:
+                        # Validate and use the provided timezone name
+                        local_tz = pytz.timezone(input_tz_name)
+                        end_dt = local_tz.localize(end_dt)
+                    except pytz.exceptions.UnknownTimeZoneError:
+                        print(f"Validation Error: Unknown timezone '{input_tz_name}' for end time. Falling back to default CET.")
+                        end_dt = DEFAULT_NAIVE_TIMEZONE.localize(end_dt)
+                else:
+                    # No timezone info and no timezone name provided, use default CET
+                    end_dt = DEFAULT_NAIVE_TIMEZONE.localize(end_dt)
+            # If it's already timezone-aware (e.g., from +HH:MM offset), no localization needed
+
+            # Convert to UTC and update event
+            event["end"]["dateTime"] = end_dt.astimezone(pytz.utc).isoformat()
+            event["end"]["timeZone"] = "UTC" # Explicitly set timezone to UTC
+        except ValueError:
+            print(f"Validation Error: End time '{end_time_str}' is not a valid ISO 8601 format. Skipping adjustment.")
+            # Optionally, remove the invalid dateTime or handle as needed
+            # del event["end"]["dateTime"]
+    else:
+        # If end_time_str is missing but start_time_str is present, infer end_time
+        start_time_str = event["start"].get("dateTime") # Use potentially adjusted start time
+        if start_time_str:
+            try:
+                start_dt = datetime.datetime.fromisoformat(start_time_str)
+                # start_dt should already be UTC here if processed above
+                end_dt = start_dt + timedelta(minutes=30) # Default duration
+                event["end"]["dateTime"] = end_dt.isoformat()
+                event["end"]["timeZone"] = "UTC"
+            except ValueError:
+                print(f"Validation Error: Start time '{start_time_str}' is not a valid ISO 8601 format for inferring end time. Skipping adjustment.")
+
+
+    # Ensure timeZone is set to UTC if dateTime is present and processed
+    # These lines are mostly redundant now as timeZone is set above, but kept for safety
+    if "dateTime" in event["start"] and "timeZone" not in event["start"]:
+        event["start"]["timeZone"] = "UTC"
+    if "dateTime" in event["end"] and "timeZone" not in event["end"]:
+        event["end"]["timeZone"] = "UTC"
+
     return event
 
 # def list_models_cli(args):
@@ -446,6 +535,7 @@ def process_email_cli(args, model):
                 write_file(f"{post_id}.json", json.dumps(event))  # Save event JSON
 
                 event = adjust_event_times(event)
+                write_file(f"{post_id}_times.json", json.dumps(event))  # Save event JSON
 
                 # start_time = event["start"].get("dateTime")
                 start_time = safe_get(event, ["start", "dateTime"])
@@ -461,8 +551,6 @@ def process_email_cli(args, model):
                 if not selected_calendar:
                     print("No calendar selected, skipping event creation.")
                     continue
-
-                # ...existing code...
 
                 try:
                     calendar_result = api_dst.publishPost(
@@ -488,7 +576,6 @@ def process_email_cli(args, model):
                     except Exception as e:
                         logging.error(f"Error tras corregir zona horaria: {e}")
 
-# ...existing code...
                 # Delete email (optional)
                 delete_confirmed = False
                 if args.interactive:
