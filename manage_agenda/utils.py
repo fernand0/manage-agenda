@@ -741,8 +741,8 @@ def select_email_prompt(args):
     api_src.setLabels()
     labels = api_src.getLabels()
     # names = [safe_get(label, ["name"]) for label in labels]
-    _, label_name = select_from_list(labels, identifier="name")
 
+    label_name = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
     api_src.setChannel(label_name)
     api_src.setPosts()
     posts = api_src.getPosts()
@@ -753,7 +753,7 @@ def select_email_prompt(args):
 
     titles = [api_src.getPostTitle(post) for post in posts]
     sel, post_title = select_from_list(titles)
-    
+
     selected_post = posts[sel]
 
     full_email_content = api_src.getPostBody(selected_post)
