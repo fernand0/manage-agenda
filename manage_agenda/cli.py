@@ -8,7 +8,7 @@ from .utils import (
     authorize,
     process_email_cli,
     process_web_cli,
-    select_account,
+    select_api_source,
     list_emails_folder,
     list_events_folder,
     copy_events_cli,
@@ -54,13 +54,22 @@ def llm(ctx):
 def evaluate(ctx, prompt):
     """Evaluate different LLM models"""
     if not prompt:
-        args = Args(interactive=True, delete=None, source=None, verbose=ctx.obj['VERBOSE'], destination=None, text=None)
+        args = Args(interactive=True, delete=None, source=None,
+                    verbose=ctx.obj['VERBOSE'], destination=None, text=None)
         prompt = select_email_prompt(args)
-    
+
     if prompt:
         evaluate_models(prompt)
 
 @cli.group(invoke_without_command=True)
+@click.pass_context
+def add(ctx):
+    """Add entries to the calendar (defaults to 'mail')."""
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(mail)
+
+
+@add.command()
 @click.option(
     "-i",
     "--interactive",
@@ -75,21 +84,9 @@ def evaluate(ctx, prompt):
     help="Select LLM",
 )
 @click.pass_context
-def add(ctx, interactive, source):
-    """Add entries to the calendar (defaults to 'mail')."""
-    ctx.obj['interactive'] = interactive
-    ctx.obj['source'] = source
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(mail)
-
-
-@add.command()
-@click.pass_context
-def mail(ctx):
+def mail(ctx, interactive, source):
     """Add entries to the calendar from email."""
     verbose = ctx.obj['VERBOSE']
-    interactive = ctx.obj['interactive']
-    source = ctx.obj['source']
     args = Args(
         interactive=interactive,
         delete=None,
@@ -108,12 +105,23 @@ def mail(ctx):
 
 
 @add.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default="gemini",
+    help="Select LLM",
+)
 @click.pass_context
-def web(ctx):
+def web(ctx, interactive, source):
     """Add entries to the calendar from a web page."""
     verbose = ctx.obj['VERBOSE']
-    interactive = ctx.obj['interactive']
-    source = ctx.obj['source']
     args = Args(
         interactive=interactive,
         delete=None,
@@ -185,7 +193,7 @@ def gcalendar(ctx, interactive):
     """List events from Google Calendar"""
     verbose = ctx.obj['VERBOSE']
     args = Args(interactive=interactive, delete=None, source=None, verbose=verbose, destination=None, text=None)
-    api_src = select_account(args, api_src_type="gcalendar")
+    api_src = select_api_source(args, api_src_type="gcalendar")
     list_events_folder(args, api_src)
 
 @cli.command()
@@ -201,7 +209,7 @@ def gmail(ctx, interactive):
     """List emails from Gmail"""
     verbose = ctx.obj['VERBOSE']
     args = Args(interactive=interactive, delete=None, source=None, verbose=verbose, destination=None, text=None)
-    api_src = select_account(args, api_src_type="gmail")
+    api_src = select_api_source(args, api_src_type="gmail")
     list_emails_folder(args, api_src)
 
 
