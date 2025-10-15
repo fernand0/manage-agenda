@@ -62,6 +62,14 @@ def evaluate(ctx, prompt):
         evaluate_models(prompt)
 
 @cli.group(invoke_without_command=True)
+@click.pass_context
+def add(ctx):
+    """Add entries to the calendar (defaults to 'mail')."""
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(mail)
+
+
+@add.command()
 @click.option(
     "-i",
     "--interactive",
@@ -76,21 +84,9 @@ def evaluate(ctx, prompt):
     help="Select LLM",
 )
 @click.pass_context
-def add(ctx, interactive, source):
-    """Add entries to the calendar (defaults to 'mail')."""
-    ctx.obj['interactive'] = interactive
-    ctx.obj['source'] = source
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(mail)
-
-
-@add.command()
-@click.pass_context
-def mail(ctx):
+def mail(ctx, interactive, source):
     """Add entries to the calendar from email."""
     verbose = ctx.obj['VERBOSE']
-    interactive = ctx.obj['interactive']
-    source = ctx.obj['source']
     args = Args(
         interactive=interactive,
         delete=None,
@@ -109,12 +105,23 @@ def mail(ctx):
 
 
 @add.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default="gemini",
+    help="Select LLM",
+)
 @click.pass_context
-def web(ctx):
+def web(ctx, interactive, source):
     """Add entries to the calendar from a web page."""
     verbose = ctx.obj['VERBOSE']
-    interactive = ctx.obj['interactive']
-    source = ctx.obj['source']
     args = Args(
         interactive=interactive,
         delete=None,
