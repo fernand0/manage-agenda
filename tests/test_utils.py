@@ -20,7 +20,7 @@ from manage_agenda.utils import (
     select_llm,
     Args,
     authorize,
-    select_account,
+    select_api_source,
     list_events_folder,
     list_emails_folder,
     process_email_cli,
@@ -233,22 +233,22 @@ more text"""
         mock_rules.selectRuleInteractive.assert_called_once_with("gmail")
 
     @patch("manage_agenda.utils.moduleRules.moduleRules")
-    def test_select_account_interactive(self, mock_module_rules):
+    def test_select_api_source_interactive(self, mock_module_rules):
         args = self.Args(interactive=True, delete=False, source="any", verbose=False, destination="", text="")
         mock_rules = MagicMock()
         mock_module_rules.return_value = mock_rules
-        select_account(args)
+        select_api_source(args, "gmail")
         mock_rules.checkRules.assert_called_once()
         mock_rules.selectRuleInteractive.assert_called_once_with("gmail")
 
     @patch("manage_agenda.utils.moduleRules.moduleRules")
-    def test_select_account_non_interactive(self, mock_module_rules):
+    def test_select_api_source_non_interactive(self, mock_module_rules):
         args = self.Args(interactive=False, delete=False, source="any", verbose=False, destination="", text="")
         mock_rules = MagicMock()
         mock_rules.selectRule.return_value = ["test_rule"]
         mock_rules.more.get.return_value = {"key": "value"}
         mock_module_rules.return_value = mock_rules
-        select_account(args)
+        select_api_source(args, "gmail")
         mock_rules.checkRules.assert_called_once()
         mock_rules.selectRule.assert_called_once_with("gmail", "")
         mock_rules.readConfigSrc.assert_called_once_with("", "test_rule", {"key": "value"})

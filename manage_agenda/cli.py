@@ -8,7 +8,7 @@ from .utils import (
     authorize,
     process_email_cli,
     process_web_cli,
-    select_account,
+    select_api_source,
     list_emails_folder,
     list_events_folder,
     copy_events_cli,
@@ -54,9 +54,10 @@ def llm(ctx):
 def evaluate(ctx, prompt):
     """Evaluate different LLM models"""
     if not prompt:
-        args = Args(interactive=True, delete=None, source=None, verbose=ctx.obj['VERBOSE'], destination=None, text=None)
+        args = Args(interactive=True, delete=None, source=None,
+                    verbose=ctx.obj['VERBOSE'], destination=None, text=None)
         prompt = select_email_prompt(args)
-    
+
     if prompt:
         evaluate_models(prompt)
 
@@ -185,7 +186,7 @@ def gcalendar(ctx, interactive):
     """List events from Google Calendar"""
     verbose = ctx.obj['VERBOSE']
     args = Args(interactive=interactive, delete=None, source=None, verbose=verbose, destination=None, text=None)
-    api_src = select_account(args, api_src_type="gcalendar")
+    api_src = select_api_source(args, api_src_type="gcalendar")
     list_events_folder(args, api_src)
 
 @cli.command()
@@ -201,7 +202,7 @@ def gmail(ctx, interactive):
     """List emails from Gmail"""
     verbose = ctx.obj['VERBOSE']
     args = Args(interactive=interactive, delete=None, source=None, verbose=verbose, destination=None, text=None)
-    api_src = select_account(args, api_src_type="gmail")
+    api_src = select_api_source(args, api_src_type="gmail")
     list_emails_folder(args, api_src)
 
 

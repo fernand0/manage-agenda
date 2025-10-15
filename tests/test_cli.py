@@ -19,20 +19,20 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_authorize.assert_called_once()
 
-    @patch("manage_agenda.cli.select_account")
+    @patch("manage_agenda.cli.select_api_source")
     @patch("manage_agenda.cli.list_events_folder")
-    def test_gcalendar_command(self, mock_list_events_folder, mock_select_account):
+    def test_gcalendar_command(self, mock_list_events_folder, mock_select_api_source):
         result = self.runner.invoke(self.cli.cli, ["gcalendar"])
         self.assertEqual(result.exit_code, 0)
-        mock_select_account.assert_called_once()
+        mock_select_api_source.assert_called_once()
         mock_list_events_folder.assert_called_once()
 
-    @patch("manage_agenda.cli.select_account")
+    @patch("manage_agenda.cli.select_api_source")
     @patch("manage_agenda.cli.list_emails_folder")
-    def test_gmail_command(self, mock_list_emails_folder, mock_select_account):
+    def test_gmail_command(self, mock_list_emails_folder, mock_select_api_source):
         result = self.runner.invoke(self.cli.cli, ["gmail"])
         self.assertEqual(result.exit_code, 0)
-        mock_select_account.assert_called_once()
+        mock_select_api_source.assert_called_once()
         mock_list_emails_folder.assert_called_once()
 
     def setUp(self):

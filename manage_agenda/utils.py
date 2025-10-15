@@ -169,16 +169,14 @@ def authorize(args):
         api_src = rules.readConfigSrc("", source_name, source_details)
     return api_src
 
-def select_account(args, api_src_type="gmail"):
-
+def select_api_source(args, api_src_type):
+    """Selects an API source, interactive or not."""
     rules = moduleRules.moduleRules()
     rules.checkRules()
 
-    # Select API source (Gmail)
     if args.interactive:
         api_src = rules.selectRuleInteractive(api_src_type)
     else:
-        # The first configured gmail email in .rssBlogs
         source_name = rules.selectRule(api_src_type, "")[0]
         source_details = rules.more.get(source_name, {})
         logging.info(f"Source: {source_name} - {source_details}")
@@ -227,19 +225,8 @@ def list_emails_folder(args, api_src, folder="INBOX"):
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""
 
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
-
-    # Select API source (Gmail)
     api_src_type = ["gmail", "imap"]
-    if args.interactive:
-        api_src = rules.selectRuleInteractive(api_src_type)
-    else:
-        # The first configured gmail email in .rssBlogs
-        rules_all = rules.selectRule(api_src_type, "")
-        source_name = rules_all[0]
-        source_details = rules.more.get(source_name, {})
-        api_src = rules.readConfigSrc("", source_name, source_details)
+    api_src = select_api_source(args, api_src_type)
 
     # Process emails
     folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
@@ -340,20 +327,8 @@ def process_email_cli(args, model):
                     continue  # Skip to the next email
                 write_file(f"{post_id}.vcal", vcal_json)  # Save vCal data
 
-                # Select calendar
                 api_dst_type = "gcalendar"
-                if args.interactive:
-                    api_dst = rules.selectRuleInteractive(api_dst_type)
-                else:
-                    # The first configured google calendar in .rssBlogs
-                    rules_all = rules.selectRule(api_dst_type, "")
-                    if args.verbose:
-                        print(f"Rules all: {rules_all}")
-                    api_dst_name = rules_all[0]
-                    # api_dst_name = rules.selectRule(api_dst_type, "")[0]
-                    api_dst_details = rules.more.get(api_dst_name, {})
-                    api_dst = rules.readConfigSrc("", api_dst_name,
-                                                  api_dst_details)
+                api_dst = select_api_source(args, api_dst_type)
 
                 if args.verbose:
                     print(f"Event: {event}")
@@ -589,18 +564,8 @@ def process_web_cli(args, model):
     if not event:
         return
 
-    # Select calendar
     api_dst_type = "gcalendar"
-    if args.interactive:
-        api_dst = rules.selectRuleInteractive(api_dst_type)
-    else:
-        rules_all = rules.selectRule(api_dst_type, "")
-        if args.verbose:
-            print(f"Rules all: {rules_all}")
-        api_dst_name = rules_all[0]
-
-        api_dst_details = rules.more.get(api_dst_name, {})
-        api_dst = rules.readConfigSrc("", api_dst_name, api_dst_details)
+    api_dst = select_api_source(args, api_dst_type)
 
     # --- New logic starts here ---
     retries = 0
@@ -728,11 +693,8 @@ def process_web_cli(args, model):
 
 def select_email_prompt(args):
     """Interactively selects an email and returns its content."""
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
-
     api_src_type = ["gmail", "imap"]
-    api_src = rules.selectRuleInteractive(api_src_type)
+    api_src = select_api_source(args, api_src_type)
 
     if not api_src.getClient():
         print("Failed to connect to the email account.")
@@ -799,9 +761,7 @@ def select_llm(args):
 
 def copy_events_cli(args):
     """Copies events from a source calendar to a destination calendar."""
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
-    api_cal = rules.selectRuleInteractive("gcalendar")
+    api_cal = select_api_source(args, "gcalendar")
 
     if args.source:
         my_calendar = args.source
@@ -881,9 +841,7 @@ def copy_events_cli(args):
 
 def delete_events_cli(args):
     """Deletes events from a calendar."""
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
-    api_cal = rules.selectRuleInteractive("gcalendar")
+    api_cal = select_api_source(args, "gcalendar")
 
     if args.source:
         my_calendar = args.source
@@ -950,9 +908,7 @@ def delete_events_cli(args):
 
 def move_events_cli(args):
     """Moves events from a source calendar to a destination calendar."""
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
-    api_cal = rules.selectRuleInteractive("gcalendar")
+    api_cal = select_api_source(args, "gcalendar")
 
     if args.source:
         my_calendar = args.source
