@@ -5,6 +5,12 @@ import json
 import googleapiclient
 import logging
 import pytz  # Added pytz import
+
+import urllib.request
+import re
+
+from bs4 import BeautifulSoup
+
 from socialModules import moduleImap, moduleRules
 from socialModules.configMod import (
     CONFIGDIR,
@@ -684,13 +690,6 @@ def process_email_cli(args, model):
         print(f"There are no posts tagged with label {folder}")
         return True  # No labels, but not an error
     return False  # Default return if something went wrong before the main logic
-
-
-import urllib.request
-import re
-
-from bs4 import BeautifulSoup
-
 
 def process_web_cli(args, model):
     """Processes web pages and creates calendar events."""
