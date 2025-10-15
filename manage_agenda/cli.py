@@ -23,6 +23,7 @@ from .utils_base import (
 from .utils_llm import (
     evaluate_models,
     )
+from .utils import select_email_prompt, Args
 
 @click.group()
 @click.version_option()
@@ -48,11 +49,16 @@ def llm(ctx):
     pass
 
 @llm.command()
-@click.argument('prompt')
+@click.argument('prompt', required=False)
 @click.pass_context
 def evaluate(ctx, prompt):
     """Evaluate different LLM models"""
-    evaluate_models(prompt)
+    if not prompt:
+        args = Args(interactive=True, delete=None, source=None, verbose=ctx.obj['VERBOSE'], destination=None, text=None)
+        prompt = select_email_prompt(args)
+    
+    if prompt:
+        evaluate_models(prompt)
 
 @cli.group(invoke_without_command=True)
 @click.option(

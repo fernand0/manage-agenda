@@ -726,6 +726,42 @@ def process_web_cli(args, model):
     except googleapiclient.errors.HttpError as e:
         logging.error(f"Error creating calendar event: {e}")
 
+def select_email_prompt(args):
+    """Interactively selects an email and returns its content."""
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+
+    api_src_type = ["gmail", "imap"]
+    api_src = rules.selectRuleInteractive(api_src_type)
+
+    if not api_src.getClient():
+        print("Failed to connect to the email account.")
+        return None
+
+    api_src.setLabels()
+    labels = api_src.getLabels()
+    # names = [safe_get(label, ["name"]) for label in labels]
+    _, label_name = select_from_list(labels, identifier="name")
+
+    api_src.setChannel(label_name)
+    api_src.setPosts()
+    posts = api_src.getPosts()
+
+    if not posts:
+        print(f"No emails found in folder '{label_name}'.")
+        return None
+
+    titles = [api_src.getPostTitle(post) for post in posts]
+    sel, post_title = select_from_list(titles)
+    
+    selected_post = posts[sel]
+
+    full_email_content = api_src.getPostBody(selected_post)
+    if hasattr(full_email_content, "decode"):
+        full_email_content = full_email_content.decode("utf-8")
+
+    return full_email_content
+
 def select_llm(args):
     """Selects and initializes the appropriate LLM client."""
     if args.interactive:
