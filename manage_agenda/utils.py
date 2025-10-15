@@ -222,6 +222,22 @@ def list_emails_folder(args, api_src, folder="INBOX"):
         print("Some problem with the account")
 
 
+def _create_llm_prompt(event, content_text, reference_date_time):
+    """Constructs the LLM prompt for event extraction."""
+    return (
+        f"Rellenar los datos del diccionario {event}.\n"
+        "Buscamos datos relativos a una actividad. "
+        "El inicio y el fin se pondrán en "
+        " los campos event['start']['dateTime']  y "
+        " event['end']['dateTime'] respectivamente,"
+        f" y serán fechas iguales o "
+        f"posteriores a {reference_date_time}. "
+        f"El texto es:\n{content_text}"
+        " No añadas comentarios al resultado, que"
+        " se representará como un JSON."
+    )
+
+
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""
 
@@ -302,21 +318,7 @@ def process_email_cli(args, model):
 
                 # Generate event data
                 event = create_event_dict()
-                # date = api_src.getPostDate(post)
-                prompt = (
-                    f"Rellenar los datos del diccionario {event}."
-                    "\nBuscamos datos relativos a una actividad. "
-                    "El inicio y el fin se pondrán en "
-                    " los campos event['start']['dateTime']  y "
-                    " event['end']['dateTime'] respectivamente,"
-                    f" y serán fechas iguales o "
-                    f"posteriores a {post_date_time}. "
-                    # "Si no se indica otra cosa la fecha y hora "
-                    # "es local en España "
-                    f"El texto es:\n{email_text}"
-                    " No añadas comentarios al resultado, que"
-                    " se representará como un JSON."
-                )
+                prompt = _create_llm_prompt(event, email_text, post_date_time)
                 if args.verbose:
                     print(f"Prompt:\n{prompt}")
                     print(f"\nEnd Prompt:")
@@ -543,18 +545,7 @@ def process_web_cli(args, model):
     # Generate event data
     event = create_event_dict()
 
-    prompt = (
-        f"Rellenar los datos del diccionario {event}.\n"
-        "Buscamos datos relativos a una actividad. "
-        "El inicio y el fin se pondrán en "
-        " los campos event['start']['dateTime']  y "
-        " event['end']['dateTime'] respectivamente,"
-        f" y serán fechas iguales o "
-        f"posteriores a {post_date_time}. "
-        f"El texto es:\n{web_content}"
-        " No añadas comentarios al resultado, que"
-        " se representará como un JSON."
-    )
+    prompt = _create_llm_prompt(event, web_content, post_date_time)
     if args.verbose:
         print(f"Prompt:\n{prompt}")
         print(f"\nEnd Prompt:")
