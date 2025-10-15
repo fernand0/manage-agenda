@@ -338,13 +338,13 @@ def _create_llm_prompt(event, content_text, reference_date_time):
         f" y serán fechas iguales o "
         f"posteriores a {reference_date_time}. "
         "La fecha del mensaje que se indica con 'Date:' "
-        "es una referencia y el horario, salvo que se "
-        "indique otra cosa la timezone es Central European Time "
-        f"El texto es:\n{content_text}"
+        "es una referencia. Si no se indica otra cosa "
+        "la timezone es Central European Time (CET)"
         " No añadas comentarios al resultado, que"
         " se representará como un JSON."
         "El resultado incluye un json y sus campos y "
         "contenidos deben ir entre comillas dobles. "
+        f"El texto es:\n{content_text}"
     )
 
 
