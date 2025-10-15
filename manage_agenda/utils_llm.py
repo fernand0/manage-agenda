@@ -19,7 +19,7 @@ def evaluate_models(prompt):
     results = []
     models = OllamaClient.list_models()
     for model_info in models:
-        model_name = model_info['name']
+        model_name = model_info['model']
         print(f"Evaluating model: {model_name}")
         client = OllamaClient(model_name=model_name)
         
