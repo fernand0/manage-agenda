@@ -62,11 +62,18 @@ def evaluate(ctx, prompt):
         evaluate_models(prompt)
 
 @cli.group(invoke_without_command=True)
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
 @click.pass_context
-def add(ctx):
+def add(ctx, interactive):
     """Add entries to the calendar (defaults to 'mail')."""
     if ctx.invoked_subcommand is None:
-        ctx.invoke(mail)
+        ctx.invoke(mail, interactive=interactive)
 
 
 @add.command()
