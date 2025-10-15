@@ -119,6 +119,8 @@ def extract_json(text):
         start_index = text.find("/think")
         vcal_json = text[
             start_index + 9 :].strip()
+    else:
+        vcal_json = text
 
     return vcal_json
 
@@ -138,13 +140,17 @@ def get_event_from_llm(model, prompt, verbose=False):
 
     if verbose:
         print(f"Reply:\n{llm_response}")
-
-    vcal_json = extract_json(llm_response)
-    if verbose:
-        print(f"Json:\n{vcal_json}")
+    llm_response = llm_response.replace('\\','').replace('\n',' ')
 
     try:
-        event = json.loads(vcal_json.replace('\\','').replace('\n',' '))
+        import ast
+        vcal_json = ast.literal_eval(extract_json(llm_response))
+        if verbose:
+            print(f"Json:\n{vcal_json}")
+            print(f"Json:\n{type(vcal_json)}")
+        event = vcal_json
+
+        # event = json.loads(vcal_json)
         return event, vcal_json
     except json.JSONDecodeError as e:
         logging.error(f"Invalid JSON in vCal data: {vcal_json}")
@@ -232,9 +238,14 @@ def _create_llm_prompt(event, content_text, reference_date_time):
         " event['end']['dateTime'] respectivamente,"
         f" y serán fechas iguales o "
         f"posteriores a {reference_date_time}. "
+        "La fecha del mensaje que se indica con 'Date:' "
+        "es una referencia y el horario, salvo que se "
+        "indique otra cosa la timezone es Central European Time "
         f"El texto es:\n{content_text}"
         " No añadas comentarios al resultado, que"
         " se representará como un JSON."
+        "El resultado incluye un json y sus campos y "
+        "contenidos deben ir entre comillas dobles. "
     )
 
 
@@ -521,12 +532,26 @@ def process_web_cli(args, model):
 
     post_date_time = datetime.datetime.now()
 
-    try:
+    if True:
         with urllib.request.urlopen(url) as response:
-            web_content_html = response.read().decode('utf-8')
+            web_content_html = response.read()
+
+        if args.verbose:
+            print(f"Web content html: {web_content_html}")
+            print(web_content_html[416])
+            print(web_content_html[410:419])
+
+        if isinstance(web_content_html, bytes):
+            web_content_html = web_content_html.decode('utf-8', errors='ignore')
+
+        if args.verbose:
+            print(f"Web content html: {web_content_html}")
 
         soup = BeautifulSoup(web_content_html, 'html.parser')
+        print(f"Soup: {soup}")
         web_content = soup.get_text()
+
+        print(f"Web content: {web_content}")
 
         web_content = re.sub(r'\n{3,}', '\n\n', web_content)
 
@@ -537,7 +562,7 @@ def process_web_cli(args, model):
             print(line)
         print("-------------------------------------")
 
-    except Exception as e:
+    else: #except Exception as e:
         print(f"Error fetching or parsing URL: {e}")
         return
 
