@@ -88,7 +88,9 @@ class TestProcessEmailCli(unittest.TestCase):
         process_email_cli(args, mock_model)
 
         mock_model.generate_text.assert_called_once()
-        self.assertEqual(mock_write_file.call_count, 3)  # email, vcal, json
+        self.assertEqual(
+            mock_write_file.call_count, 4
+        )  # email, vcal, json, _times.json
         mock_select_calendar.assert_called_once()
         mock_api_dst.publishPost.assert_called_once()
         mock_api_src.modifyLabels.assert_called_once()
@@ -198,22 +200,22 @@ more text"""
             "end": {"dateTime": "2024-01-01T11:00:00"},
         }
         result = adjust_event_times(event)
-        self.assertEqual(result["start"]["dateTime"], "2024-01-01T10:00:00")
-        self.assertEqual(result["end"]["dateTime"], "2024-01-01T11:00:00")
-        self.assertEqual(result["start"]["timeZone"], "Europe/Madrid")
-        self.assertEqual(result["end"]["timeZone"], "Europe/Madrid")
+        self.assertEqual(result["start"]["dateTime"], "2024-01-01T09:00:00+00:00")
+        self.assertEqual(result["end"]["dateTime"], "2024-01-01T10:00:00+00:00")
+        self.assertEqual(result["start"]["timeZone"], "UTC")
+        self.assertEqual(result["end"]["timeZone"], "UTC")
 
     def test_adjust_event_times_start_missing(self):
         event = {"end": {"dateTime": "2024-01-01T11:00:00"}}
         result = adjust_event_times(event)
-        self.assertEqual(result["start"]["dateTime"], "2024-01-01T11:00:00")
-        self.assertEqual(result["start"]["timeZone"], "Europe/Madrid")
+        self.assertEqual(result["start"]["dateTime"], "2024-01-01T09:30:00+00:00")
+        self.assertEqual(result["start"]["timeZone"], "UTC")
 
     def test_adjust_event_times_end_missing(self):
         event = {"start": {"dateTime": "2024-01-01T10:00:00"}}
         result = adjust_event_times(event)
-        self.assertEqual(result["end"]["dateTime"], "2024-01-01T10:00:00")
-        self.assertEqual(result["end"]["timeZone"], "Europe/Madrid")
+        self.assertEqual(result["end"]["dateTime"], "2024-01-01T09:30:00+00:00")
+        self.assertEqual(result["end"]["timeZone"], "UTC")
 
     def test_adjust_event_times_timezones(self):
         event = {

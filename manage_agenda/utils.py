@@ -83,7 +83,7 @@ def process_event_data(event, content):
         event (dict): The event dictionary.
         content (str): The content of the email.
     """
-    event["description"] = f"{safe_get(event, ["description"])}\n\nMessage:\n{content}"
+    event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
     event["attendees"] = []  # Clear attendees
     return event
 
@@ -348,6 +348,169 @@ def _create_llm_prompt(event, content_text, reference_date_time):
     )
 
 
+def _process_event_with_llm_and_calendar(
+    args,
+    model,
+    event_dict,
+    content_text,
+    reference_date_time,
+    post_identifier,
+    subject_for_print,
+):
+    """
+    Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
+    """
+    event = event_dict  # Use the passed-in event_dict
+    prompt = _create_llm_prompt(event, content_text, reference_date_time)
+    if args.verbose:
+        print(f"Prompt:\n{prompt}")
+        print(f"\nEnd Prompt:")
+
+    # Get AI reply
+    event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
+    if not event:
+        return None, None  # Indicate failure
+
+    write_file(f"{post_identifier}.vcal", vcal_json)  # Save vCal data
+
+    api_dst_type = "gcalendar"
+    api_dst = select_api_source(args, api_dst_type)
+
+    # --- LLM Response Validation/Retry Loop ---
+    retries = 0
+    max_retries = 3  # Limit AI retries
+    data_complete = False
+
+    while not data_complete and retries <= max_retries:
+        summary = event.get("summary")
+        start_datetime = event.get("start", {}).get("dateTime")
+
+        if summary and start_datetime:
+            data_complete = True
+            break
+
+        if args.interactive:
+            print("Missing event information:")
+            if not summary:
+                print("- Summary")
+            if not start_datetime:
+                print("- Start Date/Time")
+
+            choice = input(
+                "Options: (m)anual input, (a)nother AI, (s)kip item: "
+            ).lower()  # Generalized message
+
+            if choice == "m":
+                if not summary:
+                    new_summary = input("Enter Summary: ")
+                    if new_summary:
+                        event["summary"] = new_summary
+                if not start_datetime:
+                    new_start_datetime_str = input(
+                        "Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): "
+                    )
+                    if new_start_datetime_str:
+                        try:
+                            new_start_datetime = datetime.datetime.strptime(
+                                new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
+                            )
+                            event.setdefault("start", {})["dateTime"] = (
+                                new_start_datetime.isoformat()
+                            )
+                            # Removed event['start'].setdefault('timeZone', 'Europe/Madrid') as adjust_event_times handles it
+                        except ValueError:
+                            print(
+                                "Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS."
+                            )
+                            continue
+                data_complete = True
+            elif choice == "a":
+                retries += 1
+                if retries > max_retries:
+                    print(
+                        "Max AI retries reached. Skipping item."
+                    )  # Generalized message
+                    break
+
+                print("Selecting another AI model...")
+                original_model = model
+                original_args_source = args.source
+
+                new_args = Args(
+                    interactive=True,
+                    delete=args.delete,
+                    source=None,
+                    verbose=args.verbose,
+                    destination=args.destination,
+                    text=args.text,
+                )
+                new_model = select_llm(new_args)
+
+                if new_model:
+                    model = new_model
+                    print(f"Trying with new AI model: {model.__class__.__name__}")
+                    new_event, new_vcal_json = get_event_from_llm(
+                        model, prompt, args.verbose
+                    )
+                    if new_event:
+                        event = new_event
+                        vcal_json = new_vcal_json
+                    else:
+                        print("New AI model failed to generate a response.")
+                else:
+                    print(
+                        "No new AI model selected or available. Skipping item."
+                    )  # Generalized message
+                    break
+            elif choice == "s":
+                break
+            else:
+                print("Invalid choice. Please try again.")
+                retries += 1
+                continue
+        else:  # Non-interactive mode
+            if not summary or not start_datetime:
+                logging.warning(
+                    f"Missing summary or start_datetime for {post_identifier}. Skipping."
+                )
+                break
+            else:
+                data_complete = True
+
+    if not data_complete:
+        return None, None  # Indicate failure
+
+    # --- Event Adjustment ---
+    event = adjust_event_times(event)
+    write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
+    write_file(
+        f"{post_identifier}_times.json", json.dumps(event)
+    )  # Save event JSON (redundant, but existing)
+
+    start_time = safe_get(event, ["start", "dateTime"])
+    end_time = safe_get(event, ["end", "dateTime"])
+    print(f"====================================")
+    print(f"Subject: {subject_for_print}")  # Use dynamic subject
+    print(f"Start: {start_time}")
+    print(f"End: {end_time}")
+    print(f"====================================")
+
+    selected_calendar = select_calendar(api_dst)
+    if not selected_calendar:
+        print("No calendar selected, skipping event creation.")
+        return None, None
+
+    try:
+        calendar_result = api_dst.publishPost(
+            post={"event": event, "idCal": selected_calendar}, api=api_dst
+        )
+        print(f"Calendar event created")
+        return event, calendar_result  # Return event and result for further processing
+    except googleapiclient.errors.HttpError as e:
+        logging.error(f"Error creating calendar event: {e}")
+        return None, None
+
+
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""
 
@@ -367,6 +530,7 @@ def process_email_cli(args, model):
         api_src.setPosts()
 
         if api_src.getPosts():
+            processed_any_event = False
             for i, post in enumerate(api_src.getPosts()):
                 post_id = api_src.getPostId(post)
                 post_date = api_src.getPostDate(post)
@@ -410,16 +574,6 @@ def process_email_cli(args, model):
                             print(f"Too old ({time_difference.days} days), skipping.")
                         continue
 
-                # Get full email body
-                # if "gmail" in api_src.service.lower():
-                # email_result = (
-                #     api_src.getClient()
-                #     .users()
-                #     .messages()
-                #     .get(userId="me", id=post_id)
-                #     .execute()
-                # )
-                # email_result = api_src.getMessage(post_id)
                 email_result = post
                 if args.verbose:
                     print(f"email: {email_result}")
@@ -427,188 +581,59 @@ def process_email_cli(args, model):
 
                 if hasattr(full_email_content, "decode"):
                     full_email_content = full_email_content.decode("utf-8")
-                # else:
-                #     full_email_content = post_content
 
                 email_text = (
                     f"{post_title}\nDate:{post_date_time}\n{full_email_content}"
                 )
                 write_file(f"{post_id}.txt", email_text)  # Save email text
 
-                # Generate event data
-                event = create_event_dict()
-                prompt = _create_llm_prompt(event, email_text, post_date_time)
-                if args.verbose:
-                    print(f"Prompt:\n{prompt}")
-                    print(f"\nEnd Prompt:")
+                # Create initial event dict for helper
+                initial_event = create_event_dict()
+                # Call the common helper function
+                processed_event, calendar_result = _process_event_with_llm_and_calendar(
+                    args,
+                    model,
+                    initial_event,
+                    email_text,
+                    post_date_time,
+                    post_id,
+                    post_title,
+                )
 
-                # Get AI reply
-                event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
-                if not event:
-                    continue  # Skip to the next email
-                write_file(f"{post_id}.vcal", vcal_json)  # Save vCal data
-
-                api_dst_type = "gcalendar"
-                api_dst = select_api_source(args, api_dst_type)
-
-                if args.verbose:
-                    print(f"Event: {event}")
-                # --- New logic starts here ---
-                retries = 0
-                max_retries = 3  # Limit AI retries
-                data_complete = False
-
-                while not data_complete and retries <= max_retries:
-                    summary = event.get("summary")
-                    start_datetime = event.get("start", {}).get("dateTime")
-
-                    if summary and start_datetime:
-                        data_complete = True
-                        break
-
-                    if args.interactive:
-                        print("Missing event information:")
-                        if not summary:
-                            print("- Summary")
-                        if not start_datetime:
-                            print("- Start Date/Time")
-
-                        choice = input(
-                            "Options: (m)anual input, (a)nother AI, (s)kip email: "
-                        ).lower()
-
-                        if choice == "m":
-                            if not summary:
-                                new_summary = input("Enter Summary: ")
-                                if new_summary:
-                                    event["summary"] = new_summary
-                            if not start_datetime:
-                                new_start_datetime_str = input(
-                                    "Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): "
-                                )
-                                if new_start_datetime_str:
-                                    try:
-                                        # Assuming YYYY-MM-DD HH:MM:SS format for simplicity
-                                        new_start_datetime = datetime.datetime.strptime(
-                                            new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
-                                        )
-                                        event.setdefault("start", {})["dateTime"] = (
-                                            new_start_datetime.isoformat()
-                                        )
-                                        event["start"].setdefault(
-                                            "timeZone", "Europe/Madrid"
-                                        )  # Set default timezone
-                                    except ValueError:
-                                        print(
-                                            "Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS."
-                                        )
-                                        # Do not set data_complete to True, so loop continues
-                                        continue  # Continue the while loop
-                            data_complete = True  # Assume data is complete after manual input attempt
-                        elif choice == "a":
-                            retries += 1
-                            if retries > max_retries:
-                                print("Max AI retries reached. Skipping email.")
-                                break  # Exit the while loop to skip this email
-
-                            print("Selecting another AI model...")
-                            # Temporarily store current model and args to restore later if needed
-                            original_model = model
-                            original_args_source = args.source
-
-                            # Create new args for select_llm to allow user to choose
-                            # Ensure all args are passed to select_llm
-                            new_args = Args(
-                                interactive=True,  # Force interactive selection for new AI
-                                delete=args.delete,
-                                source=None,  # Let user choose
-                                verbose=args.verbose,
-                                destination=args.destination,
-                                text=args.text,
-                            )
-                            new_model = select_llm(new_args)
-
-                            if new_model:
-                                model = new_model  # Use the newly selected model
-                                print(
-                                    f"Trying with new AI model: {model.__class__.__name__}"
-                                )
-                                new_event, new_vcal_json = get_event_from_llm(
-                                    model, prompt, args.verbose
-                                )
-                                if new_event:
-                                    event = new_event
-                                    vcal_json = new_vcal_json
-                                    # Data completeness will be checked at the start of the next loop iteration
-                                else:
-                                    print("New AI model failed to generate a response.")
-                            else:
-                                print(
-                                    "No new AI model selected or available. Skipping email."
-                                )
-                                break  # Exit the while loop to skip this email
-                        elif choice == "s":
-                            # Skip email logic will go here
-                            break  # Exit the while loop to skip this email
-                        else:
-                            print("Invalid choice. Please try again.")
-                            retries += 1  # Count as a retry if invalid choice
-                            continue  # Continue the while loop
-                    else:  # Non-interactive mode
-                        if not summary or not start_datetime:
-                            logging.warning(
-                                f"Missing summary or start_datetime for email {post_id}. Skipping."
-                            )
-                            break  # Exit the while loop to skip this email
-                        else:
-                            data_complete = True  # Should not happen if we are here
-
-                if not data_complete:
-                    continue  # Skip to the next email if data is still not complete after loop
-                # --- New logic ends here ---
-
-                event = process_event_data(event, full_email_content)
-                write_file(f"{post_id}.json", json.dumps(event))  # Save event JSON
-
-                event = adjust_event_times(event)
-                write_file(
-                    f"{post_id}_times.json", json.dumps(event)
-                )  # Save event JSON
-
-                # start_time = event["start"].get("dateTime")
-                start_time = safe_get(event, ["start", "dateTime"])
-                # end_time = event["end"].get("dateTime")
-                end_time = safe_get(event, ["end", "dateTime"])
-                print(f"====================================")
-                print(f"Subject: {post_title}")
-                print(f"Start: {start_time}")
-                print(f"End: {end_time}")
-                print(f"====================================")
-
-                selected_calendar = select_calendar(api_dst)
-                if not selected_calendar:
-                    print("No calendar selected, skipping event creation.")
-                    continue
-
-                try:
-                    calendar_result = api_dst.publishPost(
-                        post={"event": event, "idCal": selected_calendar}, api=api_dst
+                if processed_event is None:
+                    continue  # Skip to the next email if helper failed
+                else:
+                    processed_any_event = (
+                        True  # Mark that at least one event was processed
                     )
-                    print(f"Calendar event created")
-                except googleapiclient.errors.HttpError as e:
-                    logging.error(f"Error creating calendar event: {e}")
 
-                # --- CORRECCIÓN DE TIMEZONE ---
-                # Si el resultado contiene el error de timezone, lo corregimos y reintentamos
-                if "Invalid time zone definition for end time.'" in calendar_result:
+                # --- CORRECCIÓN DE TIMEZONE --- (Email specific, uses calendar_result from helper)
+                # calendar_result can be None if _process_event_with_llm_and_calendar failed before publishing
+                if (
+                    calendar_result
+                    and "Invalid time zone definition for end time.'"
+                    in str(calendar_result)
+                ):  # Ensure calendar_result is string for check
                     print("Corrigiendo zona horaria inválida en 'end'...")
-                    if event.get("end"):
-                        event["end"]["timeZone"] = "Europe/Madrid"
-                    if event.get("start"):
-                        event["start"]["timeZone"] = "Europe/Madrid"
+                    # Re-assign event for email-specific correction
+                    event_for_correction = processed_event
+                    if event_for_correction.get("end"):
+                        event_for_correction["end"]["timeZone"] = "Europe/Madrid"
+                    if event_for_correction.get("start"):
+                        event_for_correction["start"]["timeZone"] = "Europe/Madrid"
                     try:
-                        calendar_result = api_dst.publishPost(
-                            post={"event": event, "idCal": selected_calendar},
+                        # Re-select api_dst and calendar as they are created inside the helper
+                        api_dst = select_api_source(
+                            args, "gcalendar"
+                        )  # Need to re-select api_dst
+                        selected_calendar = select_calendar(
+                            api_dst
+                        )  # Need to re-select calendar
+                        _ = api_dst.publishPost(  # _ is used as this is a re-publish, calendar_result not updated here
+                            post={
+                                "event": event_for_correction,
+                                "idCal": selected_calendar,
+                            },
                             api=api_dst,
                         )
                         print("Calendar event re-creado tras corregir zona horaria.")
@@ -633,7 +658,7 @@ def process_email_cli(args, model):
                         res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
                         logging.info(f"Label removed from email {post_id}.")
                     else:
-                        flag = "\Deleted"
+                        flag = "\\Deleted"
                         try:
                             api_src.getClient().store(post_id, "+FLAGS", flag)
                             logging.info(f"Email {post_id} marked for deletion.")
@@ -651,8 +676,14 @@ def process_email_cli(args, model):
                                 logging.error(
                                     f"Failed to mark email for deletion after reconnect: {e2}"
                                 )
+            return processed_any_event  # Return True if any event was processed, False otherwise
         else:
             print(f"There are no posts tagged with label {folder}")
+            return True  # No posts, but not an error
+    else:
+        print(f"There are no posts tagged with label {folder}")
+        return True  # No labels, but not an error
+    return False  # Default return if something went wrong before the main logic
 
 
 import urllib.request
@@ -707,158 +738,25 @@ def process_web_cli(args, model):
         print(f"Error fetching or parsing URL: {e}")
         return
 
-    # Generate event data
-    event = create_event_dict()
+    # Create initial event dict and add web-specific description
+    initial_event = create_event_dict()
+    description = safe_get(initial_event, ["description"]) or ""
+    initial_event["description"] = f"URL: {url}\n\n{description}\n\n{web_content}"
+    initial_event["attendees"] = []  # Clear attendees as per original logic
 
-    prompt = _create_llm_prompt(event, web_content, post_date_time)
-    if args.verbose:
-        print(f"Prompt:\n{prompt}")
-        print(f"\nEnd Prompt:")
+    # Call the common helper function
+    processed_event, _ = _process_event_with_llm_and_calendar(
+        args,
+        model,
+        initial_event,
+        web_content,
+        post_date_time,
+        url,
+        url,  # post_identifier and subject_for_print can both be url
+    )
 
-    # Get AI reply
-    event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
-    if not event:
-        return
-
-    api_dst_type = "gcalendar"
-    api_dst = select_api_source(args, api_dst_type)
-
-    # --- New logic starts here ---
-    retries = 0
-    max_retries = 3  # Limit AI retries
-    data_complete = False
-
-    while not data_complete and retries <= max_retries:
-        summary = event.get("summary")
-        start_datetime = event.get("start", {}).get("dateTime")
-
-        if summary and start_datetime:
-            data_complete = True
-            break
-
-        if args.interactive:
-            print("Missing event information:")
-            if not summary:
-                print("- Summary")
-            if not start_datetime:
-                print("- Start Date/Time")
-
-            choice = input(
-                "Options: (m)anual input, (a)nother AI, (s)kip email: "
-            ).lower()
-
-            if choice == "m":
-                if not summary:
-                    new_summary = input("Enter Summary: ")
-                    if new_summary:
-                        event["summary"] = new_summary
-                if not start_datetime:
-                    new_start_datetime_str = input(
-                        "Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): "
-                    )
-                    if new_start_datetime_str:
-                        try:
-                            new_start_datetime = datetime.datetime.strptime(
-                                new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
-                            )
-                            event.setdefault("start", {})["dateTime"] = (
-                                new_start_datetime.isoformat()
-                            )
-                            event["start"].setdefault(
-                                "timeZone", "Europe/Madrid"
-                            )  # Set default timezone
-                        except ValueError:
-                            print(
-                                "Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS."
-                            )
-
-                            continue  # Continue the while loop
-                data_complete = (
-                    True  # Assume data is complete after manual input attempt
-                )
-            elif choice == "a":
-                retries += 1
-                if retries > max_retries:
-                    print("Max AI retries reached. Skipping email.")
-                    break  # Exit the while loop to skip this email
-
-                print("Selecting another AI model...")
-
-                original_model = model
-                original_args_source = args.source
-
-                new_args = Args(
-                    interactive=True,  # Force interactive selection for new AI
-                    delete=args.delete,
-                    source=None,  # Let user choose
-                    verbose=args.verbose,
-                    destination=args.destination,
-                    text=args.text,
-                )
-                new_model = select_llm(new_args)
-
-                if new_model:
-                    model = new_model  # Use the newly selected model
-                    print(f"Trying with new AI model: {model.__class__.__name__}")
-                    new_event, new_vcal_json = get_event_from_llm(
-                        model, prompt, args.verbose
-                    )
-                    if new_event:
-                        event = new_event
-                        vcal_json = new_vcal_json
-                    else:
-                        print("New AI model failed to generate a response.")
-
-                else:
-                    print("No new AI model selected or available. Skipping email.")
-                    break  # Exit the while loop to skip this email
-            elif choice == "s":
-                break  # Exit the while loop to skip this email
-            else:
-                print("Invalid choice. Please try again.")
-                retries += 1  # Count as a retry if invalid choice
-                continue  # Continue the while loop
-        else:  # Non-interactive mode
-            if not summary or not start_datetime:
-                logging.warning(
-                    f"Missing summary or start_datetime for url {url}. Skipping."
-                )
-                break  # Exit the while loop to skip this email
-            else:
-                data_complete = True  # Should not happen if we are here
-
-    if not data_complete:
-        return
-    # --- New logic ends here ---
-
-    description = safe_get(event, ["description"]) or ""
-    event["description"] = f"URL: {url}\n\n{description}\n\n{web_content}"
-    event["attendees"] = []
-
-    event = adjust_event_times(event)
-
-    start_time = safe_get(event, ["start", "dateTime"])
-
-    end_time = safe_get(event, ["end", "dateTime"])
-    print(f"====================================")
-    print(f"Subject: {url}")
-    print(f"Start: {start_time}")
-    print(f"End: {end_time}")
-    print(f"====================================")
-
-    selected_calendar = select_calendar(api_dst)
-    if not selected_calendar:
-        print("No calendar selected, skipping event creation.")
-        return
-
-    try:
-        calendar_result = api_dst.publishPost(
-            post={"event": event, "idCal": selected_calendar}, api=api_dst
-        )
-        print(f"Calendar event created")
-
-    except googleapiclient.errors.HttpError as e:
-        logging.error(f"Error creating calendar event: {e}")
+    if processed_event is None:
+        return  # Skip if helper failed
 
 
 def select_email_prompt(args):

@@ -104,7 +104,7 @@ class TestCliCommands(unittest.TestCase):
             mock_api_src.getLabels.return_value = [{"id": "Label_0"}]
             mock_api_src.getPosts.return_value = []
 
-            mock_process_email_cli.side_effect = lambda args, model: None
+            mock_process_email_cli.side_effect = lambda args, model: True
 
             with patch(
                 "manage_agenda.utils.moduleRules.moduleRules"
@@ -130,7 +130,7 @@ class TestCliCommands(unittest.TestCase):
         mock_api_src.getPostTitle.return_value = "Test title"
         mock_api_src.getPostBody.return_value = "Test Body"
         mock_api_src.getMessage.return_value = "message"
-        mock_process_email_cli.side_effect = lambda args, model: None
+        mock_process_email_cli.side_effect = lambda args, model: True
 
     # def test_add_llm_returns_none(self):
     #     with patch("manage_agenda.cli.select_llm") as mock_select_llm, patch(

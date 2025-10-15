@@ -78,11 +78,17 @@ def evaluate(ctx, prompt):
     default=False,
     help="Running in interactive mode",
 )
+@click.option(
+    "-s",
+    "--source",
+    default="gemini",
+    help="Select LLM",
+)
 @click.pass_context
-def add(ctx, interactive):
+def add(ctx, interactive, source):
     """Add entries to the calendar (defaults to 'mail')."""
     if ctx.invoked_subcommand is None:
-        ctx.invoke(mail, interactive=interactive)
+        ctx.invoke(mail, interactive=interactive, source=source)
 
 
 @add.command()
@@ -117,7 +123,9 @@ def mail(ctx, interactive, source):
     if verbose:
         print(f"Model: {model}")
 
-    process_email_cli(args, model)
+    success = process_email_cli(args, model)
+    if not success:
+        ctx.exit(1)
 
 
 @add.command()
