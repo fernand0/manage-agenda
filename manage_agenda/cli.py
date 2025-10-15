@@ -20,6 +20,10 @@ from .utils_base import (
     setup_logging,
     )
 
+from .utils_llm import (
+    evaluate_models,
+    )
+
 @click.group()
 @click.version_option()
 @click.option(
@@ -36,6 +40,19 @@ def cli(ctx, verbose):
     ctx.obj['VERBOSE'] = verbose
     setup_logging(verbose)
 
+
+@cli.group()
+@click.pass_context
+def llm(ctx):
+    """LLM related operations"""
+    pass
+
+@llm.command()
+@click.argument('prompt')
+@click.pass_context
+def evaluate(ctx, prompt):
+    """Evaluate different LLM models"""
+    evaluate_models(prompt)
 
 @cli.group(invoke_without_command=True)
 @click.option(
