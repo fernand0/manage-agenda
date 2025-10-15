@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 import time
 import json
 import googleapiclient
@@ -76,7 +77,9 @@ def adjust_event_times(event):
     end_time = end.get("dateTime")
 
     if start_time and not end_time:
-        end["dateTime"] = start_time
+        start_dt = datetime.datetime.fromisoformat(start_time)
+        end_dt = start_dt + timedelta(minutes=30)
+        end["dateTime"] = end_dt.isoformat()
     elif end_time and not start_time:
         start["dateTime"] = end_time
 
