@@ -735,6 +735,7 @@ def process_web_cli(args, model):
         processed_any_event = False
 
         post_title = page.getPostTitle(web_content_html)
+        post_id = moduleRules.cleanUrlRule(url)
 
         print(f"Processing Title: {post_title}", flush=True)
 
