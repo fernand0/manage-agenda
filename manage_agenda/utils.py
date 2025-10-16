@@ -632,38 +632,38 @@ def process_email_cli(args, model):
                     True  # Mark that at least one event was processed
                 )
 
-            # --- CORRECCIÓN DE TIMEZONE --- (Email specific, uses calendar_result from helper)
-            # calendar_result can be None if _process_event_with_llm_and_calendar failed before publishing
-            if (
-                calendar_result
-                and "Invalid time zone definition for end time.'"
-                in str(calendar_result)
-            ):  # Ensure calendar_result is string for check
-                print("Corrigiendo zona horaria inválida en 'end'...")
-                # Re-assign event for email-specific correction
-                event_for_correction = processed_event
-                if event_for_correction.get("end"):
-                    event_for_correction["end"]["timeZone"] = "Europe/Madrid"
-                if event_for_correction.get("start"):
-                    event_for_correction["start"]["timeZone"] = "Europe/Madrid"
-                try:
-                    # Re-select api_dst and calendar as they are created inside the helper
-                    api_dst = select_api_source(
-                        args, "gcalendar"
-                    )  # Need to re-select api_dst
-                    selected_calendar = select_calendar(
-                        api_dst
-                    )  # Need to re-select calendar
-                    _ = api_dst.publishPost(  # _ is used as this is a re-publish, calendar_result not updated here
-                        post={
-                            "event": event_for_correction,
-                            "idCal": selected_calendar,
-                        },
-                        api=api_dst,
-                    )
-                    print("Calendar event re-creado tras corregir zona horaria.")
-                except Exception as e:
-                    logging.error(f"Error tras corregir zona horaria: {e}")
+            # # --- CORRECCIÓN DE TIMEZONE --- (Email specific, uses calendar_result from helper)
+            # # calendar_result can be None if _process_event_with_llm_and_calendar failed before publishing
+            # if (
+            #     calendar_result
+            #     and "Invalid time zone definition for end time.'"
+            #     in str(calendar_result)
+            # ):  # Ensure calendar_result is string for check
+            #     print("Corrigiendo zona horaria inválida en 'end'...")
+            #     # Re-assign event for email-specific correction
+            #     event_for_correction = processed_event
+            #     if event_for_correction.get("end"):
+            #         event_for_correction["end"]["timeZone"] = "Europe/Madrid"
+            #     if event_for_correction.get("start"):
+            #         event_for_correction["start"]["timeZone"] = "Europe/Madrid"
+            #     try:
+            #         # Re-select api_dst and calendar as they are created inside the helper
+            #         api_dst = select_api_source(
+            #             args, "gcalendar"
+            #         )  # Need to re-select api_dst
+            #         selected_calendar = select_calendar(
+            #             api_dst
+            #         )  # Need to re-select calendar
+            #         _ = api_dst.publishPost(  # _ is used as this is a re-publish, calendar_result not updated here
+            #             post={
+            #                 "event": event_for_correction,
+            #                 "idCal": selected_calendar,
+            #             },
+            #             api=api_dst,
+            #         )
+            #         print("Calendar event re-creado tras corregir zona horaria.")
+            #     except Exception as e:
+            #         logging.error(f"Error tras corregir zona horaria: {e}")
 
             # Delete email (optional)
             delete_confirmed = False
@@ -683,24 +683,25 @@ def process_email_cli(args, model):
                     res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
                     logging.info(f"Label removed from email {post_id}.")
                 else:
-                    flag = "\\Deleted"
-                    try:
-                        api_src.getClient().store(post_id, "+FLAGS", flag)
-                        logging.info(f"Email {post_id} marked for deletion.")
-                    except Exception as e:
-                        logging.warning(
-                            f"IMAP store failed: {e}. Reconnecting and retrying..."
-                        )
-                        try:
-                            api_src.checkConnected()
-                            api_src.getClient().store(post_id, "+FLAGS", flag)
-                            logging.info(
-                                f"Email {post_id} marked for deletion after reconnect."
-                            )
-                        except Exception as e2:
-                            logging.error(
-                                f"Failed to mark email for deletion after reconnect: {e2}"
-                            )
+                    api_src.deletePostId(post_id)
+                    # flag = "\\Deleted"
+                    # try:
+                    #     api_src.getClient().store(post_id, "+FLAGS", flag)
+                    #     logging.info(f"Email {post_id} marked for deletion.")
+                    # except Exception as e:
+                    #     logging.warning(
+                    #         f"IMAP store failed: {e}. Reconnecting and retrying..."
+                    #     )
+                    #     try:
+                    #         api_src.checkConnected()
+                    #         api_src.getClient().store(post_id, "+FLAGS", flag)
+                    #         logging.info(
+                    #             f"Email {post_id} marked for deletion after reconnect."
+                    #         )
+                    #     except Exception as e2:
+                    #         logging.error(
+                    #             f"Failed to mark email for deletion after reconnect: {e2}"
+                    #         )
         return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
 
