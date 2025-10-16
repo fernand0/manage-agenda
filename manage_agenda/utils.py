@@ -742,7 +742,7 @@ def process_web_cli(args, model):
     # initial_event["attendees"] = []  # Clear attendees as per original logic
 
     # Call the common helper function
-    processed_event, _ = _process_event_with_llm_and_calendar(
+    processed_event, calendar_result = _process_event_with_llm_and_calendar(
         args,
         model,
         initial_event,
