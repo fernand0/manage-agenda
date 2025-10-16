@@ -48,6 +48,7 @@ Args = namedtuple(
 
 def select_calendar(calendar_api):
     """Selects a Google Calendar.
+    FIXME: maybe it should be in socialModules?
 
     Args:
         calendar_api: An object to interact with the Google Calendar API.
@@ -115,7 +116,9 @@ def adjust_event_times(event):
                         dt_obj = local_tz.localize(dt_obj)
                     except pytz.exceptions.UnknownTimeZoneError:
                         print(
-                            f"Validation Error: Unknown timezone '{input_tz_name}' for {field_name_for_logging} time. Falling back to default CET."
+                            f"Validation Error: Unknown timezone "
+                            f"'{input_tz_name}' for {field_name_for_logging} "
+                            "time. Falling back to default CET."
                         )
                         dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
                 else:
@@ -124,16 +127,19 @@ def adjust_event_times(event):
             return dt_obj.astimezone(pytz.utc).isoformat(), True
         except ValueError:
             print(
-                f"Validation Error: {field_name_for_logging} time '{time_str}' is not a valid ISO 8601 format. Skipping adjustment."
+                f"Validation Error: {field_name_for_logging} "
+                f"time '{time_str}' is not a valid ISO 8601 format."
+                "Skipping adjustment."
             )
             return None, False
 
     def _infer_missing_time(existing_dt_iso, target_field_dict, infer_type):
         """
         Infers a missing start or end time based on an existing time.
-        existing_dt_iso: ISO formatted string of the existing datetime (already UTC).
-        target_field_dict: The 'start' or 'end' dictionary to update.
-        infer_type: 'start' to infer start from end, 'end' to infer end from start.
+        existing_dt_iso: ISO formatted string of the existing datetime
+        (already UTC).  target_field_dict: The 'start' or 'end' dictionary to
+        update.  infer_type: 'start' to infer start from end, 'end' to infer
+        end from start.
         """
         if not existing_dt_iso:
             return
@@ -229,6 +235,7 @@ def extract_json(text):
 def get_event_from_llm(model, prompt, verbose=False):
     """Gets event data from LLM, handling response and JSON parsing."""
     print("Calling LLM")
+    event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
     end_time = time.time()
@@ -237,7 +244,6 @@ def get_event_from_llm(model, prompt, verbose=False):
 
     if not llm_response:
         print("Failed to get response from LLM.")
-        return None, None
 
     if verbose:
         print(f"Reply:\n{llm_response}")
@@ -253,11 +259,11 @@ def get_event_from_llm(model, prompt, verbose=False):
         event = vcal_json
 
         # event = json.loads(vcal_json)
-        return event, vcal_json
     except json.JSONDecodeError as e:
         logging.error(f"Invalid JSON in vCal data: {vcal_json}")
         logging.error(f"Error: {e}")
-        return None, None
+
+    return event, vcal_json
 
 
 def authorize(args):
