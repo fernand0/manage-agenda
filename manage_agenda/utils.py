@@ -374,6 +374,9 @@ def _process_event_with_llm_and_calendar(
 
     # Get AI reply
     event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
+    process_event_data(event, content_text)
+    adjust_event_times(event)
+
     if not event:
         return None, None  # Indicate failure
 
@@ -720,9 +723,11 @@ def process_web_cli(args, model):
         print(f"Soup: {soup}")
         web_content = soup.get_text()
 
-        print(f"Web content: {web_content}")
 
         web_content = re.sub(r"\n{3,}", "\n\n", web_content)
+
+        if args.verbose:
+            print(f"Web content: {web_content}")
 
         print("\n--- First 10 lines of web content ---")
         for i, line in enumerate(web_content.splitlines()):
