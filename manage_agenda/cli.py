@@ -258,8 +258,7 @@ def gmail(ctx, interactive):
         destination=None,
         text=None,
     )
-    api_src = select_api_source(args, api_src_type="gmail")
-    list_emails_folder(args, api_src)
+    list_emails_folder(args)
 
 
 @cli.command()

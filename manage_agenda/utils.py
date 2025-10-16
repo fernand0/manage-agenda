@@ -314,13 +314,16 @@ def list_events_folder(args, api_src, calendar=""):
         print("Some problem with the account")
 
 
-def _get_emails_from_folder(api_src, folder="INBOX"):
+def _get_emails_from_folder(args):
     """Helper function to get emails from a specific folder."""
+    api_src_type = ["gmail", "imap"]
+    api_src = select_api_source(args, api_src_type)
+
     if not api_src.getClient():
         print("Some problem with the account")
         return None, None
 
-    # folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
+    folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
     api_src.setPostsType("posts")
     api_src.setLabels()
     label = api_src.getLabels(folder)
@@ -340,9 +343,9 @@ def _get_emails_from_folder(api_src, folder="INBOX"):
     return api_src, posts
 
 
-def list_emails_folder(args, api_src, folder="INBOX"):
+def list_emails_folder(args):
     """Lists emails and in folder."""
-    api_src, posts = _get_emails_from_folder(api_src, folder)
+    api_src, posts = _get_emails_from_folder(args)
     if posts:
         for i, post in enumerate(posts):
             post_id = api_src.getPostId(post)
@@ -541,11 +544,7 @@ def _process_event_with_llm_and_calendar(
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""
 
-    api_src_type = ["gmail", "imap"]
-    api_src = select_api_source(args, api_src_type)
-    folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
-
-    api_src, posts = _get_emails_from_folder(api_src, folder)
+    api_src, posts = _get_emails_from_folder(args)
 
     if posts:
         processed_any_event = False

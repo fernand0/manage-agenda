@@ -139,12 +139,11 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_api_src.setPosts.assert_called_once()
         mock_print.assert_not_called()
 
+    @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("builtins.print")
-    def test_list_emails_folder_with_posts(self, mock_print):
+    def test_list_emails_folder_with_posts(self, mock_print, mock_get_emails):
         mock_api_src = MagicMock()
-        mock_api_src.getClient.return_value = True
-        mock_api_src.getLabels.return_value = [{"id": "label1"}]
-        mock_api_src.getPosts.return_value = ["post1", "post2"]
+        mock_get_emails.return_value = (mock_api_src, ["post1", "post2"])
         args = self.Args(
             interactive=False,
             delete=False,
@@ -153,15 +152,14 @@ class TestProcessEmailCli(unittest.TestCase):
             destination="",
             text="",
         )
-        list_emails_folder(args, mock_api_src)
-        mock_api_src.setPosts.assert_called_once()
+        list_emails_folder(args)
+        mock_get_emails.assert_called_once_with(args)
         self.assertEqual(mock_print.call_count, 2)
 
+    @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("builtins.print")
-    def test_list_emails_folder_no_posts(self, mock_print):
-        mock_api_src = MagicMock()
-        mock_api_src.getClient.return_value = True
-        mock_api_src.getLabels.return_value = [{"id": "label1"}]
+    def test_list_emails_folder_no_posts(self, mock_print, mock_get_emails):
+        mock_get_emails.return_value = (None, None)
         args = self.Args(
             interactive=False,
             delete=False,
@@ -170,8 +168,8 @@ class TestProcessEmailCli(unittest.TestCase):
             destination="",
             text="",
         )
-        list_emails_folder(args, mock_api_src)
-        mock_api_src.setPosts.assert_called_once()
+        list_emails_folder(args)
+        mock_get_emails.assert_called_once_with(args)
         mock_print.assert_not_called()
 
 

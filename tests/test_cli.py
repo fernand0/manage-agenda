@@ -28,12 +28,10 @@ class TestCliCommands(unittest.TestCase):
         mock_select_api_source.assert_called_once()
         mock_list_events_folder.assert_called_once()
 
-    @patch("manage_agenda.cli.select_api_source")
     @patch("manage_agenda.cli.list_emails_folder")
-    def test_gmail_command(self, mock_list_emails_folder, mock_select_api_source):
+    def test_gmail_command(self, mock_list_emails_folder):
         result = self.runner.invoke(self.cli.cli, ["gmail"])
         self.assertEqual(result.exit_code, 0)
-        mock_select_api_source.assert_called_once()
         mock_list_emails_folder.assert_called_once()
 
     def setUp(self):
