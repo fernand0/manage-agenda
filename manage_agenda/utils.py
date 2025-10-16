@@ -749,7 +749,7 @@ def process_web_cli(args, model):
         web_content_text = (
                     f"{post_title}\n"
                     f"Date:{post_date_time}\n"
-                    f"Message: {full_email_content}"
+                    f"Message: {web_content}"
             )
         write_file(f"{post_id}.txt", web_content_text)  # Save email text
 
