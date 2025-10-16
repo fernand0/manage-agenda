@@ -78,7 +78,7 @@ def create_event_dict():
         "start": {"dateTime": "", "timeZone": ""},
         "end": {"dateTime": "", "timeZone": ""},
         "recurrence": [],
-        "attendees": [],
+        #"attendees": [],
     }
 
 
@@ -90,7 +90,7 @@ def process_event_data(event, content):
         content (str): The content of the email.
     """
     event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
-    event["attendees"] = []  # Clear attendees
+    #event["attendees"] = []  # Clear attendees
     return event
 
 
@@ -741,7 +741,7 @@ def process_web_cli(args, model):
     initial_event = create_event_dict()
     description = safe_get(initial_event, ["description"]) or ""
     initial_event["description"] = f"URL: {url}\n\n{description}\n\n{web_content}"
-    initial_event["attendees"] = []  # Clear attendees as per original logic
+    #initial_event["attendees"] = []  # Clear attendees as per original logic
 
     # Call the common helper function
     processed_event, _ = _process_event_with_llm_and_calendar(
