@@ -46,6 +46,16 @@ Args = namedtuple(
 )
 
 
+def print_first_10_lines(content, content_type="content"):
+    """Prints the first 10 lines of the given content."""
+    print(f"\n--- First 10 lines of {content_type} ---")
+    for i, line in enumerate(content.splitlines()):
+        if i >= 10:
+            break
+        print(line)
+    print("-------------------------------------\n")
+
+
 def select_calendar(calendar_api):
     """Selects a Google Calendar.
     FIXME: maybe it should be in socialModules?
@@ -615,6 +625,8 @@ def process_email_cli(args, model):
             )
             write_file(f"{post_id}.txt", email_text)  # Save email text
 
+            print_first_10_lines(email_text, "email content")
+
             # Call the common helper function
             processed_event, calendar_result = _process_event_with_llm_and_calendar(
                 args,
@@ -734,12 +746,15 @@ def process_web_cli(args, model):
         web_content = soup.get_text()
         web_content = re.sub(r"\n{3,}", "\n\n", web_content)
 
-        print("\n--- First 10 lines of web content ---")
-        for i, line in enumerate(web_content.splitlines()):
-            if i >= 10:
-                break
-            print(line)
-        print("-------------------------------------")
+        web_content_text = (
+                    f"{post_title}\n"
+                    f"Date:{post_date_time}\n"
+                    f"Message: {full_email_content}"
+            )
+        write_file(f"{post_id}.txt", web_content_text)  # Save email text
+
+
+        print_first_10_lines(web_content_text, "web content")
 
         # Call the common helper function
         processed_event, calendar_result = _process_event_with_llm_and_calendar(
@@ -748,11 +763,11 @@ def process_web_cli(args, model):
             web_content,
             post_date_time,
             url,
-            url,  # post_identifier and subject_for_print can both be url
+            post_title,  # post_identifier and subject_for_print can both be url
         )
 
-    if processed_event is None:
-        return  # Skip if helper failed
+        if processed_event is None:
+            return  # Skip if helper failed
 
 
 def select_email_prompt(args):
