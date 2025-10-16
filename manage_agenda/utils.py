@@ -316,6 +316,7 @@ def list_events_folder(args, api_src, calendar=""):
 
 def _get_emails_from_folder(args):
     """Helper function to get emails from a specific folder."""
+    "FIXME: maybe a folder argument?"
     api_src_type = ["gmail", "imap"]
     api_src = select_api_source(args, api_src_type)
 
@@ -348,8 +349,8 @@ def list_emails_folder(args):
     api_src, posts = _get_emails_from_folder(args)
     if posts:
         for i, post in enumerate(posts):
-            post_id = api_src.getPostId(post)
-            post_date = api_src.getPostDate(post)
+            # post_id = api_src.getPostId(post)
+            # post_date = api_src.getPostDate(post)
             post_title = api_src.getPostTitle(post)
             print(f"{i}) {post_title}")
 
@@ -541,6 +542,38 @@ def _process_event_with_llm_and_calendar(
         return None, None
 
 
+def _get_post_datetime_and_diff(post_date):
+    """
+    Calculates the post datetime and the difference in days from now.
+
+    Args:
+        post_date (str): The date of the post.
+
+    Returns:
+        tuple: A tuple containing the post datetime and the time difference in days.
+    """
+    if post_date.isdigit():
+        post_date_time = datetime.datetime.fromtimestamp(int(post_date) / 1000)
+    else:
+        from email.utils import parsedate_to_datetime
+
+        post_date_time = parsedate_to_datetime(post_date)
+
+    try:
+        import pytz
+
+        time_difference = (
+            pytz.timezone("Europe/Madrid").localize(datetime.datetime.now())
+            - post_date_time
+        )
+        logging.debug(f"Date: {post_date_time} Diff: {time_difference.days}")
+    except:
+        # FIXME
+        time_difference = datetime.datetime.now() - datetime.datetime.now()
+
+    return post_date_time, time_difference
+
+
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""
 
@@ -555,29 +588,9 @@ def process_email_cli(args, model):
 
                 print(f"Processing Title: {post_title}", flush=True)
                 post_content = api_src.getPostContent(post)
+
                 logging.debug(f"Text: {post_content}")
-                if post_date.isdigit():
-                    post_date_time = datetime.datetime.fromtimestamp(
-                        int(post_date) / 1000
-                    )
-                else:
-                    from email.utils import parsedate_to_datetime
-
-                    post_date_time = parsedate_to_datetime(post_date)
-
-                try:
-                    import pytz
-
-                    time_difference = (
-                        pytz.timezone("Europe/Madrid").localize(datetime.datetime.now())
-                        - post_date_time
-                    )
-                    logging.debug(
-                        f"Date: {post_date_time} Diff: {time_difference.days}"
-                    )
-                except:
-                    # FIXME
-                    time_difference = datetime.datetime.now() - datetime.datetime.now()
+                post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
 
                 if time_difference.days > 7:
                     if args.interactive:
