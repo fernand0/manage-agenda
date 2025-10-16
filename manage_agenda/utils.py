@@ -709,8 +709,6 @@ def process_web_cli(args, model):
 
         if args.verbose:
             print(f"Web content html: {web_content_html}")
-            print(web_content_html[416])
-            print(web_content_html[410:419])
 
         if isinstance(web_content_html, bytes):
             web_content_html = web_content_html.decode("utf-8", errors="ignore")
@@ -739,9 +737,9 @@ def process_web_cli(args, model):
 
     # Create initial event dict and add web-specific description
     initial_event = create_event_dict()
-    description = safe_get(initial_event, ["description"]) or ""
-    initial_event["description"] = f"URL: {url}\n\n{description}\n\n{web_content}"
-    #initial_event["attendees"] = []  # Clear attendees as per original logic
+    # description = safe_get(initial_event, ["description"]) or ""
+    # initial_event["description"] = f"URL: {url}\n\n{description}\n\n{web_content}"
+    # initial_event["attendees"] = []  # Clear attendees as per original logic
 
     # Call the common helper function
     processed_event, _ = _process_event_with_llm_and_calendar(
