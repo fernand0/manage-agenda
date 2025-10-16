@@ -750,6 +750,7 @@ def process_web_cli(args, model):
 
         web_content_text = (
                     f"{post_title}\n"
+                    f"Url: {url}\n"
                     f"Date:{post_date_time}\n"
                     f"Message: {web_content}"
             )
@@ -762,7 +763,7 @@ def process_web_cli(args, model):
         processed_event, calendar_result = _process_event_with_llm_and_calendar(
             args,
             model,
-            web_content,
+            web_content_text,
             post_date_time,
             url,
             post_title,  # post_identifier and subject_for_print can both be url
