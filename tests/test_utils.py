@@ -39,8 +39,10 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.write_file")
     @patch("manage_agenda.utils.json.loads")
     @patch("manage_agenda.utils.input", return_value="")
+    @patch("manage_agenda.utils.create_event_dict")
     def test_process_email_cli_success(
         self,
+        mock_create_event_dict,
         mock_input,
         mock_json_loads,
         mock_write_file,
@@ -84,6 +86,7 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_rules.more.get.side_effect = [{"key": "src_value"}, {"key": "dst_value"}]
         mock_rules.readConfigSrc.side_effect = [mock_api_src, mock_api_dst]
         mock_module_rules.return_value = mock_rules
+        mock_create_event_dict.return_value = {"summary": "", "location": "", "description": "", "start": {"dateTime": "", "timeZone": ""}, "end": {"dateTime": "", "timeZone": ""}, "recurrence": []}
 
         process_email_cli(args, mock_model)
 

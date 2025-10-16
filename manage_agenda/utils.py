@@ -379,7 +379,6 @@ def _create_llm_prompt(event, content_text, reference_date_time):
 def _process_event_with_llm_and_calendar(
     args,
     model,
-    event_dict,
     content_text,
     reference_date_time,
     post_identifier,
@@ -388,7 +387,9 @@ def _process_event_with_llm_and_calendar(
     """
     Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
     """
-    event = event_dict  # Use the passed-in event_dict
+    # Create initial event dict for helper
+
+    event = create_event_dict()
     prompt = _create_llm_prompt(event, content_text, reference_date_time)
     if args.verbose:
         print(f"Prompt:\n{prompt}")
@@ -582,130 +583,124 @@ def process_email_cli(args, model):
     if posts:
         processed_any_event = False
         for i, post in enumerate(posts):
-                post_id = api_src.getPostId(post)
-                post_date = api_src.getPostDate(post)
-                post_title = api_src.getPostTitle(post)
+            post_id = api_src.getPostId(post)
+            post_date = api_src.getPostDate(post)
+            post_title = api_src.getPostTitle(post)
 
-                print(f"Processing Title: {post_title}", flush=True)
-                post_content = api_src.getPostContent(post)
+            print(f"Processing Title: {post_title}", flush=True)
+            post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
 
-                logging.debug(f"Text: {post_content}")
-                post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
-
-                if time_difference.days > 7:
-                    if args.interactive:
-                        confirmation = input(
-                            f"El correo tiene {time_difference.days} dias. ¿Desea procesarlo? (y/n): "
-                        )
-                        if confirmation.lower() != "y":
-                            continue
-                    else:
-                        if args.verbose:
-                            print(f"Too old ({time_difference.days} days), skipping.")
-                        continue
-
-                email_result = post
-                if args.verbose:
-                    print(f"email: {email_result}")
-                full_email_content = api_src.getPostBody(email_result)
-
-                if hasattr(full_email_content, "decode"):
-                    full_email_content = full_email_content.decode("utf-8")
-
-                email_text = (
-                    f"{post_title}\nDate:{post_date_time}\n{full_email_content}"
-                )
-                write_file(f"{post_id}.txt", email_text)  # Save email text
-
-                # Create initial event dict for helper
-                initial_event = create_event_dict()
-                # Call the common helper function
-                processed_event, calendar_result = _process_event_with_llm_and_calendar(
-                    args,
-                    model,
-                    initial_event,
-                    email_text,
-                    post_date_time,
-                    post_id,
-                    post_title,
-                )
-
-                if processed_event is None:
-                    continue  # Skip to the next email if helper failed
-                else:
-                    processed_any_event = (
-                        True  # Mark that at least one event was processed
-                    )
-
-                # --- CORRECCIÓN DE TIMEZONE --- (Email specific, uses calendar_result from helper)
-                # calendar_result can be None if _process_event_with_llm_and_calendar failed before publishing
-                if (
-                    calendar_result
-                    and "Invalid time zone definition for end time.'"
-                    in str(calendar_result)
-                ):  # Ensure calendar_result is string for check
-                    print("Corrigiendo zona horaria inválida en 'end'...")
-                    # Re-assign event for email-specific correction
-                    event_for_correction = processed_event
-                    if event_for_correction.get("end"):
-                        event_for_correction["end"]["timeZone"] = "Europe/Madrid"
-                    if event_for_correction.get("start"):
-                        event_for_correction["start"]["timeZone"] = "Europe/Madrid"
-                    try:
-                        # Re-select api_dst and calendar as they are created inside the helper
-                        api_dst = select_api_source(
-                            args, "gcalendar"
-                        )  # Need to re-select api_dst
-                        selected_calendar = select_calendar(
-                            api_dst
-                        )  # Need to re-select calendar
-                        _ = api_dst.publishPost(  # _ is used as this is a re-publish, calendar_result not updated here
-                            post={
-                                "event": event_for_correction,
-                                "idCal": selected_calendar,
-                            },
-                            api=api_dst,
-                        )
-                        print("Calendar event re-creado tras corregir zona horaria.")
-                    except Exception as e:
-                        logging.error(f"Error tras corregir zona horaria: {e}")
-
-                # Delete email (optional)
-                delete_confirmed = False
+            if time_difference.days > 7:
                 if args.interactive:
                     confirmation = input(
-                        "Do you want to remove the label from the email? (y/n): "
+                        f"El correo tiene {time_difference.days} dias. ¿Desea procesarlo? (y/n): "
                     )
-                    if confirmation.lower() == "y":
-                        delete_confirmed = True
-                elif (
-                    args.delete
-                ):  # Only auto-confirm if not interactive but delete flag is set
-                    delete_confirmed = True
+                    if confirmation.lower() != "y":
+                        continue
+                else:
+                    if args.verbose:
+                        print(f"Too old ({time_difference.days} days), skipping.")
+                    continue
 
-                if delete_confirmed:
-                    if "imap" not in api_src.service.lower():
-                        res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
-                        logging.info(f"Label removed from email {post_id}.")
-                    else:
-                        flag = "\\Deleted"
+            full_email_content = api_src.getPostBody(post)
+
+            if hasattr(full_email_content, "decode"):
+                # FIXME: does this belong here?
+                full_email_content = full_email_content.decode("utf-8")
+
+            email_text = (
+                    f"{post_title}\n"
+                    f"Date:{post_date_time}\n"
+                    f"Message: {full_email_content}"
+            )
+            write_file(f"{post_id}.txt", email_text)  # Save email text
+
+            # Call the common helper function
+            processed_event, calendar_result = _process_event_with_llm_and_calendar(
+                args,
+                model,
+                email_text,
+                post_date_time,
+                post_id,
+                post_title,
+            )
+
+            if processed_event is None:
+                continue  # Skip to the next email if helper failed
+            else:
+                processed_any_event = (
+                    True  # Mark that at least one event was processed
+                )
+
+            # --- CORRECCIÓN DE TIMEZONE --- (Email specific, uses calendar_result from helper)
+            # calendar_result can be None if _process_event_with_llm_and_calendar failed before publishing
+            if (
+                calendar_result
+                and "Invalid time zone definition for end time.'"
+                in str(calendar_result)
+            ):  # Ensure calendar_result is string for check
+                print("Corrigiendo zona horaria inválida en 'end'...")
+                # Re-assign event for email-specific correction
+                event_for_correction = processed_event
+                if event_for_correction.get("end"):
+                    event_for_correction["end"]["timeZone"] = "Europe/Madrid"
+                if event_for_correction.get("start"):
+                    event_for_correction["start"]["timeZone"] = "Europe/Madrid"
+                try:
+                    # Re-select api_dst and calendar as they are created inside the helper
+                    api_dst = select_api_source(
+                        args, "gcalendar"
+                    )  # Need to re-select api_dst
+                    selected_calendar = select_calendar(
+                        api_dst
+                    )  # Need to re-select calendar
+                    _ = api_dst.publishPost(  # _ is used as this is a re-publish, calendar_result not updated here
+                        post={
+                            "event": event_for_correction,
+                            "idCal": selected_calendar,
+                        },
+                        api=api_dst,
+                    )
+                    print("Calendar event re-creado tras corregir zona horaria.")
+                except Exception as e:
+                    logging.error(f"Error tras corregir zona horaria: {e}")
+
+            # Delete email (optional)
+            delete_confirmed = False
+            if args.interactive:
+                confirmation = input(
+                    "Do you want to remove the label from the email? (y/n): "
+                )
+                if confirmation.lower() == "y":
+                    delete_confirmed = True
+            elif (
+                args.delete
+            ):  # Only auto-confirm if not interactive but delete flag is set
+                delete_confirmed = True
+
+            if delete_confirmed:
+                if "imap" not in api_src.service.lower():
+                    res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
+                    logging.info(f"Label removed from email {post_id}.")
+                else:
+                    flag = "\\Deleted"
+                    try:
+                        api_src.getClient().store(post_id, "+FLAGS", flag)
+                        logging.info(f"Email {post_id} marked for deletion.")
+                    except Exception as e:
+                        logging.warning(
+                            f"IMAP store failed: {e}. Reconnecting and retrying..."
+                        )
                         try:
+                            api_src.checkConnected()
                             api_src.getClient().store(post_id, "+FLAGS", flag)
-                            logging.info(f"Email {post_id} marked for deletion.")
-                        except Exception as e:
-                            logging.warning(
-                                f"IMAP store failed: {e}. Reconnecting and retrying..."
+                            logging.info(
+                                f"Email {post_id} marked for deletion after reconnect."
                             )
-                            try:
-                                api_src.checkConnected()
-                                api_src.getClient().store(post_id, "+FLAGS", flag)
-                                logging.info(
-                                    f"Email {post_id} marked for deletion after reconnect."
-                                )
-                            except Exception as e2:
-                                logging.error(
-                                    f"Failed to mark email for deletion after reconnect: {e2}"
-                                )
+                        except Exception as e2:
+                            logging.error(
+                                f"Failed to mark email for deletion after reconnect: {e2}"
+                            )
         return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
 
@@ -752,8 +747,6 @@ def process_web_cli(args, model):
         print(f"Error fetching or parsing URL: {e}")
         return
 
-    # Create initial event dict and add web-specific description
-    initial_event = create_event_dict()
     # description = safe_get(initial_event, ["description"]) or ""
     # initial_event["description"] = f"URL: {url}\n\n{description}\n\n{web_content}"
     # initial_event["attendees"] = []  # Clear attendees as per original logic
@@ -762,7 +755,6 @@ def process_web_cli(args, model):
     processed_event, calendar_result = _process_event_with_llm_and_calendar(
         args,
         model,
-        initial_event,
         web_content,
         post_date_time,
         url,
