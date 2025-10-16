@@ -11,7 +11,7 @@ import re
 
 from bs4 import BeautifulSoup
 
-from socialModules import moduleImap, moduleRules
+from socialModules import moduleImap, moduleRules, moduleHtml
 from socialModules.configMod import (
     CONFIGDIR,
     DATADIR,
@@ -714,28 +714,25 @@ def process_web_cli(args, model):
 
     post_date_time = datetime.datetime.now()
 
-    if True:
-        with urllib.request.urlopen(url) as response:
-            web_content_html = response.read()
+    page = moduleHtml.moduleHtml()
+    # page.setUrl(url)
+    rep, _ = page.downloadUrl(url)
+    web_content_html = rep.content
 
-        if args.verbose:
-            print(f"Web content html: {web_content_html}")
+    if web_content_html:
+        processed_any_event = False
+
+        post_title = page.getPostTitle(web_content_html)
+
+        print(f"Processing Title: {post_title}", flush=True)
 
         if isinstance(web_content_html, bytes):
             web_content_html = web_content_html.decode("utf-8", errors="ignore")
 
-        if args.verbose:
-            print(f"Web content html: {web_content_html}")
-
         soup = BeautifulSoup(web_content_html, "html.parser")
-        print(f"Soup: {soup}")
+
         web_content = soup.get_text()
-
-
         web_content = re.sub(r"\n{3,}", "\n\n", web_content)
-
-        if args.verbose:
-            print(f"Web content: {web_content}")
 
         print("\n--- First 10 lines of web content ---")
         for i, line in enumerate(web_content.splitlines()):
@@ -744,23 +741,15 @@ def process_web_cli(args, model):
             print(line)
         print("-------------------------------------")
 
-    else:  # except Exception as e:
-        print(f"Error fetching or parsing URL: {e}")
-        return
-
-    # description = safe_get(initial_event, ["description"]) or ""
-    # initial_event["description"] = f"URL: {url}\n\n{description}\n\n{web_content}"
-    # initial_event["attendees"] = []  # Clear attendees as per original logic
-
-    # Call the common helper function
-    processed_event, calendar_result = _process_event_with_llm_and_calendar(
-        args,
-        model,
-        web_content,
-        post_date_time,
-        url,
-        url,  # post_identifier and subject_for_print can both be url
-    )
+        # Call the common helper function
+        processed_event, calendar_result = _process_event_with_llm_and_calendar(
+            args,
+            model,
+            web_content,
+            post_date_time,
+            url,
+            url,  # post_identifier and subject_for_print can both be url
+        )
 
     if processed_event is None:
         return  # Skip if helper failed
