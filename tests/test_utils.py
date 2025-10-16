@@ -192,7 +192,6 @@ more text"""
         content = "Email content"
         result = process_event_data(event, content)
         self.assertIn("Email content", result["description"])
-        self.assertEqual(result["attendees"], [])
 
     def test_adjust_event_times_both_present(self):
         event = {

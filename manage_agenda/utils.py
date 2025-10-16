@@ -314,29 +314,41 @@ def list_events_folder(args, api_src, calendar=""):
         print("Some problem with the account")
 
 
+def _get_emails_from_folder(api_src, folder="INBOX"):
+    """Helper function to get emails from a specific folder."""
+    if not api_src.getClient():
+        print("Some problem with the account")
+        return None, None
+
+    # folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
+    api_src.setPostsType("posts")
+    api_src.setLabels()
+    label = api_src.getLabels(folder)
+    if not label:
+        print(f"There are no posts tagged with label {folder}")
+        return api_src, None
+
+    label_id = safe_get(label[0], ["id"])
+    api_src.setChannel(folder)
+    api_src.setPosts()
+    posts = api_src.getPosts()
+
+    if not posts:
+        print(f"There are no posts tagged with label {folder}")
+        return api_src, None
+
+    return api_src, posts
+
+
 def list_emails_folder(args, api_src, folder="INBOX"):
     """Lists emails and in folder."""
-    if api_src.getClient():
-        # Process emails
-        # folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
-        # folder = "zAgenda"
-        api_src.setPostsType("posts")
-        api_src.setLabels()
-        label = api_src.getLabels(folder)
-        if len(label) > 0:
-            label_id = safe_get(label[0], ["id"])
-            api_src.setChannel(folder)
-            api_src.setPosts()
-
-            if api_src.getPosts():
-                for i, post in enumerate(api_src.getPosts()):
-                    if True:  # i < 10:
-                        post_id = api_src.getPostId(post)
-                        post_date = api_src.getPostDate(post)
-                        post_title = api_src.getPostTitle(post)
-                        print(f"{i}) {post_title}")
-    else:
-        print("Some problem with the account")
+    api_src, posts = _get_emails_from_folder(api_src, folder)
+    if posts:
+        for i, post in enumerate(posts):
+            post_id = api_src.getPostId(post)
+            post_date = api_src.getPostDate(post)
+            post_title = api_src.getPostTitle(post)
+            print(f"{i}) {post_title}")
 
 
 def _create_llm_prompt(event, content_text, reference_date_time):
@@ -531,22 +543,13 @@ def process_email_cli(args, model):
 
     api_src_type = ["gmail", "imap"]
     api_src = select_api_source(args, api_src_type)
-
-    # Process emails
     folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
-    # folder = "zAgenda"
-    api_src.setPostsType("posts")
-    api_src.setLabels()
-    label = api_src.getLabels(folder)
-    if args.verbose:
-        print(f"Label: {label}")
-    if len(label) > 0:
-        api_src.setChannel(label[0])
-        api_src.setPosts()
 
-        if api_src.getPosts():
-            processed_any_event = False
-            for i, post in enumerate(api_src.getPosts()):
+    api_src, posts = _get_emails_from_folder(api_src, folder)
+
+    if posts:
+        processed_any_event = False
+        for i, post in enumerate(posts):
                 post_id = api_src.getPostId(post)
                 post_date = api_src.getPostDate(post)
                 post_title = api_src.getPostTitle(post)
@@ -691,20 +694,11 @@ def process_email_cli(args, model):
                                 logging.error(
                                     f"Failed to mark email for deletion after reconnect: {e2}"
                                 )
-            return processed_any_event  # Return True if any event was processed, False otherwise
-        else:
-            print(f"There are no posts tagged with label {folder}")
-            return True  # No posts, but not an error
-    else:
-        print(f"There are no posts tagged with label {folder}")
-        return True  # No labels, but not an error
+        return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
 
 def process_web_cli(args, model):
     """Processes web pages and creates calendar events."""
-
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
 
     url = input("URL: ")
 
