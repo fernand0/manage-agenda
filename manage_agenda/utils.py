@@ -627,6 +627,32 @@ def _get_post_datetime_and_diff(post_date):
     return post_date_time, time_difference
 
 
+def _delete_email(args, api_src, post_id):
+    """Deletes an email, handling interactive confirmation."""
+    delete_confirmed = False
+    if args.interactive:
+        confirmation = input(
+            "Do you want to remove the label from the email? (y/n): "
+        )
+        if confirmation.lower() == "y":
+            delete_confirmed = True
+    elif (
+        args.delete
+    ):  # Only auto-confirm if not interactive but delete flag is set
+        delete_confirmed = True
+
+    if delete_confirmed:
+        if "imap" not in api_src.service.lower():
+            print(f"label: {api_src.getChannel()}")
+            logging.info(f"label: {api_src.getChannel()}")
+            folder = api_src.getChannel()
+            label = api_src.getLabels(folder)
+            logging.info(f"label: {label}")
+            res = api_src.modifyLabels(post_id, label[0], None)
+            logging.info(f"Label removed from email {post_id}.")
+        else:
+            api_src.deletePostId(post_id)
+
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""
 
@@ -686,81 +712,8 @@ def process_email_cli(args, model):
                     True  # Mark that at least one event was processed
                 )
 
-            # # --- CORRECCIÓN DE TIMEZONE --- (Email specific, uses calendar_result from helper)
-            # # calendar_result can be None if _process_event_with_llm_and_calendar failed before publishing
-            # if (
-            #     calendar_result
-            #     and "Invalid time zone definition for end time.'"
-            #     in str(calendar_result)
-            # ):  # Ensure calendar_result is string for check
-            #     print("Corrigiendo zona horaria inválida en 'end'...")
-            #     # Re-assign event for email-specific correction
-            #     event_for_correction = processed_event
-            #     if event_for_correction.get("end"):
-            #         event_for_correction["end"]["timeZone"] = "Europe/Madrid"
-            #     if event_for_correction.get("start"):
-            #         event_for_correction["start"]["timeZone"] = "Europe/Madrid"
-            #     try:
-            #         # Re-select api_dst and calendar as they are created inside the helper
-            #         api_dst = select_api_source(
-            #             args, "gcalendar"
-            #         )  # Need to re-select api_dst
-            #         selected_calendar = select_calendar(
-            #             api_dst
-            #         )  # Need to re-select calendar
-            #         _ = api_dst.publishPost(  # _ is used as this is a re-publish, calendar_result not updated here
-            #             post={
-            #                 "event": event_for_correction,
-            #                 "idCal": selected_calendar,
-            #             },
-            #             api=api_dst,
-            #         )
-            #         print("Calendar event re-creado tras corregir zona horaria.")
-            #     except Exception as e:
-            #         logging.error(f"Error tras corregir zona horaria: {e}")
+            _delete_email(args, api_src, post_id)
 
-            # Delete email (optional)
-            delete_confirmed = False
-            if args.interactive:
-                confirmation = input(
-                    "Do you want to remove the label from the email? (y/n): "
-                )
-                if confirmation.lower() == "y":
-                    delete_confirmed = True
-            elif (
-                args.delete
-            ):  # Only auto-confirm if not interactive but delete flag is set
-                delete_confirmed = True
-
-            if delete_confirmed:
-                if "imap" not in api_src.service.lower():
-                    print(f"label: {api_src.getChannel()}")
-                    logging.info(f"label: {api_src.getChannel()}")
-                    folder = api_src.getChannel()
-                    label = api_src.getLabels(folder)
-                    logging.info(f"label: {label}")
-                    res = api_src.modifyLabels(post_id, label[0], None)
-                    logging.info(f"Label removed from email {post_id}.")
-                else:
-                    api_src.deletePostId(post_id)
-                    # flag = "\\Deleted"
-                    # try:
-                    #     api_src.getClient().store(post_id, "+FLAGS", flag)
-                    #     logging.info(f"Email {post_id} marked for deletion.")
-                    # except Exception as e:
-                    #     logging.warning(
-                    #         f"IMAP store failed: {e}. Reconnecting and retrying..."
-                    #     )
-                    #     try:
-                    #         api_src.checkConnected()
-                    #         api_src.getClient().store(post_id, "+FLAGS", flag)
-                    #         logging.info(
-                    #             f"Email {post_id} marked for deletion after reconnect."
-                    #         )
-                    #     except Exception as e2:
-                    #         logging.error(
-                    #             f"Failed to mark email for deletion after reconnect: {e2}"
-                    #         )
         return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
 
@@ -800,9 +753,8 @@ def process_web_cli(args, model):
                     f"Url: {url}\n"
                     f"Date:{post_date_time}\n"
                     f"Message: {web_content}"
-            )
+        )
         write_file(f"{post_id}.txt", web_content_text)  # Save email text
-
 
         print_first_10_lines(web_content_text, "web content")
 
@@ -812,12 +764,18 @@ def process_web_cli(args, model):
             model,
             web_content_text,
             post_date_time,
-            url,
+            post_id,
             post_title,  # post_identifier and subject_for_print can both be url
         )
 
         if processed_event is None:
             return  # Skip if helper failed
+        else:
+            processed_any_event = (
+                True  # Mark that at least one event was processed
+            )
+        return processed_any_event  # Return True if any event was processed, False otherwise
+    return False  # Default return if something went wrong before the main logic
 
 
 def select_email_prompt(args):
