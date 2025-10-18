@@ -370,13 +370,14 @@ def _create_llm_prompt(event, content_text, reference_date_time):
     return (
         f"Rellenar los datos del diccionario {event}.\n"
         "Buscamos datos relativos a una actividad. "
+        "La fecha del mensaje que se indica con 'Date:' "
+        "es una referencia, no la fecha de celebración. "
         "El inicio y el fin se pondrán en "
         " los campos event['start']['dateTime']  y "
         " event['end']['dateTime'] respectivamente,"
         f" y serán fechas iguales o "
         f"posteriores a {reference_date_time}. "
-        "La fecha del mensaje que se indica con 'Date:' "
-        "es una referencia. Si no se indica otra cosa "
+        "Si no se indica otra cosa "
         "la timezone es Central European Time (CET)"
         " No añadas comentarios al resultado, que"
         " se representará como un JSON."
@@ -692,7 +693,12 @@ def process_email_cli(args, model):
 
             if delete_confirmed:
                 if "imap" not in api_src.service.lower():
-                    res = api_src.modifyLabels(post_id, api_src.getChannel(), None)
+                    print(f"label: {api_src.getChannel()}")
+                    logging.info(f"label: {api_src.getChannel()}")
+                    folder = api_src.getChannel()
+                    label = api_src.getLabels(folder)
+                    logging.info(f"label: {label}")
+                    res = api_src.modifyLabels(post_id, label[0], None)
                     logging.info(f"Label removed from email {post_id}.")
                 else:
                     api_src.deletePostId(post_id)
@@ -855,7 +861,7 @@ def select_llm(args):
         if args.interactive:
             model = GeminiClient()
         else:
-            model = GeminiClient("gemini-1.5-flash-latest")
+            model = GeminiClient("gemini-2.5-flash")
         return model
     elif args.source == "mistral":
         model = MistralClient()
