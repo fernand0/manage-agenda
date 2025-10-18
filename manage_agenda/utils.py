@@ -653,6 +653,21 @@ def _delete_email(args, api_src, post_id):
         else:
             api_src.deletePostId(post_id)
 
+def _is_email_too_old(args, time_difference):
+    """Checks if an email is too old and confirms processing if interactive."""
+    if time_difference.days > 7:
+        if args.interactive:
+            confirmation = input(
+                f"El correo tiene {time_difference.days} dias. ¿Desea procesarlo? (y/n): "
+            )
+            if confirmation.lower() != "y":
+                return True
+        else:
+            if args.verbose:
+                print(f"Too old ({time_difference.days} days), skipping.")
+            return True
+    return False
+
 def process_email_cli(args, model):
     """Processes emails and creates calendar events."""
 
@@ -668,23 +683,16 @@ def process_email_cli(args, model):
             print(f"Processing Title: {post_title}", flush=True)
             post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
 
-            if time_difference.days > 7:
-                if args.interactive:
-                    confirmation = input(
-                        f"El correo tiene {time_difference.days} dias. ¿Desea procesarlo? (y/n): "
-                    )
-                    if confirmation.lower() != "y":
-                        continue
-                else:
-                    if args.verbose:
-                        print(f"Too old ({time_difference.days} days), skipping.")
-                    continue
+            if _is_email_too_old(args, time_difference):
+                continue
 
             full_email_content = api_src.getPostBody(post)
 
-            if hasattr(full_email_content, "decode"):
+            if isinstance(full_email_content, bytes):
                 # FIXME: does this belong here?
                 full_email_content = full_email_content.decode("utf-8")
+
+            full_email_content = re.sub(r"\n{3,}", "\n\n", full_email_content)
 
             email_text = (
                     f"{post_title}\n"
@@ -724,7 +732,6 @@ def process_web_cli(args, model):
 
     print(f"Processing URL: {url}", flush=True)
 
-    post_date_time = datetime.datetime.now()
 
     page = moduleHtml.moduleHtml()
     # page.setUrl(url)
@@ -734,11 +741,12 @@ def process_web_cli(args, model):
     if web_content_html:
         processed_any_event = False
 
-        post_title = page.getPostTitle(web_content_html)
         rules = moduleRules.moduleRules()
         post_id = rules.cleanUrlRule(url)
+        post_title = page.getPostTitle(web_content_html)
 
         print(f"Processing Title: {post_title}", flush=True)
+        post_date_time = datetime.datetime.now()
 
         if isinstance(web_content_html, bytes):
             web_content_html = web_content_html.decode("utf-8", errors="ignore")
@@ -806,7 +814,7 @@ def select_email_prompt(args):
     selected_post = posts[sel]
 
     full_email_content = api_src.getPostBody(selected_post)
-    if hasattr(full_email_content, "decode"):
+    if isinstance(full_email_content, bytes):
         full_email_content = full_email_content.decode("utf-8")
 
     return full_email_content
