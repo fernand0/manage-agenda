@@ -6,6 +6,7 @@ import sys
 LOGDIR = ""
 DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
 
+
 # --- File I/O ---
 def write_file(filename, content):
     """Writes content to a file.
@@ -32,7 +33,7 @@ def setup_logging(verbose=False):
 
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
-        filename = logFile,
+        filename=logFile,
         # stream=sys.stdout,
         level=level,
         format="%(asctime)s %(levelname)s: %(message)s",
@@ -45,14 +46,15 @@ def format_time(seconds):
     h, m = divmod(m, 60)
     return f"{int(h)}h {int(m)}m {s:.2f}s"
 
+
 # def select_from_list(options, identifier="", selector="", default=""):
 #     """selects an option form an iterable element, based on some identifier
-# 
+#
 #     we can make an initial selection of elements that contain 'selector'
 #     we can select based on numbers or in substrings of the elements
 #     of the list.
 #     """
-# 
+#
 #     if options and (
 #         isinstance(options[0], dict)
 #         or (hasattr(options[0], "__slots__"))
@@ -81,7 +83,7 @@ def format_time(seconds):
 #         resPopen = os.popen('stty size', 'r').read()
 #         rows, columns = resPopen.split()
 #         if text_sel.count('\n') > int(rows) -2:
-#             click.echo_via_pager(text_sel) 
+#             click.echo_via_pager(text_sel)
 #         else:
 #             click.echo(text_sel)
 #         msg = "Selection"
@@ -104,7 +106,7 @@ def format_time(seconds):
 #                 options_sel = []
 #             else:
 #                 options_sel = names_sel.copy()
-# 
+#
 #     logging.info(f"Sel: {sel} - {names[int(sel)]}")
-# 
+#
 #     return sel, names[int(sel)]

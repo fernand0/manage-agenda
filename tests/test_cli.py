@@ -10,6 +10,7 @@ from collections import namedtuple
 class TestCliCommands(unittest.TestCase):
     def setUp(self):
         from manage_agenda import cli
+
         self.cli = cli
         self.runner = CliRunner()
 
@@ -19,20 +20,18 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_authorize.assert_called_once()
 
-    @patch("manage_agenda.cli.select_account")
+    @patch("manage_agenda.cli.select_api_source")
     @patch("manage_agenda.cli.list_events_folder")
-    def test_gcalendar_command(self, mock_list_events_folder, mock_select_account):
+    def test_gcalendar_command(self, mock_list_events_folder, mock_select_api_source):
         result = self.runner.invoke(self.cli.cli, ["gcalendar"])
         self.assertEqual(result.exit_code, 0)
-        mock_select_account.assert_called_once()
+        mock_select_api_source.assert_called_once()
         mock_list_events_folder.assert_called_once()
 
-    @patch("manage_agenda.cli.select_account")
     @patch("manage_agenda.cli.list_emails_folder")
-    def test_gmail_command(self, mock_list_emails_folder, mock_select_account):
+    def test_gmail_command(self, mock_list_emails_folder):
         result = self.runner.invoke(self.cli.cli, ["gmail"])
         self.assertEqual(result.exit_code, 0)
-        mock_select_account.assert_called_once()
         mock_list_emails_folder.assert_called_once()
 
     def setUp(self):
@@ -40,13 +39,17 @@ class TestCliCommands(unittest.TestCase):
 
         self.cli = cli
         self.llm_name = "gemini"
-        self.Args = namedtuple("args", ["interactive", "delete", "source", "verbose", "destination", "text"])
+        self.Args = namedtuple(
+            "args",
+            ["interactive", "delete", "source", "verbose", "destination", "text"],
+        )
         self.runner = CliRunner()
 
     def test_add_non_interactive(self):
-        with patch("manage_agenda.utils.GeminiClient") as mock_gemini_client, patch(
-            "manage_agenda.cli.process_email_cli"
-        ) as mock_process_email_cli:
+        with (
+            patch("manage_agenda.utils.GeminiClient") as mock_gemini_client,
+            patch("manage_agenda.cli.process_email_cli") as mock_process_email_cli,
+        ):
             # Mock the LLM client
             mock_llm_client = MagicMock()
 
@@ -57,9 +60,7 @@ class TestCliCommands(unittest.TestCase):
             mock_gemini_client.return_value = mock_llm_client
             self._mock_api(mock_process_email_cli)
 
-            result = self.runner.invoke(
-                self.cli.cli, ["add", "-s", self.llm_name]
-            )
+            result = self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name])
             self.assertEqual(result.exit_code, 0)
             mock_process_email_cli.assert_called_once()
 
@@ -82,9 +83,10 @@ class TestCliCommands(unittest.TestCase):
     #         mock_process_email_cli.assert_not_called()
 
     def test_add_no_posts(self):
-        with patch("manage_agenda.utils.GeminiClient") as mock_gemini_client, patch(
-            "manage_agenda.cli.process_email_cli"
-        ) as mock_process_email_cli:
+        with (
+            patch("manage_agenda.utils.GeminiClient") as mock_gemini_client,
+            patch("manage_agenda.cli.process_email_cli") as mock_process_email_cli,
+        ):
             # Mock the LLM client
             mock_llm_client = MagicMock()
 
@@ -100,7 +102,7 @@ class TestCliCommands(unittest.TestCase):
             mock_api_src.getLabels.return_value = [{"id": "Label_0"}]
             mock_api_src.getPosts.return_value = []
 
-            mock_process_email_cli.side_effect = lambda args, model: None
+            mock_process_email_cli.side_effect = lambda args, model: True
 
             with patch(
                 "manage_agenda.utils.moduleRules.moduleRules"
@@ -111,9 +113,7 @@ class TestCliCommands(unittest.TestCase):
                 mock_rules.readConfigSrc.return_value = mock_api_src
                 mock_module_rules.return_value = mock_rules
 
-                result = self.runner.invoke(
-                    self.cli.cli, ["add", "-s", self.llm_name]
-                )
+                result = self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name])
                 self.assertEqual(result.exit_code, 0)
                 mock_process_email_cli.assert_called_once()
 
@@ -128,7 +128,7 @@ class TestCliCommands(unittest.TestCase):
         mock_api_src.getPostTitle.return_value = "Test title"
         mock_api_src.getPostBody.return_value = "Test Body"
         mock_api_src.getMessage.return_value = "message"
-        mock_process_email_cli.side_effect = lambda args, model: None
+        mock_process_email_cli.side_effect = lambda args, model: True
 
     # def test_add_llm_returns_none(self):
     #     with patch("manage_agenda.cli.select_llm") as mock_select_llm, patch(

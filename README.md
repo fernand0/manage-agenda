@@ -84,6 +84,8 @@ It relies on:
 
 - Module [socialModules](https://github.com/fernand0/socialModules) for reading in your gmail account and writing in your google calendar (needs configuration).
 
+- [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) for parsing HTML content.
+
 At this moment it can use several AI modules:
 
 - [Gemini](https://gemini.google.com/) via [Gemini API Python SDK](https://ai.google.dev/gemini-api/docs/quickstart?lang=python)
@@ -136,7 +138,15 @@ python -m manage_agenda --help
 
 ### `add`
 
-This command allows you to add entries to your calendar from email messages.
+This command is now a group for adding entries to your calendar. By default, it behaves like `add mail`.
+
+#### `add mail`
+
+This subcommand allows you to add entries to your calendar from email messages.
+
+#### `add web`
+
+This subcommand allows you to add entries to your calendar from a web page. It fetches the content of the provided URL, processes the HTML to extract only the textual information, and then uses an LLM to extract event details.
 
 ### `copy`
 
@@ -150,10 +160,18 @@ This command allows you to delete events from a calendar. You can filter the eve
 
 This command allows you to move events from one calendar to another. This is equivalent to copying the events and then deleting them from the source calendar.
 
+### `gcalendar`
+
+This command allows you to list events from your Google Calendar.
+
+### `gmail`
+
+This command allows you to list emails from your Gmail account.
+
 
 ## Development
 
-Tests check nothing but the correct structure of the project (using the template).
+Tests now cover core functionalities and are more comprehensive.
 
 To contribute to this tool, first checkout the code. Then create a new virtual environment:
 ```bash
