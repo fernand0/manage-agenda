@@ -660,7 +660,7 @@ def process_email_cli(args, model):
 
     if posts:
         processed_any_event = False
-        for i, post in enumerate(posts):
+        for post in posts:
             post_id = api_src.getPostId(post)
             post_date = api_src.getPostDate(post)
             post_title = api_src.getPostTitle(post)
