@@ -552,6 +552,27 @@ def _process_event_with_llm_and_calendar(
     print(f"End: {end_time}")
     print(f"====================================")
 
+    if args.interactive:
+        confirmation = input("Are the dates correct? (y/n): ").lower()
+        if confirmation != 'y':
+            new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+            if new_start_str:
+                event.setdefault("start", {})["dateTime"] = new_start_str
+
+            new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+            if new_end_str:
+                event.setdefault("end", {})["dateTime"] = new_end_str
+
+            event = adjust_event_times(event)
+
+            # Update and print new times
+            start_time = safe_get(event, ["start", "dateTime"])
+            end_time = safe_get(event, ["end", "dateTime"])
+            print("--- Updated Event Times ---")
+            print(f"Start: {start_time}")
+            print(f"End: {end_time}")
+            print("---------------------------")
+
     selected_calendar = select_calendar(api_dst)
     if not selected_calendar:
         print("No calendar selected, skipping event creation.")
