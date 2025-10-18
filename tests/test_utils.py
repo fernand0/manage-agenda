@@ -426,7 +426,7 @@ more text"""
             text="",
         )
         model = select_llm(args)
-        mock_gemini_client.assert_called_with("gemini-1.5-flash-latest")
+        mock_gemini_client.assert_called_with("gemini-2.5-flash")
         self.assertEqual(model, mock_gemini_client.return_value)
 
         # Source is 'ollama', but should be 'gemini'

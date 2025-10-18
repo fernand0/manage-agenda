@@ -206,6 +206,20 @@ def adjust_event_times(event):
     if not end.get("dateTime") and start.get("dateTime"):
         _infer_missing_time(start["dateTime"], end, "end")
 
+    # Ensure end time is after start time
+    if start.get("dateTime") and end.get("dateTime"):
+        try:
+            start_dt = datetime.datetime.fromisoformat(start["dateTime"])
+            end_dt = datetime.datetime.fromisoformat(end["dateTime"])
+
+            if end_dt <= start_dt:
+                print("Validation Warning: End time is not after start time. Adjusting end time.")
+                end_dt = start_dt + timedelta(minutes=30)
+                end["dateTime"] = end_dt.isoformat()
+                end["timeZone"] = "UTC"  # Ensure timezone is set if adjusted
+        except ValueError:
+            print("Error comparing start and end times. Skipping adjustment.")
+
     return event
 
 
