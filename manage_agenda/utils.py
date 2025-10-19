@@ -726,63 +726,121 @@ def process_email_cli(args, model):
     return False  # Default return if something went wrong before the main logic
 
 def process_web_cli(args, model):
+
     """Processes web pages and creates calendar events."""
 
-    url = input("URL: ")
-
-    print(f"Processing URL: {url}", flush=True)
 
 
-    page = moduleHtml.moduleHtml()
-    # page.setUrl(url)
-    rep, _ = page.downloadUrl(url)
-    web_content_html = rep.content
+    urls = input("Enter URLs separated by spaces: ").split()
 
-    if web_content_html:
+
+
+    if urls:
+
         processed_any_event = False
 
-        rules = moduleRules.moduleRules()
-        post_id = rules.cleanUrlRule(url)
-        post_title = page.getPostTitle(web_content_html)
+        for url in urls:
 
-        print(f"Processing Title: {post_title}", flush=True)
-        post_date_time = datetime.datetime.now()
+            print(f"Processing URL: {url}", flush=True)
 
-        if isinstance(web_content_html, bytes):
-            web_content_html = web_content_html.decode("utf-8", errors="ignore")
 
-        soup = BeautifulSoup(web_content_html, "html.parser")
 
-        web_content = soup.get_text()
-        web_content = re.sub(r"\n{3,}", "\n\n", web_content)
+            page = moduleHtml.moduleHtml()
 
-        web_content_text = (
-                    f"{post_title}\n"
-                    f"Url: {url}\n"
-                    f"Date:{post_date_time}\n"
-                    f"Message: {web_content}"
-        )
-        write_file(f"{post_id}.txt", web_content_text)  # Save email text
+            # page.setUrl(url)
 
-        print_first_10_lines(web_content_text, "web content")
+            rep, _ = page.downloadUrl(url)
 
-        # Call the common helper function
-        processed_event, calendar_result = _process_event_with_llm_and_calendar(
-            args,
-            model,
-            web_content_text,
-            post_date_time,
-            post_id,
-            post_title,  # post_identifier and subject_for_print can both be url
-        )
+            web_content_html = rep.content
 
-        if processed_event is None:
-            return  # Skip if helper failed
-        else:
-            processed_any_event = (
-                True  # Mark that at least one event was processed
-            )
+
+
+            if web_content_html:
+
+                rules = moduleRules.moduleRules()
+
+                post_id = rules.cleanUrlRule(url)
+
+                post_title = page.getPostTitle(web_content_html)
+
+
+
+                print(f"Processing Title: {post_title}", flush=True)
+
+                post_date_time = datetime.datetime.now()
+
+
+
+                if isinstance(web_content_html, bytes):
+
+                    web_content_html = web_content_html.decode("utf-8", errors="ignore")
+
+
+
+                soup = BeautifulSoup(web_content_html, "html.parser")
+
+
+
+                web_content = soup.get_text()
+
+                web_content = re.sub(r"\n{3,}", "\n\n", web_content)
+
+
+
+                web_content_text = (
+
+                            f"{post_title}\n"
+
+                            f"Url: {url}\n"
+
+                            f"Date:{post_date_time}\n"
+
+                            f"Message: {web_content}"
+
+                )
+
+                write_file(f"{post_id}.txt", web_content_text)  # Save email text
+
+
+
+                print_first_10_lines(web_content_text, "web content")
+
+
+
+                # Call the common helper function
+
+                processed_event, calendar_result = _process_event_with_llm_and_calendar(
+
+                    args,
+
+                    model,
+
+                    web_content_text,
+
+                    post_date_time,
+
+                    post_id,
+
+                    post_title,  # post_identifier and subject_for_print can both be url
+
+                )
+
+
+
+                if processed_event is None:
+
+                    continue  # Skip if helper failed
+
+                else:
+
+                    processed_any_event = (
+
+                        True  # Mark that at least one event was processed
+
+                    )
+
         return processed_any_event  # Return True if any event was processed, False otherwise
+
     return False  # Default return if something went wrong before the main logic
 
 
