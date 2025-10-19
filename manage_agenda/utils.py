@@ -681,8 +681,7 @@ def process_email_cli(args, model):
             post_title = api_src.getPostTitle(post)
 
             print(f"Processing Title: {post_title}", flush=True)
-            post_date_time, time_difference =
-                             _get_post_datetime_and_diff(post_date)
+            post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
 
             if _is_email_too_old(args, time_difference):
                 continue
@@ -735,9 +734,10 @@ def process_web_cli(args, model):
     if urls:
         processed_any_event = False
         page = moduleHtml.moduleHtml()
-        page.setUrl(url)
+        page.setUrl(urls)
         page.setPosts()
-        for i, post in enumerate(posts):
+        print(page.getPosts()[0])
+        for i, post in enumerate(page.getPosts()):
             url = page.url[i]
             print(f"Processing URL: {self.url}", flush=True)
 
