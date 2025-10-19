@@ -681,7 +681,8 @@ def process_email_cli(args, model):
             post_title = api_src.getPostTitle(post)
 
             print(f"Processing Title: {post_title}", flush=True)
-            post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
+            post_date_time, time_difference =
+                             _get_post_datetime_and_diff(post_date)
 
             if _is_email_too_old(args, time_difference):
                 continue
@@ -729,115 +730,82 @@ def process_web_cli(args, model):
 
     """Processes web pages and creates calendar events."""
 
-
-
     urls = input("Enter URLs separated by spaces: ").split()
 
-
-
     if urls:
-
         processed_any_event = False
+        page = moduleHtml.moduleHtml()
+        page.setUrl(url)
+        page.setPosts()
+        for i, post in enumerate(posts):
+            url = page.url[i]
+            print(f"Processing URL: {self.url}", flush=True)
 
-        for url in urls:
+            post_id = rules.cleanUrlRule(url)
+            post_title = page.getPostTitle(post)
+            post_date = datetime.datetime.now()
 
-            print(f"Processing URL: {url}", flush=True)
+            print(f"Processing Title: {post_title}", flush=True)
 
+            # if isinstance(web_content_html, bytes):
+            #     web_content_html = web_content_html.decode("utf-8", errors="ignore")
 
+            # soup = BeautifulSoup(web_content_html, "html.parser")
 
-            page = moduleHtml.moduleHtml()
+            # web_content = soup.get_text()
+            # web_content = re.sub(r"\n{3,}", "\n\n", web_content)
 
-            # page.setUrl(url)
+            web_content_text = (
 
-            rep, _ = page.downloadUrl(url)
+                        f"{post_title}\n"
 
-            web_content_html = rep.content
+                        f"Url: {url}\n"
 
+                        f"Date:{post_date}\n"
 
+                        f"Message: {page.getPostContent(post)}"
 
-            if web_content_html:
+            )
 
-                rules = moduleRules.moduleRules()
-
-                post_id = rules.cleanUrlRule(url)
-
-                post_title = page.getPostTitle(web_content_html)
-
-
-
-                print(f"Processing Title: {post_title}", flush=True)
-
-                post_date_time = datetime.datetime.now()
-
-
-
-                if isinstance(web_content_html, bytes):
-
-                    web_content_html = web_content_html.decode("utf-8", errors="ignore")
+            write_file(f"{post_id}.txt", web_content_text)  # Save email text
 
 
 
-                soup = BeautifulSoup(web_content_html, "html.parser")
+            print_first_10_lines(web_content_text, "web content")
 
 
 
-                web_content = soup.get_text()
+            # Call the common helper function
 
-                web_content = re.sub(r"\n{3,}", "\n\n", web_content)
+            processed_event, calendar_result = _process_event_with_llm_and_calendar(
 
+                args,
 
+                model,
 
-                web_content_text = (
+                web_content_text,
 
-                            f"{post_title}\n"
+                post_date,
 
-                            f"Url: {url}\n"
+                post_id,
 
-                            f"Date:{post_date_time}\n"
+                post_title,  # post_identifier and subject_for_print can both be url
 
-                            f"Message: {web_content}"
-
-                )
-
-                write_file(f"{post_id}.txt", web_content_text)  # Save email text
+            )
 
 
 
-                print_first_10_lines(web_content_text, "web content")
+            if processed_event is None:
 
+                continue  # Skip if helper failed
 
+            else:
 
-                # Call the common helper function
+                processed_any_event = (
 
-                processed_event, calendar_result = _process_event_with_llm_and_calendar(
-
-                    args,
-
-                    model,
-
-                    web_content_text,
-
-                    post_date_time,
-
-                    post_id,
-
-                    post_title,  # post_identifier and subject_for_print can both be url
+                    True  # Mark that at least one event was processed
 
                 )
-
-
-
-                if processed_event is None:
-
-                    continue  # Skip if helper failed
-
-                else:
-
-                    processed_any_event = (
-
-                        True  # Mark that at least one event was processed
-
-                    )
 
         return processed_any_event  # Return True if any event was processed, False otherwise
 
