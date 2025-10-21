@@ -734,13 +734,15 @@ def process_web_cli(args, model):
     if urls:
         processed_any_event = False
         page = moduleHtml.moduleHtml()
+        print(urls)
         page.setUrl(urls)
-        page.setPosts()
-        print(page.getPosts()[0])
+        page.setApiPosts()
+        print(page.getPosts())
         for i, post in enumerate(page.getPosts()):
             url = page.url[i]
-            print(f"Processing URL: {self.url}", flush=True)
+            print(f"Processing URL: {page.url}", flush=True)
 
+            rules = moduleRules.moduleRules()
             post_id = rules.cleanUrlRule(url)
             post_title = page.getPostTitle(post)
             post_date = datetime.datetime.now()
@@ -756,20 +758,13 @@ def process_web_cli(args, model):
             # web_content = re.sub(r"\n{3,}", "\n\n", web_content)
 
             web_content_text = (
-
                         f"{post_title}\n"
-
                         f"Url: {url}\n"
-
                         f"Date:{post_date}\n"
-
                         f"Message: {page.getPostContent(post)}"
-
             )
 
             write_file(f"{post_id}.txt", web_content_text)  # Save email text
-
-
 
             print_first_10_lines(web_content_text, "web content")
 
