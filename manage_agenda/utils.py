@@ -409,8 +409,22 @@ def _interactive_date_confirmation(args, event):
             new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
             if new_start_str:
                 event.setdefault("start", {})["dateTime"] = new_start_str
+                try:
+                    start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                    end_dt = start_dt + timedelta(minutes=45)
+                    new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-            new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+                    modify_end_time = input(f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): ").lower()
+                    if modify_end_time == 'y':
+                        new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+                    else:
+                        new_end_str = new_end_str_default
+                except ValueError:
+                    print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
+                    new_end_str = ""
+            else:
+                new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+
             if new_end_str:
                 event.setdefault("end", {})["dateTime"] = new_end_str
 
