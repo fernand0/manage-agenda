@@ -281,11 +281,16 @@ def get_event_from_llm(model, prompt, verbose=False):
             print(f"Json:\n{vcal_json}")
             print(f"Json:\n{type(vcal_json)}")
         event = vcal_json
+        print(f"Event: {event}")
 
         # event = json.loads(vcal_json)
     except json.JSONDecodeError as e:
         logging.error(f"Invalid JSON in vCal data: {vcal_json}")
         logging.error(f"Error: {e}")
+    except SyntaxError as e:
+        logging.error(f"Syntax error: {vcal_json}")
+        logging.error(f"Error: {e}")
+    print("Aquíiii")
 
     return event, vcal_json
 
@@ -381,23 +386,23 @@ def list_emails_folder(args):
 
 def _create_llm_prompt(event, content_text, reference_date_time):
     """Constructs the LLM prompt for event extraction."""
+    content_text = content_text.replace('\r','')
     return (
-        f"Rellenar los datos del diccionario {event}.\n"
-        "Buscamos datos relativos a una actividad. "
-        "La fecha del mensaje que se indica con 'Date:' "
-        "es una referencia, no la fecha de celebración. "
-        "El inicio y el fin se pondrán en "
-        " los campos event['start']['dateTime']  y "
-        " event['end']['dateTime'] respectivamente,"
-        f" y serán fechas iguales o "
-        f"posteriores a {reference_date_time}. "
-        "Si no se indica otra cosa "
-        "la timezone es Central European Time (CET)"
-        " No añadas comentarios al resultado, que"
-        " se representará como un JSON."
-        "El resultado incluye un json y sus campos y "
-        "contenidos deben ir entre comillas dobles. "
-        f"El texto es:\n{content_text}"
+        "Rellenar los datos del JSON:\n"
+        f"{event}\n"
+        "Puedes obtener los datos en el cuerpo del mensaje ('Message:') o en "
+        "el asunto ('Subject:'). "
+        "La fecha que se marca con 'Message date:' se usa como una referencia "
+        "cuando se indican fechas relativas como por ejemplo, 'el próximo jueves'.\n"
+        "Si no se indica otra cosa la timezone es CET.\n"
+        "El resultado incluye un json y sus campos y contenidos deben ir entre comillas dobles. "
+        "El inicio y el fin de la actividad son fechas y se pondrán en los campos event['start']['dateTime']  y "
+        " event['end']['dateTime'] respectivamente" #, y serán fechas iguales o "
+        # f"posteriores a {reference_date_time}. "
+        "No traduzcas el texto, conserva la información en el idioma en que se presenta.\n"
+        "No añadas comentarios al resultado que se representará como un JSON."
+        f"El texto es:\n"
+        f"{content_text}.\n"
     )
 
 
@@ -461,6 +466,7 @@ def _process_event_with_llm_and_calendar(
 
     # Get AI reply
     event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
+    print(f"Event: {event}")
     process_event_data(event, content_text)
     adjust_event_times(event)
 
@@ -480,6 +486,12 @@ def _process_event_with_llm_and_calendar(
     while not data_complete and retries <= max_retries:
         summary = event.get("summary")
         start_datetime = event.get("start", {}).get("dateTime")
+
+        if not summary:
+            print("- Summary")
+            summary = subject_for_print
+            if summary:
+                event["summary"] = summary
 
         if summary and start_datetime:
             data_complete = True
@@ -709,9 +721,9 @@ def process_email_cli(args, model):
             full_email_content = re.sub(r"\n{3,}", "\n\n", full_email_content)
 
             email_text = (
-                    f"{post_title}\n"
-                    f"Date:{post_date_time}\n"
-                    f"Message: {full_email_content}"
+                    f"Subject: {post_title}\n"
+                    f"Message: {full_email_content}\n"
+                    f"Message date: {post_date_time}\n"
             )
             write_file(f"{post_id}.txt", email_text)  # Save email text
 
@@ -772,10 +784,10 @@ def process_web_cli(args, model):
             # web_content = re.sub(r"\n{3,}", "\n\n", web_content)
 
             web_content_text = (
-                        f"{post_title}\n"
-                        f"Url: {url}\n"
-                        f"Date:{post_date}\n"
-                        f"Message: {page.getPostContent(post)}"
+                    f"Url: {url}\n"
+                    f"Date:{post_date}\n"
+                    f"Subject: {post_title}\n"
+                    f"Message: {page.getPostContent(post)}"
             )
 
             write_file(f"{post_id}.txt", web_content_text)  # Save email text
