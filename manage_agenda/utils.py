@@ -243,11 +243,13 @@ def extract_json(text):
     # extract json (assuming response contains json within backticks)
 
     if not text.startswith('{'):
-        pos = text.rfind('{')
-        text = text[pos:]
+        pos = text.find('{')
+        if pos != -1:
+            text = text[pos:]
     if not text.endswith('}'):
         pos = text.rfind('}')
-        text = text[:pos+1]
+        if pos != -1:
+            text = text[:pos+1]
     vcal_json = text
     # if "```" in text:
     #     start_index = text.find("```")
@@ -606,11 +608,21 @@ def _process_event_with_llm_and_calendar(
 
     start_time = safe_get(event, ["start", "dateTime"])
     end_time = safe_get(event, ["end", "dateTime"])
-    print(f"====================================")
+
+    start_time_local = (
+        datetime.datetime.fromisoformat(start_time).astimezone()
+        if start_time
+        else "N/A"
+    )
+    end_time_local = (
+        datetime.datetime.fromisoformat(end_time).astimezone() if end_time else "N/A"
+    )
+
+    print(f"=====================================")
     print(f"Subject: {subject_for_print}")  # Use dynamic subject
-    print(f"Start: {start_time}")
-    print(f"End: {end_time}")
-    print(f"====================================")
+    print(f"Start: {start_time_local}")
+    print(f"End: {end_time_local}")
+    print(f"=====================================")
 
     event = _interactive_date_confirmation(args, event)
 
