@@ -241,17 +241,25 @@ def adjust_event_times(event):
 
 def extract_json(text):
     # extract json (assuming response contains json within backticks)
-    if "```" in text:
-        start_index = text.find("```")
-        end_index = text.find("```", start_index + 1)
-        vcal_json = text[
-            start_index + 8 : end_index
-        ].strip()  # extract content between backticks
-    elif "<think>" in text:
-        start_index = text.find("/think")
-        vcal_json = text[start_index + 9 :].strip()
-    else:
-        vcal_json = text
+
+    if not text.startswith('{'):
+        pos = text.rfind('{')
+        text = text[pos:]
+    if not text.endswith('}'):
+        pos = text.rfind('}')
+        text = text[:pos+1]
+    vcal_json = text
+    # if "```" in text:
+    #     start_index = text.find("```")
+    #     end_index = text.find("```", start_index + 1)
+    #     vcal_json = text[
+    #         start_index + 8 : end_index
+    #     ].strip()  # extract content between backticks
+    # elif "<think>" in text:
+    #     start_index = text.find("/think")
+    #     vcal_json = text[start_index + 9 :].strip()
+    # else:
+    #     vcal_json = text
 
     return vcal_json
 
@@ -271,11 +279,6 @@ def get_event_from_llm(model, prompt, verbose=False):
 
     if verbose:
         print(f"Reply:\n{llm_response}")
-        print(f"End Reply")
-    if not llm_response.endswith('}'):
-        pos = llm_response.rfind('}')
-        llm_response = llm_response[:pos+1]
-        print(f"New Reply:\n{llm_response}")
         print(f"End Reply")
     llm_response = llm_response.replace("\\", "").replace("\n", " ")
 
