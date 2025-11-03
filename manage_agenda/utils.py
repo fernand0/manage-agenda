@@ -45,6 +45,14 @@ Args = namedtuple(
     "args", ["interactive", "delete", "source", "verbose", "destination", "text"]
 )
 
+def get_add_sources():
+    """Returns a list of available sources for the add command."""
+    from socialModules import moduleRules
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+    return email_sources + ["web"]
+
 
 def print_first_10_lines(content, content_type="content"):
     """Prints the first 10 lines of the given content."""
@@ -354,11 +362,18 @@ def list_events_folder(args, api_src, calendar=""):
         print("Some problem with the account")
 
 
-def _get_emails_from_folder(args):
+def _get_emails_from_folder(args, source_name=None):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
-    api_src_type = ["gmail", "imap"]
-    api_src = select_api_source(args, api_src_type)
+    if source_name:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
+        source_details = rules.more.get(source_name, {})
+        api_src = rules.readConfigSrc("", source_name, source_details)
+    else:
+        api_src_type = ["gmail", "imap"]
+        api_src = select_api_source(args, api_src_type)
 
     if not api_src.getClient():
         print("Some problem with the account")
@@ -715,10 +730,10 @@ def _is_email_too_old(args, time_difference):
             return True
     return False
 
-def process_email_cli(args, model):
+def process_email_cli(args, model, source_name=None):
     """Processes emails and creates calendar events."""
 
-    api_src, posts = _get_emails_from_folder(args)
+    api_src, posts = _get_emails_from_folder(args, source_name)
 
     if posts:
         processed_any_event = False

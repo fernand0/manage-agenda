@@ -14,7 +14,9 @@ from .utils import (
     copy_events_cli,
     delete_events_cli,
     move_events_cli,
+    get_add_sources,
 )  # Import only what's needed
+from socialModules.configMod import select_from_list
 
 from .utils_base import (
     setup_logging,
@@ -70,7 +72,7 @@ def evaluate(ctx, prompt):
         evaluate_models(prompt)
 
 
-@cli.group(invoke_without_command=True)
+@cli.command()
 @click.option(
     "-i",
     "--interactive",
@@ -86,28 +88,7 @@ def evaluate(ctx, prompt):
 )
 @click.pass_context
 def add(ctx, interactive, source):
-    """Add entries to the calendar (defaults to 'mail')."""
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(mail, interactive=interactive, source=source)
-
-
-@add.command()
-@click.option(
-    "-i",
-    "--interactive",
-    is_flag=True,
-    default=False,
-    help="Running in interactive mode",
-)
-@click.option(
-    "-s",
-    "--source",
-    default="gemini",
-    help="Select LLM",
-)
-@click.pass_context
-def mail(ctx, interactive, source):
-    """Add entries to the calendar from email."""
+    """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
         interactive=interactive,
@@ -123,44 +104,16 @@ def mail(ctx, interactive, source):
     if verbose:
         print(f"Model: {model}")
 
-    success = process_email_cli(args, model)
-    if not success:
-        ctx.exit(1)
+    if interactive:
+        sources = get_add_sources()
+        selected_source, _ = select_from_list(sources)
 
-
-@add.command()
-@click.option(
-    "-i",
-    "--interactive",
-    is_flag=True,
-    default=False,
-    help="Running in interactive mode",
-)
-@click.option(
-    "-s",
-    "--source",
-    default="gemini",
-    help="Select LLM",
-)
-@click.pass_context
-def web(ctx, interactive, source):
-    """Add entries to the calendar from a web page."""
-    verbose = ctx.obj["VERBOSE"]
-    args = Args(
-        interactive=interactive,
-        delete=None,
-        source=source,
-        verbose=verbose,
-        destination=None,
-        text=None,
-    )
-
-    model = select_llm(args)
-
-    if verbose:
-        print(f"Model: {model}")
-
-    process_web_cli(args, model)
+        if selected_source == "web":
+            process_web_cli(args, model)
+        else:
+            process_email_cli(args, model, source_name=selected_source)
+    else:
+        process_email_cli(args, model)
 
 
 @cli.command()
