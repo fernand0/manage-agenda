@@ -271,6 +271,12 @@ def get_event_from_llm(model, prompt, verbose=False):
 
     if verbose:
         print(f"Reply:\n{llm_response}")
+        print(f"End Reply")
+    if not llm_response.endswith('}'):
+        pos = llm_response.rfind('}')
+        llm_response = llm_response[:pos+1]
+        print(f"New Reply:\n{llm_response}")
+        print(f"End Reply")
     llm_response = llm_response.replace("\\", "").replace("\n", " ")
 
     try:
@@ -785,7 +791,7 @@ def process_web_cli(args, model):
 
             web_content_text = (
                     f"Url: {url}\n"
-                    f"Date:{post_date}\n"
+                    f"Message date: {post_date}\n"
                     f"Subject: {post_title}\n"
                     f"Message: {page.getPostContent(post)}"
             )
@@ -794,38 +800,23 @@ def process_web_cli(args, model):
 
             print_first_10_lines(web_content_text, "web content")
 
-
-
             # Call the common helper function
 
             processed_event, calendar_result = _process_event_with_llm_and_calendar(
-
                 args,
-
                 model,
-
                 web_content_text,
-
                 post_date,
-
                 post_id,
-
                 post_title,  # post_identifier and subject_for_print can both be url
-
             )
 
 
-
             if processed_event is None:
-
                 continue  # Skip if helper failed
-
             else:
-
                 processed_any_event = (
-
                     True  # Mark that at least one event was processed
-
                 )
 
         return processed_any_event  # Return True if any event was processed, False otherwise
