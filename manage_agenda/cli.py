@@ -106,7 +106,8 @@ def add(ctx, interactive, source):
 
     if interactive:
         sources = get_add_sources()
-        selected_source, _ = select_from_list(sources)
+        print(f"Sources: {sources}")
+        sel, selected_source= select_from_list(sources)
 
         if selected_source == "web":
             process_web_cli(args, model)
