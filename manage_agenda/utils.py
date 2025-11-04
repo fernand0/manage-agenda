@@ -362,18 +362,14 @@ def list_events_folder(args, api_src, calendar=""):
         print("Some problem with the account")
 
 
-def _get_emails_from_folder(args, source_name=None):
+def _get_emails_from_folder(args, source_name):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
-    if source_name:
-        from socialModules import moduleRules
-        rules = moduleRules.moduleRules()
-        rules.checkRules()
-        source_details = rules.more.get(source_name, {})
-        api_src = rules.readConfigSrc("", source_name, source_details)
-    else:
-        api_src_type = ["gmail", "imap"]
-        api_src = select_api_source(args, api_src_type)
+    from socialModules import moduleRules
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    source_details = rules.more.get(source_name, {})
+    api_src = rules.readConfigSrc("", source_name, source_details)
 
     if not api_src.getClient():
         print("Some problem with the account")
@@ -399,9 +395,25 @@ def _get_emails_from_folder(args, source_name=None):
     return api_src, posts
 
 
+def select_email_source(args):
+    """Selects an email source, interactive or not."""
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+
+    if args.interactive:
+        selected_source, _ = select_from_list(email_sources)
+        source_name = selected_source
+    else:
+        source_name = email_sources[0]
+
+    return source_name
+
+
 def list_emails_folder(args):
     """Lists emails and in folder."""
-    api_src, posts = _get_emails_from_folder(args)
+    source_name = select_email_source(args)
+    api_src, posts = _get_emails_from_folder(args, source_name)
     if posts:
         for i, post in enumerate(posts):
             # post_id = api_src.getPostId(post)
@@ -732,6 +744,9 @@ def _is_email_too_old(args, time_difference):
 
 def process_email_cli(args, model, source_name=None):
     """Processes emails and creates calendar events."""
+
+    if not source_name:
+        source_name = select_email_source(args)
 
     api_src, posts = _get_emails_from_folder(args, source_name)
 

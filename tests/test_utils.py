@@ -34,6 +34,9 @@ class TestProcessEmailCli(unittest.TestCase):
             ["interactive", "delete", "source", "verbose", "destination", "text"],
         )
 
+    @patch("manage_agenda.utils.select_api_source")
+    @patch("manage_agenda.utils.select_email_source")
+    @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("manage_agenda.utils.moduleRules.moduleRules")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
@@ -48,6 +51,9 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_write_file,
         mock_select_calendar,
         mock_module_rules,
+        mock_get_emails_from_folder,
+        mock_select_email_source,
+        mock_select_api_source,
     ):
         args = self.Args(
             interactive=False,
@@ -78,7 +84,11 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_api_src.getPostTitle.return_value = "Test title"
         mock_api_src.getPostBody.return_value = "Test Body"
 
+        mock_select_email_source.return_value = "test_source"
+        mock_get_emails_from_folder.return_value = (mock_api_src, ["post_id"])
+
         mock_api_dst = MagicMock()
+        mock_select_api_source.return_value = mock_api_dst
         mock_select_calendar.return_value = "primary"
 
         mock_rules = MagicMock()
@@ -142,10 +152,12 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_api_src.setPosts.assert_called_once()
         mock_print.assert_not_called()
 
+    @patch("manage_agenda.utils.select_email_source")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("builtins.print")
-    def test_list_emails_folder_with_posts(self, mock_print, mock_get_emails):
+    def test_list_emails_folder_with_posts(self, mock_print, mock_get_emails, mock_select_email_source):
         mock_api_src = MagicMock()
+        mock_select_email_source.return_value = "test_source"
         mock_get_emails.return_value = (mock_api_src, ["post1", "post2"])
         args = self.Args(
             interactive=False,
@@ -156,12 +168,15 @@ class TestProcessEmailCli(unittest.TestCase):
             text="",
         )
         list_emails_folder(args)
-        mock_get_emails.assert_called_once_with(args)
+        mock_select_email_source.assert_called_once_with(args)
+        mock_get_emails.assert_called_once_with(args, "test_source")
         self.assertEqual(mock_print.call_count, 2)
 
+    @patch("manage_agenda.utils.select_email_source")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("builtins.print")
-    def test_list_emails_folder_no_posts(self, mock_print, mock_get_emails):
+    def test_list_emails_folder_no_posts(self, mock_print, mock_get_emails, mock_select_email_source):
+        mock_select_email_source.return_value = "test_source"
         mock_get_emails.return_value = (None, None)
         args = self.Args(
             interactive=False,
@@ -172,7 +187,8 @@ class TestProcessEmailCli(unittest.TestCase):
             text="",
         )
         list_emails_folder(args)
-        mock_get_emails.assert_called_once_with(args)
+        mock_select_email_source.assert_called_once_with(args)
+        mock_get_emails.assert_called_once_with(args, "test_source")
         mock_print.assert_not_called()
 
 
