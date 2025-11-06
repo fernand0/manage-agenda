@@ -298,9 +298,7 @@ def get_event_from_llm(model, prompt, verbose=False):
         vcal_json = ast.literal_eval(extract_json(llm_response))
         if verbose:
             print(f"Json:\n{vcal_json}")
-            print(f"Json:\n{type(vcal_json)}")
         event = vcal_json
-        print(f"Event: {event}")
 
         # event = json.loads(vcal_json)
     except json.JSONDecodeError as e:
@@ -309,7 +307,6 @@ def get_event_from_llm(model, prompt, verbose=False):
     except SyntaxError as e:
         logging.error(f"Syntax error: {vcal_json}")
         logging.error(f"Error: {e}")
-    print("Aquíiii")
 
     return event, vcal_json
 
@@ -504,7 +501,6 @@ def _process_event_with_llm_and_calendar(
 
     # Get AI reply
     event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
-    print(f"Event: {event}")
     process_event_data(event, content_text)
     adjust_event_times(event)
 
@@ -649,6 +645,7 @@ def _process_event_with_llm_and_calendar(
     print(f"Subject: {subject_for_print}")  # Use dynamic subject
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
+    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
     print(f"=====================================")
 
     event = _interactive_date_confirmation(args, event)
@@ -811,13 +808,13 @@ def process_web_cli(args, model):
     if urls:
         processed_any_event = False
         page = moduleHtml.moduleHtml()
-        print(urls)
+        if args.verbose:
+            print(f"Urls: {urls}")
         page.setUrl(urls)
         page.setApiPosts()
-        print(page.getPosts())
         for i, post in enumerate(page.getPosts()):
             url = page.url[i]
-            print(f"Processing URL: {page.url}", flush=True)
+            print(f"Processing URL: {url}", flush=True)
 
             rules = moduleRules.moduleRules()
             post_id = rules.cleanUrlRule(url)

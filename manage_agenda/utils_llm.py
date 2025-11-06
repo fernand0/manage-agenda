@@ -100,9 +100,6 @@ class OllamaClient(LLMClient):
             self.model_name = model_name
 
     def generate_text(self, prompt):
-        print(f"Self: {self}")
-        # print(f"Self: {self.options}")
-        # self["options"]["num_ctx"] = len(prompt)
         try:
             response: ChatResponse = chat(
                 model=self.model_name, messages=[{"role": "user", "content": prompt}],
