@@ -308,7 +308,7 @@ def get_event_from_llm(model, prompt, verbose=False):
         logging.error(f"Syntax error: {vcal_json}")
         logging.error(f"Error: {e}")
 
-    return event, vcal_json
+    return event, vcal_json, elapsed_time
 
 
 def authorize(args):
@@ -500,7 +500,7 @@ def _process_event_with_llm_and_calendar(
         print(f"\nEnd Prompt:")
 
     # Get AI reply
-    event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
+    event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
     process_event_data(event, content_text)
     adjust_event_times(event)
 
@@ -591,7 +591,7 @@ def _process_event_with_llm_and_calendar(
                 if new_model:
                     model = new_model
                     print(f"Trying with new AI model: {model.__class__.__name__}")
-                    new_event, new_vcal_json = get_event_from_llm(
+                    new_event, new_vcal_json, elapsed_time = get_event_from_llm(
                         model, prompt, args.verbose
                     )
                     if new_event:
