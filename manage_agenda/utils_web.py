@@ -3,8 +3,40 @@ import os
 import re
 import urllib.request
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "manage_agenda")
+
+def extract_domain_and_path_from_url(url):
+    """
+    Extracts the domain and path from a given URL, excluding filename and date patterns.
+    Returns a string in the format "domain/path".
+    """
+    parsed_url = urlparse(url)
+    domain = parsed_url.netloc
+    path = parsed_url.path
+
+    # If path is empty or just a slash, return domain
+    if not path or path == '/':
+        return domain
+
+    # Remove filename
+    path_directory = os.path.dirname(path)
+
+    # Remove date-like patterns from the path
+    # Handles formats like /YYYY/MM/DD, /YYYY-MM-DD, /YYYY/MM, etc.
+    path_directory = re.sub(r'/\d{4}/\d{1,2}/\d{1,2}', '', path_directory)
+    path_directory = re.sub(r'/\d{4}-\d{1,2}-\d{1,2}', '', path_directory)
+    path_directory = re.sub(r'/\d{4}/\d{1,2}', '', path_directory)
+    path_directory = re.sub(r'/\d{4}-\d{1,2}', '', path_directory)
+    path_directory = re.sub(r'/\d{4}', '', path_directory)  # Year only
+
+    # Clean up path and join with domain
+    final_path = path_directory.rstrip('/')
+    if not final_path:
+        return domain
+    else:
+        return f"{domain}{final_path}"
 
 def reduce_html(url):
     """
@@ -14,8 +46,9 @@ def reduce_html(url):
     if not os.path.exists(CACHE_DIR):
         os.makedirs(CACHE_DIR)
 
-    # Generate a safe filename from the URL
-    safe_filename = re.sub(r'[^a-zA-Z0-9.-]', '_', url)
+    # Generate a safe filename from the processed URL
+    processed_url = extract_domain_and_path_from_url(url)
+    safe_filename = re.sub(r'[^a-zA-Z0-9.-]', '_', processed_url)
     cached_file_path = os.path.join(CACHE_DIR, safe_filename)
 
     # Download new content
