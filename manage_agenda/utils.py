@@ -820,11 +820,11 @@ def process_web_cli(args, model):
             rules = moduleRules.moduleRules()
 
             post_id = rules.cleanUrlRule(url)
-            post_date = datetime.datetime.now()
             post_title = page.getPostTitle(post)
+            post_date = datetime.datetime.now()
 
 
-            web_content_reduced = reduce_html(url)
+            web_content_reduced = reduce_html(url, post)
             if not web_content_reduced:
                 print(f"Could not process {url}, skipping.")
                 continue

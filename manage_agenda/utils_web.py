@@ -38,7 +38,7 @@ def extract_domain_and_path_from_url(url):
     else:
         return f"{domain}{final_path}"
 
-def reduce_html(url):
+def reduce_html(url, post):
     """
     Reduces the HTML content of a URL by comparing it with a cached version.
     Returns the new or unique content of the page.
@@ -51,17 +51,7 @@ def reduce_html(url):
     safe_filename = re.sub(r'[^a-zA-Z0-9.-]', '_', processed_url)
     cached_file_path = os.path.join(CACHE_DIR, safe_filename)
 
-    # Download new content
-    try:
-        with urllib.request.urlopen(url) as response:
-            # Try to decode with UTF-8, fall back to latin-1 on error
-            try:
-                new_html = response.read().decode('utf-8')
-            except UnicodeDecodeError:
-                new_html = response.read().decode('latin-1', errors='ignore')
-    except Exception as e:
-        print(f"Error downloading {url}: {e}")
-        return None
+    new_html = post
 
     if os.path.exists(cached_file_path):
         print("URL encontrada en cache. Comparando...")
