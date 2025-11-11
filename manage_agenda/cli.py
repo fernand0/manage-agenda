@@ -15,7 +15,8 @@ from .utils import (
     delete_events_cli,
     move_events_cli,
     get_add_sources,
-)  # Import only what's needed
+    select_email_prompt,
+)
 from socialModules.configMod import select_from_list
 
 from .utils_base import (
@@ -25,7 +26,7 @@ from .utils_base import (
 from .utils_llm import (
     evaluate_models,
 )
-from .utils import select_email_prompt, Args
+from .config import config
 
 
 @click.group()

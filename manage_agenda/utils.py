@@ -1,10 +1,12 @@
 import datetime
 from datetime import timedelta
+from dataclasses import dataclass
+from typing import Optional
 import time
 import json
 import googleapiclient
 import logging
-import pytz  # Added pytz import
+import pytz
 
 import urllib.request
 import re
@@ -21,16 +23,22 @@ from socialModules.configMod import (
     select_from_list,
     safe_get,
 )
-from collections import namedtuple
 
-# Define the default CET timezone using a specific IANA name.
-# 'CET' is an abbreviation, so we use a common IANA timezone that observes CET.
-# For example, 'Europe/Berlin' or 'Europe/Paris'. Let's use 'Europe/Berlin'.
+from manage_agenda.config import config
+from manage_agenda.exceptions import (
+    CalendarError,
+    EmailError,
+    LLMError,
+    ValidationError,
+    AuthenticationError,
+)
+
+# Define the default timezone from config
 try:
-    DEFAULT_NAIVE_TIMEZONE = pytz.timezone("Europe/Berlin")
+    DEFAULT_NAIVE_TIMEZONE = pytz.timezone(config.DEFAULT_TIMEZONE)
 except pytz.exceptions.UnknownTimeZoneError:
-    print(
-        "Error: 'Europe/Berlin' is not a recognized timezone by pytz. Falling back to UTC."
+    logging.error(
+        f"Invalid timezone '{config.DEFAULT_TIMEZONE}' in config. Falling back to UTC."
     )
     DEFAULT_NAIVE_TIMEZONE = pytz.utc
 
@@ -38,13 +46,20 @@ from manage_agenda.utils_base import (
     setup_logging,
     write_file,
     format_time,
-)  # , select_from_list
+)
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
 from manage_agenda.utils_web import reduce_html
 
-Args = namedtuple(
-    "args", ["interactive", "delete", "source", "verbose", "destination", "text"]
-)
+
+@dataclass
+class Args:
+    """Arguments container for CLI commands."""
+    interactive: bool = False
+    delete: Optional[bool] = None
+    source: Optional[str] = None
+    verbose: bool = False
+    destination: Optional[str] = None
+    text: Optional[str] = None
 
 def get_add_sources():
     """Returns a list of available sources for the add command."""
@@ -67,25 +82,44 @@ def print_first_10_lines(content, content_type="content"):
 
 def select_calendar(calendar_api):
     """Selects a Google Calendar.
-    FIXME: maybe it should be in socialModules?
 
     Args:
         calendar_api: An object to interact with the Google Calendar API.
 
     Returns:
-        The ID of the selected calendar or the calendar object.
+        The ID of the selected calendar.
+        
+    Raises:
+        CalendarError: If calendar selection fails.
     """
-    calendar_api.setCalendarList()
-    calendars = calendar_api.getCalendarList()
-    eligible_calendars = [
-        cal for cal in calendars if "reader" not in cal.get("accessRole", "")
-    ]
-
-    # names = [safe_get(cal, ["summary"]) for cal in eligible_calendars]
-    selection, cal = select_from_list(eligible_calendars, "summary")
-
-    print(f"Cal: {cal}")
-    return eligible_calendars[selection]["id"]
+    try:
+        calendar_api.setCalendarList()
+        calendars = calendar_api.getCalendarList()
+        
+        if not calendars:
+            raise CalendarError("No calendars found in your Google Calendar account")
+        
+        eligible_calendars = [
+            cal for cal in calendars if "reader" not in cal.get("accessRole", "")
+        ]
+        
+        if not eligible_calendars:
+            raise CalendarError("No writable calendars found. Check your calendar permissions.")
+        
+        selection, cal = select_from_list(eligible_calendars, "summary")
+        
+        if selection < 0 or selection >= len(eligible_calendars):
+            raise CalendarError(f"Invalid calendar selection: {selection}")
+        
+        calendar_id = eligible_calendars[selection]["id"]
+        logging.info(f"Selected calendar: {safe_get(cal, ['summary'])} (ID: {calendar_id})")
+        
+        return calendar_id
+        
+    except (KeyError, IndexError, TypeError) as e:
+        raise CalendarError(f"Failed to select calendar: {e}")
+    except Exception as e:
+        raise CalendarError(f"Unexpected error selecting calendar: {e}")
 
 
 # --- Event Handling ---
@@ -115,7 +149,17 @@ def process_event_data(event, content):
 
 
 def adjust_event_times(event):
-    """Adjusts event start/end times, localizing naive times to CET and converting all to UTC."""
+    """Adjusts event start/end times, localizing naive times and converting to UTC.
+    
+    Args:
+        event (dict): Event dictionary with start/end datetime fields.
+        
+    Returns:
+        dict: Event with adjusted times in UTC.
+        
+    Raises:
+        ValidationError: If datetime validation fails critically.
+    """
 
     def _process_single_time_field(time_str, input_tz_name, field_name_for_logging):
         """
@@ -134,22 +178,22 @@ def adjust_event_times(event):
                         local_tz = pytz.timezone(input_tz_name)
                         dt_obj = local_tz.localize(dt_obj)
                     except pytz.exceptions.UnknownTimeZoneError:
-                        print(
-                            f"Validation Error: Unknown timezone "
-                            f"'{input_tz_name}' for {field_name_for_logging} "
-                            "time. Falling back to default CET."
+                        logging.warning(
+                            f"Unknown timezone '{input_tz_name}' for {field_name_for_logging}. "
+                            f"Using default timezone: {config.DEFAULT_TIMEZONE}"
                         )
                         dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
                 else:
                     dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
 
             return dt_obj.astimezone(pytz.utc).isoformat(), True
-        except ValueError:
-            print(
-                f"Validation Error: {field_name_for_logging} "
-                f"time '{time_str}' is not a valid ISO 8601 format."
-                "Skipping adjustment."
+        except ValueError as e:
+            logging.error(
+                f"Invalid datetime format for {field_name_for_logging}: '{time_str}'. Error: {e}"
             )
+            return None, False
+        except Exception as e:
+            logging.error(f"Unexpected error processing {field_name_for_logging}: {e}")
             return None, False
 
     def _infer_missing_time(existing_dt_iso, target_field_dict, infer_type):
