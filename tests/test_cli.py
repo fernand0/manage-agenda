@@ -130,21 +130,131 @@ class TestCliCommands(unittest.TestCase):
         mock_api_src.getMessage.return_value = "message"
         mock_process_email_cli.side_effect = lambda args, model: True
 
-    # def test_add_llm_returns_none(self):
-    #     with patch("manage_agenda.cli.select_llm") as mock_select_llm, patch(
-    #         "manage_agenda.cli.process_email_cli"
-    #     ) as mock_process_email_cli:
-    #         # Mock the LLM client
-    #         mock_llm_client = MagicMock()
-    #         mock_llm_client.generate_text.return_value = None
-    #         mock_select_llm.return_value = mock_llm_client
-    #         self._mock_api(mock_process_email_cli)
+    @patch("manage_agenda.cli.select_llm")
+    @patch("manage_agenda.cli.process_email_cli")
+    def test_add_verbose_flag(self, mock_process_email, mock_select_llm):
+        """Test add command with verbose flag."""
+        mock_llm = MagicMock()
+        mock_select_llm.return_value = mock_llm
+        mock_process_email.return_value = True
+        
+        result = self.runner.invoke(self.cli.cli, ["-v", "add", "-s", "gemini"])
+        
+        self.assertEqual(result.exit_code, 0)
 
-    #         result = self.runner.invoke(
-    #             self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
-    #         )
-    #         self.assertEqual(result.exit_code, 0)
-    #         self.assertIn("Failed to get response from LLM", result.output)
-    #         expected_args = self.Args(interactive=False, delete=True, source=self.llm_name)
-    #         mock_select_llm.assert_called_once_with(expected_args)
-    #         mock_process_email_cli.assert_called_once()
+    @patch("manage_agenda.cli.get_add_sources", return_value=["gmail", "web"])
+    @patch("manage_agenda.cli.select_from_list", return_value=(1, "web"))
+    @patch("manage_agenda.cli.select_llm")
+    @patch("manage_agenda.cli.process_web_cli")
+    def test_add_interactive_web(self, mock_process_web, mock_select_llm, mock_select_list, mock_get_sources):
+        """Test add command in interactive mode selecting web source."""
+        mock_llm = MagicMock()
+        mock_select_llm.return_value = mock_llm
+        mock_process_web.return_value = True
+        
+        result = self.runner.invoke(self.cli.cli, ["add", "-i"])
+        
+        self.assertEqual(result.exit_code, 0)
+        mock_get_sources.assert_called_once()
+        mock_process_web.assert_called_once()
+
+    @patch("manage_agenda.cli.get_add_sources", return_value=["gmail1", "imap1"])
+    @patch("manage_agenda.cli.select_from_list", return_value=(0, "gmail1"))
+    @patch("manage_agenda.cli.select_llm")
+    @patch("manage_agenda.cli.process_email_cli")
+    def test_add_interactive_email(self, mock_process_email, mock_select_llm, mock_select_list, mock_get_sources):
+        """Test add command in interactive mode selecting email source."""
+        mock_llm = MagicMock()
+        mock_select_llm.return_value = mock_llm
+        mock_process_email.return_value = True
+        
+        result = self.runner.invoke(self.cli.cli, ["add", "-i"])
+        
+        self.assertEqual(result.exit_code, 0)
+        mock_process_email.assert_called_once()
+        # Verify source_name was passed
+        call_args = mock_process_email.call_args
+        self.assertEqual(call_args[1].get('source_name'), "gmail1")
+
+    @patch("manage_agenda.cli.authorize")
+    def test_auth_client_not_connected(self, mock_authorize):
+        """Test auth command when client fails to connect."""
+        mock_api = MagicMock()
+        mock_api.getClient.return_value = None
+        mock_api.confName.return_value = "/path/to/config"
+        mock_api.getServer.return_value = "server"
+        mock_api.getNick.return_value = "nick"
+        mock_authorize.return_value = mock_api
+        
+        result = self.runner.invoke(self.cli.cli, ["auth"])
+        
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Enable the Gcalendar API", result.output)
+
+    @patch("manage_agenda.cli.authorize")
+    def test_auth_verbose(self, mock_authorize):
+        """Test auth command with verbose flag."""
+        mock_api = MagicMock()
+        mock_api.getClient.return_value = MagicMock()
+        mock_authorize.return_value = mock_api
+        
+        result = self.runner.invoke(self.cli.cli, ["-v", "auth"])
+        
+        self.assertEqual(result.exit_code, 0)
+
+    @patch("manage_agenda.cli.evaluate_models")
+    @patch("manage_agenda.cli.select_email_prompt", return_value="test prompt")
+    def test_llm_evaluate_no_prompt(self, mock_select_prompt, mock_evaluate):
+        """Test llm evaluate command without prompt."""
+        result = self.runner.invoke(self.cli.cli, ["llm", "evaluate"])
+        
+        self.assertEqual(result.exit_code, 0)
+        mock_select_prompt.assert_called_once()
+        mock_evaluate.assert_called_once_with("test prompt")
+
+    @patch("manage_agenda.cli.evaluate_models")
+    def test_llm_evaluate_with_prompt(self, mock_evaluate):
+        """Test llm evaluate command with prompt argument."""
+        result = self.runner.invoke(self.cli.cli, ["llm", "evaluate", "test prompt"])
+        
+        self.assertEqual(result.exit_code, 0)
+        mock_evaluate.assert_called_once_with("test prompt")
+
+    @patch("manage_agenda.cli.evaluate_models")
+    @patch("manage_agenda.cli.select_email_prompt", return_value=None)
+    def test_llm_evaluate_no_prompt_returned(self, mock_select_prompt, mock_evaluate):
+        """Test llm evaluate when select_email_prompt returns None."""
+        result = self.runner.invoke(self.cli.cli, ["llm", "evaluate"])
+        
+        self.assertEqual(result.exit_code, 0)
+        mock_select_prompt.assert_called_once()
+        mock_evaluate.assert_not_called()
+
+    @patch("manage_agenda.cli.copy_events_cli")
+    def test_copy_command(self, mock_copy):
+        """Test copy command."""
+        result = self.runner.invoke(self.cli.cli, ["copy", "-s", "cal1", "-d", "cal2", "-t", "meeting"])
+        
+        self.assertEqual(result.exit_code, 0)
+        mock_copy.assert_called_once()
+
+    @patch("manage_agenda.cli.delete_events_cli")
+    def test_delete_command(self, mock_delete):
+        """Test delete command."""
+        result = self.runner.invoke(self.cli.cli, ["delete"])
+        
+        self.assertEqual(result.exit_code, 0)
+        mock_delete.assert_called_once()
+
+    @patch("manage_agenda.cli.move_events_cli")
+    def test_move_command(self, mock_move):
+        """Test move command."""
+        result = self.runner.invoke(self.cli.cli, ["move"])
+        
+        self.assertEqual(result.exit_code, 0)
+        mock_move.assert_called_once()
+
+
+if __name__ == "__main__":
+    unittest.main()
+

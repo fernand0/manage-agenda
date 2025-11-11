@@ -48,7 +48,8 @@ class TestUtilsBase(unittest.TestCase):
         """
         Tests that setup_logging configures logging to the default /tmp directory.
         """
-        with patch("manage_agenda.utils_base.LOGDIR", ""):
+        with patch("manage_agenda.utils_base.LOGDIR", ""), \
+             patch("manage_agenda.utils_base.config.LOG_FILE", "/tmp/manage_agenda.log"):
             setup_logging(verbose=True)
 
         mock_basic_config.assert_called_once()
