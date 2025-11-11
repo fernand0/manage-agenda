@@ -40,6 +40,7 @@ from manage_agenda.utils_base import (
     format_time,
 )  # , select_from_list
 from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
+from manage_agenda.utils_web import reduce_html
 
 Args = namedtuple(
     "args", ["interactive", "delete", "source", "verbose", "destination", "text"]
@@ -817,25 +818,25 @@ def process_web_cli(args, model):
             print(f"Processing URL: {url}", flush=True)
 
             rules = moduleRules.moduleRules()
+
             post_id = rules.cleanUrlRule(url)
-            post_title = page.getPostTitle(post)
             post_date = datetime.datetime.now()
+            post_title = page.getPostTitle(post)
 
-            print(f"Processing Title: {post_title}", flush=True)
 
-            # if isinstance(web_content_html, bytes):
-            #     web_content_html = web_content_html.decode("utf-8", errors="ignore")
+            web_content_reduced = reduce_html(url)
+            if not web_content_reduced:
+                print(f"Could not process {url}, skipping.")
+                continue
 
-            # soup = BeautifulSoup(web_content_html, "html.parser")
-
-            # web_content = soup.get_text()
-            # web_content = re.sub(r"\n{3,}", "\n\n", web_content)
+            if not post_title:
+                post_title = url  # Use URL as the title
 
             web_content_text = (
-                    f"Url: {url}\n"
-                    f"Message date: {post_date}\n"
-                    f"Subject: {post_title}\n"
-                    f"Message: {page.getPostContent(post)}"
+                f"Url: {url}\n"
+                f"Message date: {post_date}\n"
+                f"Subject: {post_title}\n"
+                f"Message: {web_content_reduced}"
             )
 
             write_file(f"{post_id}.txt", web_content_text)  # Save email text
@@ -852,7 +853,6 @@ def process_web_cli(args, model):
                 post_id,
                 post_title,  # post_identifier and subject_for_print can both be url
             )
-
 
             if processed_event is None:
                 continue  # Skip if helper failed
