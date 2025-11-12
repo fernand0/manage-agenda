@@ -335,6 +335,7 @@ def get_event_from_llm(model, prompt, verbose=False):
     if verbose:
         print(f"Reply:\n{llm_response}")
         print(f"End Reply")
+
     llm_response = llm_response.replace("\\", "").replace("\n", " ")
 
     try:
@@ -354,7 +355,6 @@ def get_event_from_llm(model, prompt, verbose=False):
         logging.error(f"Error: {e}")
 
     return event, vcal_json, elapsed_time
-
 
 def authorize(args):
     rules = moduleRules.moduleRules()
@@ -476,6 +476,8 @@ def _create_llm_prompt(event, content_text, reference_date_time):
         "cuando se indican fechas relativas como por ejemplo, 'el próximo jueves'.\n"
         "Si no se indica otra cosa la timezone es CET.\n"
         "El resultado incluye un json y sus campos y contenidos deben ir entre comillas dobles. "
+        "Si el mensaje tiene comillas de cualquier tipo sustitúyelas por comillas simples (') "
+        "para no tener problemas con el json. "
         "El inicio y el fin de la actividad son fechas y se pondrán en los campos event['start']['dateTime']  y "
         " event['end']['dateTime'] respectivamente" #, y serán fechas iguales o "
         # f"posteriores a {reference_date_time}. "
@@ -545,7 +547,9 @@ def _process_event_with_llm_and_calendar(
         print(f"\nEnd Prompt:")
 
     # Get AI reply
-    event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+    event = None
+    while not event:
+        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
     process_event_data(event, content_text)
     adjust_event_times(event)
 
@@ -676,15 +680,24 @@ def _process_event_with_llm_and_calendar(
 
     start_time = safe_get(event, ["start", "dateTime"])
     end_time = safe_get(event, ["end", "dateTime"])
+    if args.interactive:
+        print(f"Start time: {start_time}")
+        print(f"End time: {end_time}")
 
-    start_time_local = (
-        datetime.datetime.fromisoformat(start_time).astimezone()
-        if start_time
-        else "N/A"
-    )
-    end_time_local = (
-        datetime.datetime.fromisoformat(end_time).astimezone() if end_time else "N/A"
-    )
+    try:
+        start_time_local = (
+            datetime.datetime.fromisoformat(start_time).astimezone()
+            if start_time
+            else "N/A"
+        )
+        end_time_local = (
+            datetime.datetime.fromisoformat(end_time).astimezone() if end_time else "N/A"
+        )
+    except:
+        print(f"Wrong date format")
+        start_time_local = start_time
+        end_time_local = end_time
+
 
     print(f"=====================================")
     print(f"Subject: {subject_for_print}")  # Use dynamic subject
@@ -866,7 +879,6 @@ def process_web_cli(args, model):
             post_id = rules.cleanUrlRule(url)
             post_title = page.getPostTitle(post)
             post_date = datetime.datetime.now()
-
 
             web_content_reduced = reduce_html(url, post)
             if not web_content_reduced:

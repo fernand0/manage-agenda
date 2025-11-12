@@ -52,6 +52,7 @@ def reduce_html(url, post):
     cached_file_path = os.path.join(CACHE_DIR, safe_filename)
 
     new_html = post
+    print(f"Post: {post}")
 
     if os.path.exists(cached_file_path):
         print("URL encontrada en cache. Comparando...")
@@ -67,7 +68,10 @@ def reduce_html(url, post):
         # Decompose tags in the new version if their text content is in the old version
         for tag in soup2.find_all(True):
             tag_text = tag.get_text(strip=True)
-            if tag_text and tag_text in fragments1:
+            if (('Lugar' not in tag_text)
+                and ('Hora' not in tag_text) 
+                # Particular case for cultura.unizar.es ??
+                and tag_text and tag_text in fragments1):
                 tag.decompose()
         
         # Clean up scripts and meta tags
@@ -76,11 +80,12 @@ def reduce_html(url, post):
         for meta in soup2.find_all('meta'):
             meta.decompose()
 
+        # result = soup2.prettify()
+        result =  soup2.get_text(separator='\n', strip=True)
         # Update cache with the new version
         with open(cached_file_path, 'w', encoding='utf-8') as f:
             f.write(new_html)
 
-        return soup2.prettify()
     else:
         print("URL no encontrada en cache. Descargando y guardando...")
         # Save the new HTML to the cache
@@ -93,4 +98,6 @@ def reduce_html(url, post):
             script.decompose()
         for meta in soup.find_all('meta'):
             meta.decompose()
-        return soup.get_text(separator='\n', strip=True)
+        result =  soup.get_text(separator='\n', strip=True)
+
+    return result
