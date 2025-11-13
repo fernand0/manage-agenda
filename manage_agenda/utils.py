@@ -331,28 +331,27 @@ def get_event_from_llm(model, prompt, verbose=False):
 
     if not llm_response:
         print("Failed to get response from LLM.")
-
-    if verbose:
-        print(f"Reply:\n{llm_response}")
-        print(f"End Reply")
-
-    llm_response = llm_response.replace("\\", "").replace("\n", " ")
-
-    try:
-        import ast
-
-        vcal_json = ast.literal_eval(extract_json(llm_response))
+    else:
         if verbose:
-            print(f"Json:\n{vcal_json}")
-        event = vcal_json
+            print(f"Reply:\n{llm_response}")
+            print(f"End Reply")
 
-        # event = json.loads(vcal_json)
-    except json.JSONDecodeError as e:
-        logging.error(f"Invalid JSON in vCal data: {vcal_json}")
-        logging.error(f"Error: {e}")
-    except SyntaxError as e:
-        logging.error(f"Syntax error: {vcal_json}")
-        logging.error(f"Error: {e}")
+        llm_response = llm_response.replace("\\", "").replace("\n", " ")
+
+        try:
+            import ast
+            vcal_json = ast.literal_eval(extract_json(llm_response))
+            if verbose:
+                print(f"Json:\n{vcal_json}")
+            event = vcal_json
+
+            # event = json.loads(vcal_json)
+        except json.JSONDecodeError as e:
+            logging.error(f"Invalid JSON in vCal data: {vcal_json}")
+            logging.error(f"Error: {e}")
+        except SyntaxError as e:
+            logging.error(f"Syntax error: {vcal_json}")
+            logging.error(f"Error: {e}")
 
     return event, vcal_json, elapsed_time
 
@@ -820,11 +819,18 @@ def process_email_cli(args, model, source_name=None):
 
             full_email_content = api_src.getPostBody(post)
 
-            if isinstance(full_email_content, bytes):
-                # FIXME: does this belong here?
-                full_email_content = full_email_content.decode("utf-8")
 
-            full_email_content = re.sub(r"\n{3,}", "\n\n", full_email_content)
+            # pattern_generic = re.compile( 
+            #                              r'[\u200c\u00a0\u2007\u00ad\u2007\u200b\u200e\ufeff\u0847]',
+            #                      #r'[\p{Cf}\p{Cc}\p{Zs}\u00ad]',
+            #                      #r'[\p{Cf}\p{Cc}\p{Zs}]',
+            #                      re.UNICODE
+            #                      )
+            #full_email_content = pattern_generic.sub('', full_email_content)
+            #full_email_content = re.sub(r'[ \t]+\n', r'\n', full_email_content)
+            # full_email_content = re.sub(r" {3,}", "\n\n", full_email_content)
+            # full_email_content = re.sub(r"\n{3,}", "\n\n", full_email_content)
+            # print(f"Email: {full_email_content}")
 
             email_text = (
                     f"Subject: {post_title}\n"
@@ -952,6 +958,16 @@ def select_email_prompt(args):
     full_email_content = api_src.getPostBody(selected_post)
     if isinstance(full_email_content, bytes):
         full_email_content = full_email_content.decode("utf-8")
+    #pattern_generic = re.compile( 
+    #                             #r'[\u200c\u00a0\u2007\u00ad\u200b\u200e\ufeff]',
+    #                             #r'[\p{Cf}\p{Cc}\p{Zs}\
+    #                             r'[\p{Cf}\p{Cc}\p{Zs}]',
+    #                             re.UNICODE
+    #                             )
+    #full_email_content = pattern_generic.sub('', full_email_content)
+    #print(f"Email: {full_email_content}")
+
+    #sys.exit()
 
     return full_email_content
 
