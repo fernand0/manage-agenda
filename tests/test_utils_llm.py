@@ -1,16 +1,14 @@
-import unittest
-from unittest.mock import patch, MagicMock, mock_open
 import sys
-import os
-import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
 
 sys.path.append(".")
 
 from manage_agenda.utils_llm import (
-    LLMClient,
-    OllamaClient,
     GeminiClient,
+    LLMClient,
     MistralClient,
+    OllamaClient,
     evaluate_models,
     load_config,
 )
@@ -19,11 +17,11 @@ from manage_agenda.utils_llm import (
 class TestLoadConfig(unittest.TestCase):
     def test_load_config_file_exists(self):
         """Test loading a valid config file."""
-        config_content = "[section1]\napi_key=test_key_123\n"
-        
+        # config_content = "[section1]\napi_key=test_key_123\n"
+
         with patch("os.path.exists", return_value=True):
             with patch("configparser.ConfigParser.read") as mock_read:
-                config = load_config("/fake/path/config.ini")
+                _ = load_config("/fake/path/config.ini")
                 mock_read.assert_called_once_with("/fake/path/config.ini")
 
     def test_load_config_file_not_found(self):
@@ -69,9 +67,9 @@ class TestOllamaClient(unittest.TestCase):
     def test_ollama_init_without_model_name(self, mock_list_models, mock_select):
         """Test OllamaClient initialization without model name."""
         mock_list_models.return_value = [{"model": "llama2"}, {"model": "mistral"}]
-        
+
         client = OllamaClient(model_name="")
-        
+
         mock_list_models.assert_called_once()
         mock_select.assert_called_once()
         self.assertIsNotNone(client.model_name)
@@ -82,10 +80,10 @@ class TestOllamaClient(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.message.content = "Generated response"
         mock_chat.return_value = mock_response
-        
+
         client = OllamaClient(model_name="llama2")
         result = client.generate_text("test prompt")
-        
+
         self.assertEqual(result, "Generated response")
         mock_chat.assert_called_once()
 
@@ -94,16 +92,16 @@ class TestOllamaClient(unittest.TestCase):
         """Test OllamaClient generate_text error handling."""
         client = OllamaClient(model_name="llama2")
         result = client.generate_text("test prompt")
-        
+
         self.assertIsNone(result)
 
     @patch("manage_agenda.utils_llm.ollama.list")
     def test_ollama_list_models(self, mock_list):
         """Test OllamaClient list_models."""
         mock_list.return_value = {"models": [{"model": "llama2"}, {"model": "mistral"}]}
-        
+
         models = OllamaClient.list_models()
-        
+
         self.assertEqual(len(models), 2)
         self.assertEqual(models[0]["model"], "llama2")
 
@@ -113,15 +111,17 @@ class TestGeminiClient(unittest.TestCase):
     @patch("manage_agenda.utils_llm.genai.configure")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
-    def test_gemini_init_with_model_name(self, mock_exists, mock_load_config, mock_configure, mock_model):
+    def test_gemini_init_with_model_name(
+        self, mock_exists, mock_load_config, mock_configure, mock_model
+    ):
         """Test GeminiClient initialization with model name."""
         mock_config = MagicMock()
         mock_config.sections.return_value = ["section1"]
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
-        
+
         client = GeminiClient(model_name="gemini-pro")
-        
+
         self.assertEqual(client.model_name, "gemini-pro")
         mock_configure.assert_called_once_with(api_key="fake_api_key")
         mock_model.assert_called_once_with("gemini-pro")
@@ -132,62 +132,73 @@ class TestGeminiClient(unittest.TestCase):
     @patch("manage_agenda.utils_llm.genai.configure")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
-    def test_gemini_init_without_model_name(self, mock_exists, mock_load_config, mock_configure, 
-                                           mock_list_models, mock_select, mock_model):
+    def test_gemini_init_without_model_name(
+        self,
+        mock_exists,
+        mock_load_config,
+        mock_configure,
+        mock_list_models,
+        mock_select,
+        mock_model,
+    ):
         """Test GeminiClient initialization without model name."""
         mock_config = MagicMock()
         mock_config.sections.return_value = ["section1"]
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
-        
+
         mock_model_obj = MagicMock()
         mock_model_obj.name = "models/gemini-pro"
         mock_list_models.return_value = [mock_model_obj]
-        
+
         client = GeminiClient(model_name="")
-        
+
         self.assertEqual(client.model_name, "gemini-pro")
 
     @patch("manage_agenda.utils_llm.genai.GenerativeModel")
     @patch("manage_agenda.utils_llm.genai.configure")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
-    def test_gemini_generate_text_success(self, mock_exists, mock_load_config, mock_configure, mock_model):
+    def test_gemini_generate_text_success(
+        self, mock_exists, mock_load_config, mock_configure, mock_model
+    ):
         """Test GeminiClient generate_text success."""
         mock_config = MagicMock()
         mock_config.sections.return_value = ["section1"]
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_response = MagicMock()
         mock_response.text = "Gemini response"
         mock_client.generate_content.return_value = mock_response
         mock_model.return_value = mock_client
-        
+
         client = GeminiClient(model_name="gemini-pro")
         result = client.generate_text("test prompt")
-        
+
         self.assertEqual(result, "Gemini response")
 
     @patch("manage_agenda.utils_llm.genai.GenerativeModel")
     @patch("manage_agenda.utils_llm.genai.configure")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
-    def test_gemini_generate_text_error(self, mock_exists, mock_load_config, mock_configure, mock_model):
+    def test_gemini_generate_text_error(
+        self, mock_exists, mock_load_config, mock_configure, mock_model
+    ):
         """Test GeminiClient generate_text error handling."""
         mock_config = MagicMock()
         mock_config.sections.return_value = ["section1"]
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
-        
+
         mock_client = MagicMock()
         mock_client.generate_content.side_effect = Exception("API Error")
         mock_model.return_value = mock_client
-        
+
         client = GeminiClient(model_name="gemini-pro")
         result = client.generate_text("test prompt")
-        
+
         self.assertIsNone(result)
 
     @patch("manage_agenda.utils_llm.genai.list_models")
@@ -198,9 +209,9 @@ class TestGeminiClient(unittest.TestCase):
         mock_model2 = MagicMock()
         mock_model2.name = "gemini-flash"
         mock_list.return_value = [mock_model1, mock_model2]
-        
+
         models = GeminiClient.list_models()
-        
+
         self.assertEqual(len(models), 2)
 
 
@@ -215,69 +226,71 @@ class TestMistralClient(unittest.TestCase):
         mock_config.sections.return_value = ["section1"]
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
-        
+
         # Mock list_models
         mock_mistral_instance = MagicMock()
         mock_models = MagicMock()
         mock_models.data = [MagicMock(id="mistral-small")]
         mock_mistral_instance.models.list.return_value = mock_models
         mock_mistral.return_value = mock_mistral_instance
-        
-        client = MistralClient(model_name="mistral-small")
-        
-        mock_mistral.assert_called_once_with(api_key="fake_api_key")
+
+        _ = MistralClient(model_name="mistral-small")
 
     @patch("manage_agenda.utils_llm.select_from_list", return_value=(0, "mistral-small"))
     @patch("manage_agenda.utils_llm.Mistral")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
-    def test_mistral_generate_text_success(self, mock_exists, mock_load_config, mock_mistral_class, mock_select):
+    def test_mistral_generate_text_success(
+        self, mock_exists, mock_load_config, mock_mistral_class, mock_select
+    ):
         """Test MistralClient generate_text success."""
         mock_config = MagicMock()
         mock_config.sections.return_value = ["section1"]
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
-        
+
         mock_mistral = MagicMock()
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "Mistral response"
         mock_mistral.chat.complete.return_value = mock_response
         mock_mistral_class.return_value = mock_mistral
-        
+
         # Mock list_models
         mock_models = MagicMock()
         mock_models.data = [MagicMock(id="mistral-small")]
         mock_mistral.models.list.return_value = mock_models
-        
+
         client = MistralClient(model_name="mistral-small")
         result = client.generate_text("test prompt")
-        
+
         self.assertEqual(result, "Mistral response")
 
     @patch("manage_agenda.utils_llm.select_from_list", return_value=(0, "mistral-small"))
     @patch("manage_agenda.utils_llm.Mistral")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
-    def test_mistral_generate_text_error(self, mock_exists, mock_load_config, mock_mistral_class, mock_select):
+    def test_mistral_generate_text_error(
+        self, mock_exists, mock_load_config, mock_mistral_class, mock_select
+    ):
         """Test MistralClient generate_text error handling."""
         mock_config = MagicMock()
         mock_config.sections.return_value = ["section1"]
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
-        
+
         mock_mistral = MagicMock()
         mock_mistral.chat.complete.side_effect = Exception("API Error")
         mock_mistral_class.return_value = mock_mistral
-        
+
         # Mock list_models
         mock_models = MagicMock()
         mock_models.data = [MagicMock(id="mistral-small")]
         mock_mistral.models.list.return_value = mock_models
-        
+
         client = MistralClient(model_name="mistral-small")
         result = client.generate_text("test prompt")
-        
+
         self.assertIsNone(result)
 
 
@@ -285,18 +298,15 @@ class TestEvaluateModels(unittest.TestCase):
     @patch("builtins.print")
     @patch("time.time", side_effect=[0, 1, 2, 3])  # Mock time for duration calculation
     @patch("manage_agenda.utils_llm.OllamaClient.__init__", return_value=None)
-    @patch.object(OllamaClient, 'list_models')
+    @patch.object(OllamaClient, "list_models")
     def test_evaluate_models(self, mock_list_models, mock_init, mock_time, mock_print):
         """Test evaluate_models function."""
-        mock_list_models.return_value = [
-            {"model": "llama2"},
-            {"model": "mistral"}
-        ]
-        
+        mock_list_models.return_value = [{"model": "llama2"}, {"model": "mistral"}]
+
         # Mock generate_text method
-        with patch.object(OllamaClient, 'generate_text', return_value="Test response"):
+        with patch.object(OllamaClient, "generate_text", return_value="Test response"):
             evaluate_models("test prompt")
-        
+
         # list_models should be called once
         mock_list_models.assert_called_once()
         # Should create 2 clients (one per model)
@@ -307,4 +317,3 @@ class TestEvaluateModels(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

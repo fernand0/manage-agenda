@@ -1,32 +1,29 @@
+
 import click
-import os
+from socialModules.configMod import select_from_list
 
 # Import auxiliary functions and classes from utils.py
 from .utils import (
-    select_llm,
     Args,
     authorize,
+    copy_events_cli,
+    delete_events_cli,
+    get_add_sources,
+    list_emails_folder,
+    list_events_folder,
+    move_events_cli,
     process_email_cli,
     process_web_cli,
     select_api_source,
-    list_emails_folder,
-    list_events_folder,
-    copy_events_cli,
-    delete_events_cli,
-    move_events_cli,
-    get_add_sources,
     select_email_prompt,
+    select_llm,
 )
-from socialModules.configMod import select_from_list
-
 from .utils_base import (
     setup_logging,
 )
-
 from .utils_llm import (
     evaluate_models,
 )
-from .config import config
 
 
 @click.group()
@@ -108,7 +105,7 @@ def add(ctx, interactive, source):
     if interactive:
         sources = get_add_sources()
         print(f"Sources: {sources}")
-        sel, selected_source= select_from_list(sources)
+        sel, selected_source = select_from_list(sources)
 
         if selected_source == "web":
             process_web_cli(args, model)
@@ -166,7 +163,7 @@ def auth(ctx, interactive):
         )
         print(msg)
     else:
-        print(f"This account has been correctly authorized")
+        print("This account has been correctly authorized")
 
 
 @cli.command()

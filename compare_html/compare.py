@@ -1,10 +1,26 @@
 import os
 import re
+import sys
+import urllib.request
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
-CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "manage_agenda")
+
+def download_url(url):
+    """
+    Downloads the HTML content of a URL and returns it as a string.
+    """
+    try:
+        with urllib.request.urlopen(url) as response:
+            # Try to decode with UTF-8, fall back to latin-1 on error
+            try:
+                return response.read().decode("utf-8")
+            except UnicodeDecodeError:
+                return response.read().decode("latin-1", errors="ignore")
+    except Exception as e:
+        print(f"Error downloading {url}: {e}")
+        return None
 
 
 def extract_domain_and_path_from_url(url):
@@ -39,71 +55,74 @@ def extract_domain_and_path_from_url(url):
         return f"{domain}{final_path}"
 
 
-def reduce_html(url, post):
+def generate_filename_from_url(url):
     """
-    Reduces the HTML content of a URL by comparing it with a cached version.
-    Returns the new or unique content of the page.
+    Generates a Linux-filesystem-safe filename from a URL.
     """
+    # Remove scheme
+    if "://" in url:
+        url_without_scheme = url.split("://", 1)[1]
+    else:
+        url_without_scheme = url
+
+    # Replace invalid characters (anything not alphanumeric, dot, or hyphen) with underscore
+    safe_filename = re.sub(r"[^a-zA-Z0-9.-]", "_", url_without_scheme)
+
+    # Truncate to 255 characters
+    return safe_filename[:255]
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Uso: python compare.py <URL>")
+        sys.exit(1)
+
+    input_url = sys.argv[1]
+
+    # Create cache directory if it doesn't exist
+    CACHE_DIR = "cache"
     if not os.path.exists(CACHE_DIR):
         os.makedirs(CACHE_DIR)
 
-    # Generate a safe filename from the processed URL
-    processed_url = extract_domain_and_path_from_url(url)
-    safe_filename = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
-    cached_file_path = os.path.join(CACHE_DIR, safe_filename)
-
-    new_html = post
-    print(f"Post: {post}")
+    processed_url_path = extract_domain_and_path_from_url(input_url)
+    generated_filename = generate_filename_from_url(processed_url_path)
+    cached_file_path = os.path.join(CACHE_DIR, generated_filename)
 
     if os.path.exists(cached_file_path):
         print("URL encontrada en cache. Comparando...")
+
+        new_html = download_url(input_url)
+        if not new_html:
+            sys.exit(1)
+
         with open(cached_file_path, encoding="utf-8") as f:
             old_html = f.read()
 
         soup1 = BeautifulSoup(old_html, "html.parser")
         soup2 = BeautifulSoup(new_html, "html.parser")
 
-        # Store the text of all tags from the old version in a set for quick lookup
         fragments1 = {
             tag.get_text(strip=True) for tag in soup1.find_all(True) if tag.get_text(strip=True)
         }
 
-        # Decompose tags in the new version if their text content is in the old version
         for tag in soup2.find_all(True):
             tag_text = tag.get_text(strip=True)
-            if (
-                ("Lugar" not in tag_text)
-                and ("Hora" not in tag_text)
-                # Particular case for cultura.unizar.es ??
-                and tag_text
-                and tag_text in fragments1
-            ):
+            if tag_text and tag_text in fragments1:
                 tag.decompose()
 
-        # Clean up scripts and meta tags
+        # Clean up scripts and meta tags as before
         for script in soup2.find_all("script"):
             script.decompose()
         for meta in soup2.find_all("meta"):
             meta.decompose()
 
-        # result = soup2.prettify()
-        result = soup2.get_text(separator="\n", strip=True)
-        # Update cache with the new version
-        with open(cached_file_path, "w", encoding="utf-8") as f:
-            f.write(new_html)
+        print("\n--- Contenido Nuevo ---\n")
+        print(soup2.prettify())
 
     else:
         print("URL no encontrada en cache. Descargando y guardando...")
-        # Save the new HTML to the cache
-        with open(cached_file_path, "w", encoding="utf-8") as f:
-            f.write(new_html)
-
-        # For the first time, we can return the full text after basic cleaning
-        soup = BeautifulSoup(new_html, "html.parser")
-        for script in soup.find_all("script"):
-            script.decompose()
-        for meta in soup.find_all("meta"):
-            meta.decompose()
-        result = soup.get_text(separator="\n", strip=True)
-
-    return result
+        html_content = download_url(input_url)
+        if html_content:
+            with open(cached_file_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            print(f"Guardado en cache como: {cached_file_path}")

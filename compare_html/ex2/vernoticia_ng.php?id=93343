@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="es">
+   <head>
+      <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
+       <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+	 <!-- <meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> -->
+      <link href="https://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700" rel="stylesheet" type="text/css">
+      <title>El Campus de Huesca de Unizar acoge el Congreso "Repensando la Promoción de la Salud en los Centros Educativos"</title>      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <link rel="stylesheet" href="css/estilos.css">
+      <link rel="stylesheet" href="css/bootstrap.min.css">
+      <script src="js/jquery.js"></script>
+      <script src="js/bootstrap.js"></script>
+      <script src="js/respond.js"></script>
+      <!--[if lt IE 9]>
+      <script src="js/html5shiv.js"></script>
+      <![endif]-->
+   </head>
+   <body>
+      <div class="wrapper">
+      <div class="cabecera0">
+      </div>
+      <div class="cabecera1">
+         <div class="container">
+            <div class="row">
+               <div class="col-md-6 logouz"> <a href="http://www.unizar.es/"><img src="imagenes/logo_uz_white_small.png" ></a>
+               </div>
+            </div>
+         </div>
+      </div>
+      <header class="cabecera2">
+         <div class="container">
+            <div class="row">
+               <div class="col-md-6">
+                  <div id="iunizar-logo" class="col-md-12">
+                     <div class="triangulo"></div>
+                     <a href="http://www.unizar.es/actualidad/resumen_ng.php?lista=personalunizar"><img src="imagenes/iunizar.png" class="logo"></a>
+                     <p class="rotulo"> Bolet&iacute;n diario informativo de la <strong> Universidad de Zaragoza </strong></p>
+                  </div>
+               </div>
+               <div class="col-md-6">
+                  <ul class="menu sup">
+                     <li class="active"><a href="http://www.unizar.es/actualidad/resumen_ng.php?lista=personalunizar">PDI/PAS</a></li>
+                     <li class="active"><a href="http://www.unizar.es/actualidad/resumen_ng.php?lista=estudiantesunizar">ESTUDIANTES</a></li>
+                     <li> <a href="http://www.unizar.es/actualidad/buscador_ng.php" class="search"><img src="imagenes/icon-search.png"></a> </li>
+                  </ul>
+               </div>
+            </div>
+         </div>
+      </header>
+      <div class="cabecera-fecha">
+         <div class="container">
+            <div class="row">
+               <div class="col-md-2 fecha">
+                  6/11/2025               </div>
+               <div class="col-md-2 no-padding">
+                  <div class="triangulo-rb"></div>
+               </div>
+            </div>
+         </div>
+      </div>
+      <div class="container main-container">
+      <div class="row">
+         <div class="col-md-3 block col-md-push-9">
+            <div class="others">
+               <span class="imag-lateral">
+               <a href="doc/manual-uso.pdf"><img src="imagenes/manual-uso.png" class="banner"></a>
+               </span>
+            </div>
+            <nav class="navbar navbar-default">
+               <div class="navbar-header">
+                  <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#categorias">
+                  <span class="sr-only">Toggle navigation</span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                  <span class="icon-bar"></span>
+                  </button>
+                  <a class="navbar-brand" href="#" data-toggle="collapse" >Categor&iacute;as</a>
+               </div>
+               <div class="collapse navbar-collapse" id="categorias">
+                  <ul class="nav navbar-nav">
+                     <li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=70&l=">ELECCIONES A CLAUSTRO</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=50&l=">INFORMACIÓN INSTITUCIONAL</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=59&l=">INFORMACIÓN ACADÉMICA</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=57&l=">INTERNACIONALIZACIÓN Y COOPERACIÓN</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=67&l=">DOCTORADO</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=65&l=">CONGRESOS, CURSOS Y CONFERENCIAS</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=54&l=">CULTURA, POLÍTICA SOCIAL, DEPORTE Y SALUD</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=60&l=">ESTUDIANTES</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=52&l=">INVESTIGACIÓN Y TRANSFERENCIA</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=55&l=">AYUDAS, PREMIOS Y BECAS</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=69&l=">PARTICIPA EN ESTUDIOS, ENCUESTAS Y EXPERIMENTOS</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=71&l=">INFRAESTRUCTURA, SERVICIOS Y MANTENIMIENTO</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=38&l=">ELECCIONES A RECTOR O RECTORA</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=73&l=">ELECCIONES SINDICALES 2023</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=53&l=">RECURSOS HUMANOS</a></li><li><a href="http://www.unizar.es/actualidad/porcategoria_ng.php?a=66&l=">OTRAS INFORMACIONES</a></li>                  </ul>
+               </div>
+            </nav>
+			<!--
+            <div class="navbar-default others agenda">
+               <div id="categorias">
+                  <ul class="nav navbar-nav">
+                     <li> <a href="http://www.unizar.es/prensa/agenda" target="_blank">Agenda de la Universidad</a></li>
+                  </ul>
+               </div>
+            </div>
+			-->
+            <div class="navbar-default others agenda">
+               <div id="categorias">
+                  <ul class="nav navbar-nav">
+                     <li> <a href="http://www.unizar.es/actualidad/insertar/index2_ng.php" target="_blank">Insertar contenidos</a></li>
+                  </ul>
+               </div>
+            </div>
+
+            <div class="navbar-default others agenda">
+               <div id="categorias">
+                  <ul class="nav navbar-nav">
+                     <li> <a href="http://www.unizar.es/convenios-con-beneficios" target="_blank">Convenios con beneficios para la comunidad universitaria</a></li>
+                  </ul>
+               </div>
+            </div>
+
+         </div>
+                  <div class="col-md-9 col-md-pull-3">
+            <div class="row">
+               <div class="col-md-12 col-lg-12">
+                  <section class="contenido-categoria">
+                     <article class="noticia-content">
+                        <p class="categoria">CONGRESOS, CURSOS Y CONFERENCIAS</p>
+                                                <!-- <h1></h1> Se elimina filtrado HTML para mostrar correctamente simbolo â‚¬ -->
+						<h1>El Campus de Huesca de Unizar acoge el Congreso "Repensando la Promoción de la Salud en los Centros Educativos"</h1>
+                        <!-- <div class="subtitulo"> Se elimina filtrado HTML para mostrar correctamente simbolo â‚¬ -->
+						<div class="subtitulo">Grupos de investigación del campus público aragonés, de la Complutense y de la Universidad de Castilla La Mancha coordinan esta cita que tendrá lugar en la Facultad de Ciencias Humanas y de la EducaciónLos retos y estrategias de la “escuela” del siglo XXI en la promoción del bienestar integral de la comunidad centran esta citaLos nuevos desafíos relacionados con el impacto de las redes sociales, la salud mental o la desigualdad de género también estarán presentes en los debates<br />
+&nbsp;<br />
+Javier Zaragoza, decano de la Facultad de Ciencias Humanas y de la Educación del Campus de Huesca abrirá el congreso con una ponencia sobre la promoción de la salud en el contexto educativo.                        </div>
+                        <div class="cuerpo">
+                           <p>El Campus de Huesca de Unizar acoger&aacute;, los d&iacute;as 6 y 7 de noviembre de 2025, el C<strong>ongreso &lsquo;Repensando la Promoci&oacute;n de la Salud en los Centros Educativos&rsquo;</strong>. Esta cita -coordinada por un equipo liderado por el grupo de investigaci&oacute;n Educaci&oacute;n F&iacute;sica y Promoci&oacute;n de la Actividad F&iacute;sica (Efypaf) de la universidad p&uacute;blica aragonesa, en el que tambi&eacute;n hay profesores de la cOmplutense y de la Universidad de Castilla-La Mancha- pretende ofrecer un punto de encuentro, para la comunidad cient&iacute;fica en particular y para la sociedad en general, que permita revisar las estrategias educativas de promoci&oacute;n de la salud para la ciudadan&iacute;a del siglo XXI. Cerca de un centenar de congresistas, entre investigadores universitarios, docentes y futuros maestros participan en este encuentro.</p>
+
+<p>&ldquo;En la actualidad&rdquo;, se&ntilde;alan los organizadores, &ldquo;los centros educativos enfrentan el desaf&iacute;o de convertirse en espacios que trasciendan la ense&ntilde;anza acad&eacute;mica para consolidarse como entornos que promuevan el bienestar integral de su comunidad&rdquo;. En este sentido, precisan, &ldquo;la <strong>promoci&oacute;n de la salud</strong> en las escuelas no solo implica fomentar h&aacute;bitos saludables, sino tambi&eacute;n <strong>crear condiciones que potencien el bienestar emocional, social y f&iacute;sico&rdquo;</strong>. Los desaf&iacute;os actuales relacionados con la salud mental, la desigualdad de g&eacute;nero y el impacto de las redes sociales, consideran, hacen que este enfoque integral se &ldquo;esencial&rdquo;.</p>
+
+<p>Con este enfoque el Congreso abordar&aacute; el <strong>diagn&oacute;stico de los retos globales</strong> de la promoci&oacute;n de la salud en los entornos educativos (Sesi&oacute;n 1), la identificaci&oacute;n y evaluaci&oacute;n de <strong>buenas pr&aacute;cticas</strong> (Sesi&oacute;n 2), y la <strong>formaci&oacute;n del profesorado</strong> para que sea un actor clave en la implementaci&oacute;n de estas estrategias (Sesi&oacute;n 3).</p>
+
+<p>Adem&aacute;s analizar&aacute; el impacto en la poblaci&oacute;n joven del uso de las <strong>redes sociales</strong>, realizando una valoraci&oacute;n cr&iacute;tica del modelo de salud que transmiten (Sesi&oacute;n 4), y, finalmente, con una mirada hacia el futuro, reflexionar&aacute; sobre <strong>nuevas formas</strong> de garantizar escuelas m&aacute;s saludables, inclusivas y sostenibles (Sesi&oacute;n 5).</p>
+
+<p>Junto al Grupo de Investigaci&oacute;n <strong>EFYPAF</strong> (Educaci&oacute;n F&iacute;sica y Promoci&oacute;n de la Actividad F&iacute;sica) de la Universidad de Zaragoza, participan en la organizaci&oacute;n del congreso, liderando algunos de los ejes tem&aacute;ticos citados, el grupo de investigaci&oacute;n <strong>EDAF</strong> (Ense&ntilde;anza del Deporte y la Educaci&oacute;n F&iacute;sica) de la Universidad de Castilla La Mancha y el <strong>grupoSalud digital y Educaci&oacute;n</strong> de la Universidad Complutense de Madrid.</p>
+
+<p>&nbsp;</p>
+
+<p><strong>Sesiones</strong></p>
+
+<p><strong>Javier Zaragoza</strong>, decano de la Facultad de Ciencias Humanas y de la Educaci&oacute;n del Campus de Huesca abrir&aacute; el congreso, este jueves, a las 15 horas, con la ponencia <em><strong>&ldquo;La promoci&oacute;n de la salud en el contexto educativo. Radiograf&iacute;a de situaci&oacute;n sobre la actividad f&iacute;sica&rdquo;</strong></em>.</p>
+
+<p>Una hora y cuarto m&aacute;s tarde este responsable universitario participar&aacute; en la inauguraci&oacute;n oficial, junto a la Vicerrectora del Campus de Huesca, <strong>Marta Liesa</strong>, y a integrante de los grupos de investigaci&oacute;n organizadores. La presentaci&oacute;n de comunicaciones y estudios , en sesiones paralelas y mediante posters, sobre <strong>salud digital</strong>, promoci&oacute;n de la salud y formaci&oacute;n en esta materia ocupar&aacute;n despu&eacute;s la tarde hasta las 18 horas. Las <strong>buenas pr&aacute;cticas</strong> en promoci&oacute;n de la actividad f&iacute;sica completar&aacute;n la jornada, mediante talleres, din&aacute;micas participativas y una ponencia de <strong>Dolors Juviny&aacute;</strong>, de la Universidad de Girona.</p>
+
+<p>El viernes las sesiones arrancar&aacute;n a las 9:30 horas con mesas tem&aacute;ticas sobre formaci&oacute;n deel profesorado en las que intervendr&aacute;n <strong>Katrien De Cocker</strong>, de la Ghent University, <strong>Luis Miguel Garc&iacute;a L&oacute;pez y Juan Gregorio Fern&aacute;ndez</strong>, de la Universidad de Castilla La Mancha, y <strong>Javier Garc&iacute;a-Cazorla</strong>, de la Universidad de Zaragoza. La presentaci&oacute;n de trabajos de los congresistas cerrar&aacute; la ma&ntilde;ana.</p>
+
+<p>Una mesa redonda sobre la promoci&oacute;n de la salud a trav&eacute;s de tecnolog&iacute;as digitales retomaer&aacute; la actividad del congreso, tras la pausa del medio d&iacute;a, a partir de las 16 horas. En ella intervendr&aacute;n <strong>Ana Isabel Rey-Cao y Mar&iacute;a In&eacute;s T&aacute;boas Pais</strong>, de la Universidad de Vigo, y <strong>Noem&iacute; &Aacute;vila Vald&eacute;s,</strong> de la Complutense de Madrid. Un taller sobre salud digital y una sesi&oacute;n de presentaci&oacute;n de estudios en formato p&oacute;ster, y una mesa redonda sobre propuestas de futuro, y una sesi&oacute;n de cierre final, que moderar&aacute; el profesor del Campus de Huesca <strong>Jos&eacute; Antonio Juli&aacute;n</strong> cerrar&aacute; el encuentro.</p>
+
+<p>&nbsp;</p>
+
+<p><em>M&aacute;s informaci&oacute;n: </em><a href="https://eventos.unizar.es/127803/detail/repensando-la-promocion-de-la-salud-en-los-centros-educativos.html"><em>https://eventos.unizar.es/127803/detail/repensando-la-promocion-de-la-salud-en-los-centros-educativos.html</em></a></p>
+
+<p>&nbsp;</p>
+
+<h4>Archivos adjuntos</h4>
+
+<p><a href="https://gic.unizar.es/sites/gic/files/imagenesnp/2025-11/fche1_campushu.jpg">Ver archivo</a></p><ul></ul><ul class="ods-items"><span>
+    <a href="http://www.unizar.es/actualidad/ods_ng.php?ods=3">
+    <img src="http://www.unizar.es/actualidad/img/iconos_ODS/S-WEB-Goal-03.png" width="20px" heihgt="20px">
+    </a>
+    </span><span>
+    <a href="http://www.unizar.es/actualidad/ods_ng.php?ods=4">
+    <img src="http://www.unizar.es/actualidad/img/iconos_ODS/S-WEB-Goal-04.png" width="20px" heihgt="20px">
+    </a>
+    </span></ul>      <div class="compartir-rs">
+             <h3>Compartir:</h3>
+
+          <a onClick="window.open('http://www.facebook.com/sharer.php?s=100&amp;p[title]=El+Campus+de+Huesca+de+Unizar+acoge+el+Congreso+%22Repensando+la+Promoci%C3%B3n+de+la+Salud+en+los+Centros+Educativos%22&amp;p[summary]=Grupos+de+investigaci%C3%B3n+del+campus+p%C3%BAblico+aragon%C3%A9s%2C+de+la+Complutense+y+de+la+Universidad+de+Castilla+La+Mancha+coordinan+esta+cita+que+tendr%C3%A1+lugar+en+la+Facultad+de+Ciencias+Humanas+y+de+la+Educaci%C3%B3nLos+retos+y+estrategias+de+la+escuela+del+siglo+XXI+en+la+promoci%C3%B3n+del+bienestar+integral+de+la+comunidad+centran+esta+citaLos+nuevos+desaf%C3%ADos+relacionados+con+el+impacto+de+las+redes+sociales%2C+la+salud+mental+o+la+desigualdad+de+g%C3%A9nero+tambi%C3%A9n+estar%C3%A1n+presentes+en+los+debates%0A%C2%A0%0AJavier+Zaragoza%2C+decano+de+la+Facultad+de+Ciencias+Humanas+y+de+la+Educaci%C3%B3n+del+Campus+de+Huesca+abrir%C3%A1+el+congreso+con+una+ponencia+sobre+la+promoci%C3%B3n+de+la+salud+en+el+contexto+educativo.&amp;p[url]=http%3A%2F%2Fwww.unizar.es%2Factualidad%2Fvernoticia_ng.php%3Fid%3D93343&amp;p[images][0]=http%3A%2F%2Fprensa.unizar.es%2Fredes_sociales%2Flogo_fb.png','sharer','width=548,height=325')" href="javascript: void(0)">
+              <img src="http://www.unizar.es/actualidad/imagenes/logo_facebook_ng.png" />
+          </a>
+          <a onClick="window.open('http://twitter.com/intent/tweet?text=El+Campus+de+Huesca+de+Unizar+acoge+el+Congreso+%22Repensando+la+Promoci%C3%B3n+de+la+Salud+en+los+Centros+Educativos%22&url=http%3A%2F%2Fwww.unizar.es%2Factualidad%2Fvernoticia_ng.php%3Fid%3D93343','sharer','width=548,height=325')" href="javascript: void(0)">
+              <img src="http://www.unizar.es/actualidad/imagenes/logo_twitter_ng.png" />
+          </a>
+          </div>
+                                  </div>
+                     </article>
+                  </section>
+               </div>
+            </div>
+                        <div class="row">
+               <div class="col-md-3 col-lg-2">
+                  <p class="categoria">CONGRESOS, CURSOS Y CONFERENCIAS</p>
+               </div>
+               <div class="col-md-9 col-lg-10">
+                  <section class="contenido-categoria">
+                     
+<article class="noticia"><p ><a href="http://www.unizar.es/actualidad/vernoticia_ng.php?id=93350&idh=">El papel de la Inteligencia Artificial en la seguridad y salud laboral, a debate en el Congreso de Prevención de Riesgos Laborales de la Universidad de Zaragoza</a></p></article>
+<article class="noticia"><p class="selected"><a href="http://www.unizar.es/actualidad/vernoticia_ng.php?id=93343&idh=">El Campus de Huesca de Unizar acoge el Congreso "Repensando la Promoción de la Salud en los Centros Educativos"</a></p></article>
+<article class="noticia"><p ><a href="http://www.unizar.es/actualidad/vernoticia_ng.php?id=93364&idh=">Jornada Memoria Consejo Económico y Social de España. Dificultad de acceso a la vivienda</a></p></article>
+<article class="noticia"><p ><a href="http://www.unizar.es/actualidad/vernoticia_ng.php?id=93371&idh=">Explorando la oscuridad: Gemelo digital y ciencia colaborativa en la cueva de Amintxe</a></p></article>
+<article class="noticia"><p ><a href="http://www.unizar.es/actualidad/vernoticia_ng.php?id=93361&idh=">Expertia Tour de cine en ETUZ: Adriana Oliveros — “Aragón en pantalla: cine y territorio”</a></p></article>
+<article class="noticia"><p ><a href="http://www.unizar.es/actualidad/vernoticia_ng.php?id=93347&idh=">Curso Lengua de Signos Española, Nivel A1 y A2</a></p></article>                  </section>
+               </div>
+            </div>
+         </div>
+         <footer id="footer">
+            <div class="container container-footer">
+               <div class="row">
+                  <div class="col-md-3 logouz no-padding">
+                     <img src="imagenes/logoUZwhite.png">
+                  </div>
+                  <div class="col-md-6 direccion">
+                     <div class="col-md-6">
+                        Gabinete de Imagen y Comunicaci&oacute;n<br> Gabinete de Rectorado <br> Universidad de Zaragoza
+                     </div>
+                     <div class="col-md-6">T.  976 761 019 <br> @ <a href="mailto:comunica@unizar.es">comunica@unizar.es</a></div>
+                  </div>
+                  <div id="menu_footer_inferior" class="col-md-12">
+                     <ul>
+                        <li><a href="http://www.unizar.es/aviso-legal"> Aviso Legal</a></li>
+                        <li class="centro"><a href="http://www.unizar.es/condiciones-generales-de-uso">Condiciones generales de uso</a></li>
+                        <li><a href="http://www.unizar.es/politica-de-privacidad">Pol&iacute;tica de Privacidad</a></li>
+                     </ul>
+                  </div>
+               </div>
+            </div>
+         </footer>
+      </div>
+      <!-- Matomo -->
+      <script>
+        var _paq = window._paq = window._paq || [];
+        /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+        _paq.push(['trackPageView']);
+        _paq.push(['enableLinkTracking']);
+        (function() {
+          var u="//staweb.unizar.es/matomo/";
+          _paq.push(['setTrackerUrl', u+'matomo.php']);
+          _paq.push(['setSiteId', '5']);
+          var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+          g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+        })();
+      </script>
+      <!-- End Matomo Code -->
+   </body>
+</html>

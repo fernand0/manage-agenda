@@ -1,13 +1,13 @@
-import unittest
-from unittest.mock import patch, MagicMock, mock_open
-import sys
 import os
-import tempfile
 import shutil
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
 
 sys.path.append(".")
 
-from manage_agenda.utils_web import extract_domain_and_path_from_url, reduce_html, CACHE_DIR
+from manage_agenda.utils_web import CACHE_DIR, extract_domain_and_path_from_url, reduce_html
 
 
 class TestUtilsWeb(unittest.TestCase):
@@ -56,6 +56,7 @@ class TestReduceHtml(unittest.TestCase):
         self.original_cache = CACHE_DIR
         # Patch CACHE_DIR globally
         import manage_agenda.utils_web
+
         manage_agenda.utils_web.CACHE_DIR = self.temp_cache
 
     def tearDown(self):
@@ -64,6 +65,7 @@ class TestReduceHtml(unittest.TestCase):
             shutil.rmtree(self.temp_cache)
         # Restore original CACHE_DIR
         import manage_agenda.utils_web
+
         manage_agenda.utils_web.CACHE_DIR = self.original_cache
 
     def test_reduce_html_first_time(self):
@@ -75,13 +77,13 @@ class TestReduceHtml(unittest.TestCase):
             <body><p>Hello World</p></body>
         </html>
         """
-        
+
         result = reduce_html(url, html_content)
-        
+
         # Should return cleaned text without scripts
         self.assertIn("Hello World", result)
         self.assertNotIn("alert", result)
-        
+
         # Cache file should be created
         safe_filename = "example.com"  # URL without /test becomes just domain
         cache_path = os.path.join(self.temp_cache, safe_filename)
@@ -103,13 +105,13 @@ class TestReduceHtml(unittest.TestCase):
             </body>
         </html>
         """
-        
+
         # First call to cache the old version
         reduce_html(url, old_html)
-        
+
         # Second call with new content
         result = reduce_html(url, new_html)
-        
+
         # Should only show new content (old content removed)
         self.assertIn("New content", result)
         # Old content should be decomposed/removed
@@ -127,9 +129,9 @@ class TestReduceHtml(unittest.TestCase):
             <body><p>Content</p></body>
         </html>
         """
-        
+
         result = reduce_html(url, html_content)
-        
+
         self.assertNotIn("script", result.lower())
         self.assertNotIn("meta", result.lower())
         self.assertIn("Content", result)
@@ -139,25 +141,25 @@ class TestReduceHtml(unittest.TestCase):
         # Remove cache dir
         if os.path.exists(self.temp_cache):
             shutil.rmtree(self.temp_cache)
-        
+
         url = "https://example.com/test"
         html = "<html><body>Test</body></html>"
-        
+
         reduce_html(url, html)
-        
+
         # Cache dir should be created
         self.assertTrue(os.path.exists(self.temp_cache))
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_reduce_html_prints_cache_messages(self, mock_print):
         """Test that reduce_html prints appropriate messages."""
         url = "https://example.com/msg"
         html = "<html><body>Test</body></html>"
-        
+
         # First call - not cached
         reduce_html(url, html)
         mock_print.assert_called_with("URL no encontrada en cache. Descargando y guardando...")
-        
+
         # Second call - cached
         mock_print.reset_mock()
         reduce_html(url, html)
@@ -167,15 +169,15 @@ class TestReduceHtml(unittest.TestCase):
         """Test that special characters in URL are converted to safe filename."""
         url = "https://example.com/path/to:file?param=1&other=2"
         html = "<html><body>Test</body></html>"
-        
+
         reduce_html(url, html)
-        
+
         # Check that a file was created with safe characters
         files = os.listdir(self.temp_cache)
         self.assertEqual(len(files), 1)
         # Should only contain safe characters
         filename = files[0]
-        self.assertRegex(filename, r'^[a-zA-Z0-9._-]+$')
+        self.assertRegex(filename, r"^[a-zA-Z0-9._-]+$")
 
 
 if __name__ == "__main__":

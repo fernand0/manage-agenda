@@ -1,20 +1,19 @@
-import unittest
-from unittest.mock import patch
 import sys
+import unittest
 
 sys.path.append(".")
 
+from manage_agenda.exceptions import ValidationError
 from manage_agenda.validators import (
-    validate_email,
-    validate_url,
-    validate_timezone,
-    validate_datetime_iso,
-    validate_event_dict,
     sanitize_filename,
     validate_api_key,
+    validate_datetime_iso,
+    validate_email,
+    validate_event_dict,
     validate_llm_response,
+    validate_timezone,
+    validate_url,
 )
-from manage_agenda.exceptions import ValidationError
 
 
 class TestValidators(unittest.TestCase):
@@ -117,7 +116,7 @@ class TestValidators(unittest.TestCase):
             ("valid_file.txt", "valid_file.txt"),
             ("file with spaces.txt", "file_with_spaces.txt"),
             ("file/with/slashes.txt", "filewithslashes.txt"),  # Slashes removed
-            ("file:with:colons.txt", "filewithcolons.txt"),    # Colons removed
+            ("file:with:colons.txt", "filewithcolons.txt"),  # Colons removed
         ]
         for input_name, expected in test_cases:
             with self.subTest(input_name=input_name):

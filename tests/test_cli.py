@@ -1,18 +1,12 @@
-import json
 import unittest
-from unittest.mock import patch, MagicMock
-from click.testing import CliRunner
-import datetime
-
 from collections import namedtuple
+from unittest.mock import MagicMock, patch
+
+from click.testing import CliRunner
 
 
 class TestCliCommands(unittest.TestCase):
-    def setUp(self):
-        from manage_agenda import cli
 
-        self.cli = cli
-        self.runner = CliRunner()
 
     @patch("manage_agenda.cli.authorize")
     def test_auth_command(self, mock_authorize):
@@ -104,9 +98,7 @@ class TestCliCommands(unittest.TestCase):
 
             mock_process_email_cli.side_effect = lambda args, model: True
 
-            with patch(
-                "manage_agenda.utils.moduleRules.moduleRules"
-            ) as mock_module_rules:
+            with patch("manage_agenda.utils.moduleRules.moduleRules") as mock_module_rules:
                 mock_rules = MagicMock()
                 mock_rules.selectRule.return_value = ["mocked_rule"]
                 mock_rules.more.get.return_value = {"key": "value"}
@@ -137,23 +129,25 @@ class TestCliCommands(unittest.TestCase):
         mock_llm = MagicMock()
         mock_select_llm.return_value = mock_llm
         mock_process_email.return_value = True
-        
+
         result = self.runner.invoke(self.cli.cli, ["-v", "add", "-s", "gemini"])
-        
+
         self.assertEqual(result.exit_code, 0)
 
     @patch("manage_agenda.cli.get_add_sources", return_value=["gmail", "web"])
     @patch("manage_agenda.cli.select_from_list", return_value=(1, "web"))
     @patch("manage_agenda.cli.select_llm")
     @patch("manage_agenda.cli.process_web_cli")
-    def test_add_interactive_web(self, mock_process_web, mock_select_llm, mock_select_list, mock_get_sources):
+    def test_add_interactive_web(
+        self, mock_process_web, mock_select_llm, mock_select_list, mock_get_sources
+    ):
         """Test add command in interactive mode selecting web source."""
         mock_llm = MagicMock()
         mock_select_llm.return_value = mock_llm
         mock_process_web.return_value = True
-        
+
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
-        
+
         self.assertEqual(result.exit_code, 0)
         mock_get_sources.assert_called_once()
         mock_process_web.assert_called_once()
@@ -162,19 +156,21 @@ class TestCliCommands(unittest.TestCase):
     @patch("manage_agenda.cli.select_from_list", return_value=(0, "gmail1"))
     @patch("manage_agenda.cli.select_llm")
     @patch("manage_agenda.cli.process_email_cli")
-    def test_add_interactive_email(self, mock_process_email, mock_select_llm, mock_select_list, mock_get_sources):
+    def test_add_interactive_email(
+        self, mock_process_email, mock_select_llm, mock_select_list, mock_get_sources
+    ):
         """Test add command in interactive mode selecting email source."""
         mock_llm = MagicMock()
         mock_select_llm.return_value = mock_llm
         mock_process_email.return_value = True
-        
+
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
-        
+
         self.assertEqual(result.exit_code, 0)
         mock_process_email.assert_called_once()
         # Verify source_name was passed
         call_args = mock_process_email.call_args
-        self.assertEqual(call_args[1].get('source_name'), "gmail1")
+        self.assertEqual(call_args[1].get("source_name"), "gmail1")
 
     @patch("manage_agenda.cli.authorize")
     def test_auth_client_not_connected(self, mock_authorize):
@@ -185,9 +181,9 @@ class TestCliCommands(unittest.TestCase):
         mock_api.getServer.return_value = "server"
         mock_api.getNick.return_value = "nick"
         mock_authorize.return_value = mock_api
-        
+
         result = self.runner.invoke(self.cli.cli, ["auth"])
-        
+
         self.assertEqual(result.exit_code, 0)
         self.assertIn("Enable the Gcalendar API", result.output)
 
@@ -197,9 +193,9 @@ class TestCliCommands(unittest.TestCase):
         mock_api = MagicMock()
         mock_api.getClient.return_value = MagicMock()
         mock_authorize.return_value = mock_api
-        
+
         result = self.runner.invoke(self.cli.cli, ["-v", "auth"])
-        
+
         self.assertEqual(result.exit_code, 0)
 
     @patch("manage_agenda.cli.evaluate_models")
@@ -207,7 +203,7 @@ class TestCliCommands(unittest.TestCase):
     def test_llm_evaluate_no_prompt(self, mock_select_prompt, mock_evaluate):
         """Test llm evaluate command without prompt."""
         result = self.runner.invoke(self.cli.cli, ["llm", "evaluate"])
-        
+
         self.assertEqual(result.exit_code, 0)
         mock_select_prompt.assert_called_once()
         mock_evaluate.assert_called_once_with("test prompt")
@@ -216,7 +212,7 @@ class TestCliCommands(unittest.TestCase):
     def test_llm_evaluate_with_prompt(self, mock_evaluate):
         """Test llm evaluate command with prompt argument."""
         result = self.runner.invoke(self.cli.cli, ["llm", "evaluate", "test prompt"])
-        
+
         self.assertEqual(result.exit_code, 0)
         mock_evaluate.assert_called_once_with("test prompt")
 
@@ -225,7 +221,7 @@ class TestCliCommands(unittest.TestCase):
     def test_llm_evaluate_no_prompt_returned(self, mock_select_prompt, mock_evaluate):
         """Test llm evaluate when select_email_prompt returns None."""
         result = self.runner.invoke(self.cli.cli, ["llm", "evaluate"])
-        
+
         self.assertEqual(result.exit_code, 0)
         mock_select_prompt.assert_called_once()
         mock_evaluate.assert_not_called()
@@ -233,8 +229,10 @@ class TestCliCommands(unittest.TestCase):
     @patch("manage_agenda.cli.copy_events_cli")
     def test_copy_command(self, mock_copy):
         """Test copy command."""
-        result = self.runner.invoke(self.cli.cli, ["copy", "-s", "cal1", "-d", "cal2", "-t", "meeting"])
-        
+        result = self.runner.invoke(
+            self.cli.cli, ["copy", "-s", "cal1", "-d", "cal2", "-t", "meeting"]
+        )
+
         self.assertEqual(result.exit_code, 0)
         mock_copy.assert_called_once()
 
@@ -242,7 +240,7 @@ class TestCliCommands(unittest.TestCase):
     def test_delete_command(self, mock_delete):
         """Test delete command."""
         result = self.runner.invoke(self.cli.cli, ["delete"])
-        
+
         self.assertEqual(result.exit_code, 0)
         mock_delete.assert_called_once()
 
@@ -250,11 +248,10 @@ class TestCliCommands(unittest.TestCase):
     def test_move_command(self, mock_move):
         """Test move command."""
         result = self.runner.invoke(self.cli.cli, ["move"])
-        
+
         self.assertEqual(result.exit_code, 0)
         mock_move.assert_called_once()
 
 
 if __name__ == "__main__":
     unittest.main()
-
