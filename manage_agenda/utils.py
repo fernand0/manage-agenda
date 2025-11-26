@@ -786,6 +786,7 @@ def process_email_cli(args, model, source_name=None):
             post_id = api_src.getPostId(post)
             post_date = api_src.getPostDate(post)
             post_title = api_src.getPostTitle(post)
+            post_pos = api_src.getPostPos(post)
 
             print(f"Processing Title: {post_title}", flush=True)
             post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
@@ -831,7 +832,7 @@ def process_email_cli(args, model, source_name=None):
             else:
                 processed_any_event = True  # Mark that at least one event was processed
 
-            _delete_email(args, api_src, post_id)
+            _delete_email(args, api_src, post_pos)
 
         return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
