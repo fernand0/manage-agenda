@@ -711,6 +711,62 @@ more text"""
         # Should call deletePostId for IMAP
         mock_api_src.deletePostId.assert_called_once_with("post123")
 
+    def test_delete_email_retry(self):
+        """Test _delete_email with connection error and retry."""
+        from manage_agenda.utils import _delete_email
+
+        args = Args(interactive=False, delete=True)
+        mock_api_src = MagicMock()
+        mock_api_src.service = "imap"
+        mock_api_src.deletePostId.side_effect = [Exception("Connection error"), None]
+
+        with patch("manage_agenda.utils.moduleRules.moduleRules") as mock_module_rules:
+            mock_rules = MagicMock()
+            mock_rules.more.get.return_value = {}
+            mock_new_api_src = MagicMock()
+            mock_new_api_src.service = "imap"
+            mock_rules.readConfigSrc.return_value = mock_new_api_src
+            mock_module_rules.return_value = mock_rules
+
+            _delete_email(args, mock_api_src, "post123", "test_source")
+
+            # deletePostId is called once on the old object
+            self.assertEqual(mock_api_src.deletePostId.call_count, 1)
+            # The second call is on the new api_src object
+            mock_new_api_src.deletePostId.assert_called_once_with("post123")
+
+    def test_delete_email_retry_failure(self):
+        """Test _delete_email with connection error and all retries fail."""
+        from manage_agenda.utils import _delete_email
+
+        args = Args(interactive=False, delete=True)
+        mock_api_src = MagicMock()
+        mock_api_src.service = "imap"
+        # Simulate two failures (original + retry)
+        mock_api_src.deletePostId.side_effect = Exception("Connection error 1") # Only for the first call
+
+        with patch("manage_agenda.utils.moduleRules.moduleRules") as mock_module_rules, \
+             patch("manage_agenda.utils.logging.error") as mock_logging_error:
+            mock_rules = MagicMock()
+            mock_rules.more.get.return_value = {}
+            mock_new_api_src = MagicMock()
+            mock_new_api_src.service = "imap"
+            mock_new_api_src.deletePostId.side_effect = Exception("Connection error 2") # For the retry call
+            mock_rules.readConfigSrc.return_value = mock_new_api_src
+            mock_module_rules.return_value = mock_rules
+
+            _delete_email(args, mock_api_src, "post123", "test_source")
+
+            # deletePostId is called once on the old object
+            self.assertEqual(mock_api_src.deletePostId.call_count, 1)
+            # deletePostId is called once on the new api_src object
+            self.assertEqual(mock_new_api_src.deletePostId.call_count, 1)
+            
+            # Check that the error message was logged
+            mock_logging_error.assert_called_once_with("Could not delete email post123 after 2 attempts.")
+
+
+
     def test_is_email_too_old_recent(self):
         """Test _is_email_too_old with recent email."""
         from manage_agenda.utils import _is_email_too_old
