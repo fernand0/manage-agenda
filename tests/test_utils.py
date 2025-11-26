@@ -680,7 +680,7 @@ more text"""
         mock_api_src.getChannel.return_value = "test_folder"
         mock_api_src.getLabels.return_value = [{"id": "label_1"}]
 
-        _delete_email(args, mock_api_src, "post123")
+        _delete_email(args, mock_api_src, "post123", "test_source")
 
         # Should call modifyLabels for gmail
         mock_api_src.modifyLabels.assert_called_once()
@@ -692,7 +692,7 @@ more text"""
         args = Args(interactive=False, delete=False)
         mock_api_src = MagicMock()
 
-        _delete_email(args, mock_api_src, "post123")
+        _delete_email(args, mock_api_src, "post123", "test_source")
 
         # Should not delete anything
         mock_api_src.modifyLabels.assert_not_called()
@@ -706,7 +706,7 @@ more text"""
         mock_api_src = MagicMock()
         mock_api_src.service = "imap"
 
-        _delete_email(args, mock_api_src, "post123")
+        _delete_email(args, mock_api_src, "post123", "test_source")
 
         # Should call deletePostId for IMAP
         mock_api_src.deletePostId.assert_called_once_with("post123")

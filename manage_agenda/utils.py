@@ -733,8 +733,8 @@ def _get_post_datetime_and_diff(post_date):
     return post_date_time, time_difference
 
 
-def _delete_email(args, api_src, post_id):
-    """Deletes an email, handling interactive confirmation."""
+def _delete_email(args, api_src, post_id, source_name):
+    """Deletes an email, handling interactive confirmation and connection errors."""
     delete_confirmed = False
     if args.interactive:
         confirmation = input("Do you want to remove the label from the email? (y/n): ")
@@ -744,16 +744,32 @@ def _delete_email(args, api_src, post_id):
         delete_confirmed = True
 
     if delete_confirmed:
-        if "imap" not in api_src.service.lower():
-            print(f"label: {api_src.getChannel()}")
-            logging.info(f"label: {api_src.getChannel()}")
-            folder = api_src.getChannel()
-            label = api_src.getLabels(folder)
-            logging.info(f"label: {label}")
-            api_src.modifyLabels(post_id, label[0], None)
-            logging.info(f"Label removed from email {post_id}.")
-        else:
-            api_src.deletePostId(post_id)
+        max_retries = 1
+        for attempt in range(max_retries + 1):
+            try:
+                if "imap" not in api_src.service.lower():
+                    print(f"label: {api_src.getChannel()}")
+                    logging.info(f"label: {api_src.getChannel()}")
+                    folder = api_src.getChannel()
+                    label = api_src.getLabels(folder)
+                    logging.info(f"label: {label}")
+                    api_src.modifyLabels(post_id, label[0], None)
+                    logging.info(f"Label removed from email {post_id}.")
+                else:
+                    api_src.deletePostId(post_id)
+                logging.info(f"Email {post_id} processed successfully.")
+                return  # Success
+            except Exception as e:
+                logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
+                if attempt < max_retries:
+                    logging.info("Retrying to connect to the email server...")
+                    from socialModules import moduleRules
+
+                    rules = moduleRules.moduleRules()
+                    rules.checkRules()
+                    source_details = rules.more.get(source_name, {})
+                    api_src = rules.readConfigSrc("", source_name, source_details)
+        logging.error(f"Could not delete email {post_id} after {max_retries + 1} attempts.")
 
 
 def _is_email_too_old(args, time_difference):
@@ -832,7 +848,7 @@ def process_email_cli(args, model, source_name=None):
             else:
                 processed_any_event = True  # Mark that at least one event was processed
 
-            _delete_email(args, api_src, post_pos)
+            _delete_email(args, api_src, post_pos, source_name)
 
         return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
