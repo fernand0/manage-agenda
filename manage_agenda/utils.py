@@ -763,7 +763,7 @@ def _delete_email(args, api_src, post_id, source_name):
             if not "Fail!" in res:
                 return  # Success
             else:
-                logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
+                #logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
                 if attempt < max_retries:
                     logging.info("Retrying to connect to the email server...")
                     from socialModules import moduleRules
