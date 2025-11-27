@@ -746,20 +746,23 @@ def _delete_email(args, api_src, post_id, source_name):
     if delete_confirmed:
         max_retries = 1
         for attempt in range(max_retries + 1):
-            try:
-                if "imap" not in api_src.service.lower():
-                    print(f"label: {api_src.getChannel()}")
-                    logging.info(f"label: {api_src.getChannel()}")
-                    folder = api_src.getChannel()
-                    label = api_src.getLabels(folder)
-                    logging.info(f"label: {label}")
-                    api_src.modifyLabels(post_id, label[0], None)
-                    logging.info(f"Label removed from email {post_id}.")
-                else:
-                    api_src.deletePostId(post_id)
-                logging.info(f"Email {post_id} processed successfully.")
+            print(f"Service: {api_src.service.lower()}")
+            if "imap" not in api_src.service.lower():
+                print(f"label: {api_src.getChannel()}")
+                logging.info(f"label: {api_src.getChannel()}")
+                folder = api_src.getChannel()
+                label = api_src.getLabels(folder)
+                logging.info(f"label: {label}")
+                api_src.modifyLabels(post_id, label[0], None)
+                logging.info(f"Label removed from email {post_id}.")
+            else:
+                res = api_src.deletePostId(post_id)
+                logging.info(f"Ress: {res}")
+            logging.info(f"Email reply {res}.")
+            logging.info(f"Email {post_id} processed successfully.")
+            if not "Fail!" in res:
                 return  # Success
-            except Exception as e:
+            else:
                 logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
                 if attempt < max_retries:
                     logging.info("Retrying to connect to the email server...")
@@ -798,11 +801,10 @@ def process_email_cli(args, model, source_name=None):
 
     if posts:
         processed_any_event = False
-        for post in posts:
+        for post_pos, post in enumerate(posts):
             post_id = api_src.getPostId(post)
             post_date = api_src.getPostDate(post)
             post_title = api_src.getPostTitle(post)
-            post_pos = api_src.getPostPos(post)
 
             print(f"Processing Title: {post_title}", flush=True)
             post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
@@ -848,7 +850,7 @@ def process_email_cli(args, model, source_name=None):
             else:
                 processed_any_event = True  # Mark that at least one event was processed
 
-            _delete_email(args, api_src, post_pos, source_name)
+            _delete_email(args, api_src, post_pos+1, source_name)
 
         return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
