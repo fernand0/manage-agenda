@@ -747,20 +747,21 @@ def _delete_email(args, api_src, post_id, source_name):
         max_retries = 1
         for attempt in range(max_retries + 1):
             print(f"Service: {api_src.service.lower()}")
+            res = ""
             if "imap" not in api_src.service.lower():
                 print(f"label: {api_src.getChannel()}")
                 logging.info(f"label: {api_src.getChannel()}")
                 folder = api_src.getChannel()
                 label = api_src.getLabels(folder)
                 logging.info(f"label: {label}")
-                api_src.modifyLabels(post_id, label[0], None)
+                res = api_src.modifyLabels(post_id, label[0], None)
                 logging.info(f"Label removed from email {post_id}.")
             else:
                 res = api_src.deletePostId(post_id)
-                logging.info(f"Ress: {res}")
-            logging.info(f"Email reply {res}.")
-            logging.info(f"Email {post_id} processed successfully.")
+                logging.info(f"State: {api_src.getClient().state}")
+                label = api_src.getChannel()
             if not "Fail!" in res:
+                logging.info(f"Email {post_id} processed successfully.")
                 return  # Success
             else:
                 #logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
@@ -772,6 +773,7 @@ def _delete_email(args, api_src, post_id, source_name):
                     rules.checkRules()
                     source_details = rules.more.get(source_name, {})
                     api_src = rules.readConfigSrc("", source_name, source_details)
+                    api_src.setChannel(label)
         logging.error(f"Could not delete email {post_id} after {max_retries + 1} attempts.")
 
 
@@ -801,7 +803,7 @@ def process_email_cli(args, model, source_name=None):
 
     if posts:
         processed_any_event = False
-        for post_pos, post in enumerate(posts):
+        for i, post in enumerate(posts):
             post_id = api_src.getPostId(post)
             post_date = api_src.getPostDate(post)
             post_title = api_src.getPostTitle(post)
@@ -850,7 +852,11 @@ def process_email_cli(args, model, source_name=None):
             else:
                 processed_any_event = True  # Mark that at least one event was processed
 
-            _delete_email(args, api_src, post_pos+1, source_name)
+            if "imap" in api_src.service.lower():
+                post_pos = i + 1
+            else:
+                post_pos = post_id
+            _delete_email(args, api_src, post_pos, source_name)
 
         return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
