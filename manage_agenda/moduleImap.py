@@ -1599,9 +1599,6 @@ class moduleImap(Content):  # , Queue):
         subject = str(email.header.make_header(theHeader))
         return subject
 
-    def getPostId(self, msg):
-        return msg[0]
-
     def getPostAttachmentPdf(self, msg):
         if msg.is_multipart():
             for part in msg.get_payload():

@@ -346,7 +346,6 @@ def list_events_folder(args, api_src, calendar=""):
         api_src.setPosts()
         if api_src.getPosts():
             for i, post in enumerate(api_src.getPosts()):
-                post_id = api_src.getPostId(post)
                 post_date = api_src.getPostDate(post)
                 post_title = api_src.getPostTitle(post)
                 print(f"{i}) {post_title}")
@@ -723,7 +722,7 @@ def process_email_cli(args, model):
     if posts:
         processed_any_event = False
         for post in posts:
-            post_id = api_src.getPostId(post)
+            post_id = api_src.getPostIdM(post)
             post_date = api_src.getPostDate(post)
             post_title = api_src.getPostTitle(post)
 
