@@ -311,7 +311,7 @@ def get_event_from_llm(model, prompt, verbose=False):
     elapsed_time = end_time - start_time
     print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
 
-    if not llm_response:
+    if not llm_response or 'Memory' in llm_response:
         print("Failed to get response from LLM.")
     else:
         if verbose:
