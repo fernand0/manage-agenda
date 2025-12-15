@@ -1,6 +1,5 @@
 
 import click
-from socialModules.configMod import select_from_list
 
 # Import auxiliary functions and classes from utils.py
 from .utils import (
@@ -24,6 +23,33 @@ from .utils_base import (
 from .utils_llm import (
     evaluate_models,
 )
+
+def select_from_list(options, identifier="", selector="", default=""):
+    """
+    Presents a list of options to the user and returns the selected option.
+    """
+    for i, option in enumerate(options):
+        print(f"{i}) {option}")
+
+    while True:
+        try:
+            selection = input("Select an option: ")
+            if selection.isdigit():
+                selection = int(selection)
+                if 0 <= selection < len(options):
+                    return selection, options[selection]
+            elif selection.startswith('http'):
+                return len(options)-1, selection
+            else:
+                for i, option in enumerate(options):
+                    if selection.lower() in option.lower():
+                        return i, option
+        except (ValueError, IndexError):
+            pass
+        except (KeyboardInterrupt, EOFError):
+            print("\nSelection cancelled.")
+            return None, None
+        print("Invalid selection. Please try again.")
 
 
 @click.group()
