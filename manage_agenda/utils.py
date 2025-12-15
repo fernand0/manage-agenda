@@ -863,11 +863,12 @@ def process_email_cli(args, model, source_name=None):
     return False  # Default return if something went wrong before the main logic
 
 
-def process_web_cli(args, model):
+def process_web_cli(args, model, urls=None):
     """Processes web pages and creates calendar events."""
 
-    urls = input("Enter URLs separated by spaces: ").split()
 
+    if not urls:
+        urls = input("Enter URLs separated by spaces: ").split()
     if urls:
         processed_any_event = False
         page = moduleHtml.moduleHtml()
