@@ -131,7 +131,7 @@ def add(ctx, interactive, source):
     if interactive:
         sources = get_add_sources()
         print(f"Sources: {sources}")
-        sel, selected_source = select_from_list(sources)
+        sel, selected = select_from_list(sources)
 
         #if "Web" in selected_source:  # Check if "Web" is in the selected source string
         if ("Web" in selected) or (selected.startswith('http')):
