@@ -137,7 +137,7 @@ def add(ctx, interactive, source):
         if ("Web" in selected) or (selected.startswith('http')):
             url = None
             if selected.startswith('http'):
-                process_web_cli(args, model, urls = selected.split(' ')
+                process_web_cli(args, model, urls = selected.split(' '))
             else:
                 process_email_cli(args, model, source_name=selected)
     else:
