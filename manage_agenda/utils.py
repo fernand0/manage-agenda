@@ -53,7 +53,7 @@ def get_add_sources():
     rules = moduleRules.moduleRules()
     rules.checkRules()
     email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
-    return email_sources + ["web"]
+    return email_sources + ["Web (Enter URL)"]
 
 
 def print_first_10_lines(content, content_type="content"):
