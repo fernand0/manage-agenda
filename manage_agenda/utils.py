@@ -831,7 +831,7 @@ def process_email_cli(args, model, source_name=None):
             email_text = (
                 f"Subject: {post_title}\n"
                 f"Message: {full_email_content}\n"
-                f"Message date: {post_date_time}\n"
+                f"Message date: {post_date_time.split(' ')[0]}\n"
             )
             write_file(f"{post_id}.txt", email_text)  # Save email text
 
