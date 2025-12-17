@@ -142,10 +142,11 @@ def add(ctx, interactive, source):
             if selected.startswith('http'):
                 process_web_cli(args, model, urls = selected.split(' '))
             else:
-                process_email_cli(args, model, source_name=selected)
+                process_web_cli(args, model)
         else:
-            print(f"Args: {args}")
-            process_email_cli(args, model)
+            process_email_cli(args, model, source_name=selected)
+    else:
+        process_email_cli(args, model)
 
 
 @cli.command()

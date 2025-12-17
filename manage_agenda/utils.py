@@ -866,7 +866,6 @@ def process_email_cli(args, model, source_name=None):
 def process_web_cli(args, model, urls=None):
     """Processes web pages and creates calendar events."""
 
-
     if not urls:
         urls = input("Enter URLs separated by spaces: ").split()
     if urls:
@@ -885,6 +884,7 @@ def process_web_cli(args, model, urls=None):
             post_id = rules.cleanUrlRule(url)
             post_title = page.getPostTitle(post)
             post_date = datetime.datetime.now()
+            date_message = str(post_date).split(' ')[0]
 
             web_content_reduced = reduce_html(url, post)
             if not web_content_reduced:
@@ -896,7 +896,7 @@ def process_web_cli(args, model, urls=None):
 
             web_content_text = (
                 f"Url: {url}\n"
-                f"Message date: {post_date}\n"
+                f"Message date: {date_message}\n"
                 f"Subject: {post_title}\n"
                 f"Message: {web_content_reduced}"
             )
