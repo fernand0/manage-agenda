@@ -890,6 +890,7 @@ def process_web_cli(args, model, urls=None):
         urls = input("Enter URLs separated by spaces: ").split()
 
     api_src, posts = _get_pages_from_urls(args, urls)
+
     if posts:
         processed_any_event = False
         for i, post in enumerate(posts):
