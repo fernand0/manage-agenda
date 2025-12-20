@@ -416,7 +416,7 @@ def _get_emails_from_folder(args, source_name):
 
     if not posts:
         print(f"There are no posts tagged with label {folder}")
-        return api_src, None
+        posts = None
 
     return api_src, posts
 
@@ -745,26 +745,28 @@ def _delete_email(args, api_src, post_id, source_name):
 
     if delete_confirmed:
         max_retries = 1
+        label = None
         for attempt in range(max_retries + 1):
-            print(f"Service: {api_src.service.lower()}")
-            res = ""
-            if "imap" not in api_src.service.lower():
-                print(f"label: {api_src.getChannel()}")
-                logging.info(f"label: {api_src.getChannel()}")
-                folder = api_src.getChannel()
-                label = api_src.getLabels(folder)
-                logging.info(f"label: {label}")
-                res = api_src.modifyLabels(post_id, label[0], None)
-                logging.info(f"Label removed from email {post_id}.")
-            else:
-                res = api_src.deletePostId(post_id)
-                logging.info(f"State: {api_src.getClient().state}")
-                label = api_src.getChannel()
-            if not "Fail!" in res:
-                logging.info(f"Email {post_id} processed successfully.")
-                return  # Success
-            else:
-                #logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
+            try:
+                print(f"Service: {api_src.service.lower()}")
+                res = ""
+                if "imap" not in api_src.service.lower():
+                    print(f"label: {api_src.getChannel()}")
+                    logging.info(f"label: {api_src.getChannel()}")
+                    folder = api_src.getChannel()
+                    label = api_src.getLabels(folder)
+                    logging.info(f"label: {label}")
+                    res = api_src.modifyLabels(post_id, label[0], None)
+                    logging.info(f"Label removed from email {post_id}.")
+                else:
+                    label = api_src.getChannel()
+                    res = api_src.deletePostId(post_id)
+                    logging.info(f"State: {api_src.getClient().state}")
+                if not "Fail!" in res:
+                    logging.info(f"Email {post_id} processed successfully.")
+                    return  # Success
+            except Exception as e:
+                logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
                 if attempt < max_retries:
                     logging.info("Retrying to connect to the email server...")
                     from socialModules import moduleRules
@@ -773,8 +775,12 @@ def _delete_email(args, api_src, post_id, source_name):
                     rules.checkRules()
                     source_details = rules.more.get(source_name, {})
                     api_src = rules.readConfigSrc("", source_name, source_details)
-                    api_src.setChannel(label)
-        logging.error(f"Could not delete email {post_id} after {max_retries + 1} attempts.")
+                    if label:
+                        api_src.setChannel(label)
+                else:
+                    logging.error(f"Could not delete email {post_id} after {max_retries + 1} attempts: {e}")
+                    return # Exit after last attempt failure
+
 
 
 def _is_email_too_old(args, time_difference):
@@ -862,27 +868,38 @@ def process_email_cli(args, model, source_name=None):
         return processed_any_event  # Return True if any event was processed, False otherwise
     return False  # Default return if something went wrong before the main logic
 
+def _get_pages_from_urls(args, urls):
+
+    page = moduleHtml.moduleHtml()
+    if args.verbose:
+        print(f"Urls: {urls}")
+    page.setUrl(urls)
+    page.setApiPosts()
+    posts = page.getPosts()
+
+    if not posts:
+        print(f"There are no posts with these urls {urls}")
+        posts = None
+
+    return page, posts
 
 def process_web_cli(args, model, urls=None):
     """Processes web pages and creates calendar events."""
 
     if not urls:
         urls = input("Enter URLs separated by spaces: ").split()
-    if urls:
+
+    api_src, posts = _get_pages_from_urls(args, urls)
+    if posts:
         processed_any_event = False
-        page = moduleHtml.moduleHtml()
-        if args.verbose:
-            print(f"Urls: {urls}")
-        page.setUrl(urls)
-        page.setApiPosts()
-        for i, post in enumerate(page.getPosts()):
-            url = page.url[i]
+        for i, post in enumerate(posts):
+            url = api_src.url[i]
             print(f"Processing URL: {url}", flush=True)
 
             rules = moduleRules.moduleRules()
 
             post_id = rules.cleanUrlRule(url)
-            post_title = page.getPostTitle(post)
+            post_title = api_src.getPostTitle(post)
             post_date = datetime.datetime.now()
             date_message = str(post_date).split(' ')[0]
 
