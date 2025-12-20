@@ -7,6 +7,83 @@ from click.testing import CliRunner
 
 class TestCliCommands(unittest.TestCase):
 
+    # Class-level patchers
+    mock_module_rules_patcher = patch("manage_agenda.utils.moduleRules.moduleRules")
+    mock_select_from_list_patcher = patch("manage_agenda.cli.select_from_list")
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Start class-level patchers
+        cls.mock_module_rules_class = cls.mock_module_rules_patcher.start()
+        cls.mock_select_from_list_class = cls.mock_select_from_list_patcher.start()
+
+        # Configure class-level mocks
+        cls.mock_rules_instance_class = MagicMock()
+        cls.mock_module_rules_class.return_value = cls.mock_rules_instance_class
+        cls.mock_rules_instance_class.checkRules.return_value = None
+        cls.mock_rules_instance_class.selectRule.side_effect = [["gmail1"], ["imap1"]]
+
+        cls.mock_select_from_list_class.return_value = (0, "default_selection") # Default, can be overridden per test
+
+    @classmethod
+    def tearDownClass(cls):
+        # Stop class-level patchers
+        cls.mock_module_rules_patcher.stop()
+        cls.mock_select_from_list_patcher.stop()
+        super().tearDownClass()
+
+    def setUp(self):
+        super().setUp()
+        from manage_agenda import cli
+
+        self.cli = cli
+        self.llm_name = "gemini"
+        self.Args = namedtuple(
+            "args",
+            ["interactive", "delete", "source", "verbose", "destination", "text"],
+        )
+        self.runner = CliRunner()
+
+        # Access class-level mocks via self
+        self.mock_module_rules = self.mock_module_rules_class
+        self.mock_select_from_list = self.mock_select_from_list_class
+        self.mock_rules_instance = self.mock_rules_instance_class
+
+
+        # Individual patches that apply per test method
+        self.mock_get_add_sources_patcher = patch("manage_agenda.cli.get_add_sources")
+        self.mock_get_add_sources = self.mock_get_add_sources_patcher.start()
+        self.mock_get_add_sources.return_value = ["gmail1", "imap1", "Web (Enter URL)"]
+
+        self.mock_select_llm_patcher = patch("manage_agenda.cli.select_llm")
+        self.mock_select_llm = self.mock_select_llm_patcher.start()
+        self.mock_llm = MagicMock()
+        self.mock_select_llm.return_value = self.mock_llm
+
+        self.mock_process_email_cli_patcher = patch("manage_agenda.cli.process_email_cli")
+        self.mock_process_email_cli = self.mock_process_email_cli_patcher.start()
+        self.mock_process_email_cli.return_value = True
+
+        self.mock_process_web_cli_patcher = patch("manage_agenda.cli.process_web_cli")
+        self.mock_process_web_cli = self.mock_process_web_cli_patcher.start()
+        self.mock_process_web_cli.return_value = True
+
+        self.mock_select_api_source_patcher = patch("manage_agenda.utils.select_api_source")
+        self.mock_select_api_source = self.mock_select_api_source_patcher.start()
+        self.mock_api_dst = MagicMock()
+        self.mock_api_dst.getClient.return_value = True
+        self.mock_select_api_source.return_value = self.mock_api_dst
+
+
+    def tearDown(self):
+        self.mock_get_add_sources_patcher.stop()
+        self.mock_select_llm_patcher.stop()
+        self.mock_process_email_cli_patcher.stop()
+        self.mock_process_web_cli_patcher.stop()
+        self.mock_select_api_source_patcher.stop()
+        super().tearDown()
+
 
     @patch("manage_agenda.cli.authorize")
     def test_auth_command(self, mock_authorize):
@@ -28,148 +105,63 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_list_emails_folder.assert_called_once()
 
-    def setUp(self):
-        from manage_agenda import cli
-
-        self.cli = cli
-        self.llm_name = "gemini"
-        self.Args = namedtuple(
-            "args",
-            ["interactive", "delete", "source", "verbose", "destination", "text"],
-        )
-        self.runner = CliRunner()
-
     def test_add_non_interactive(self):
-        with (
-            patch("manage_agenda.utils.GeminiClient") as mock_gemini_client,
-            patch("manage_agenda.cli.process_email_cli") as mock_process_email_cli,
-        ):
-            # Mock the LLM client
-            mock_llm_client = MagicMock()
-
-            def generate_text_side_effect(prompt):
-                return '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}'
-
-            mock_llm_client.generate_text.side_effect = generate_text_side_effect
-            mock_gemini_client.return_value = mock_llm_client
-            self._mock_api(mock_process_email_cli)
-
-            result = self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name])
-            self.assertEqual(result.exit_code, 0)
-            mock_process_email_cli.assert_called_once()
-
-    # def test_add_select_llm_returns_none(self):
-    #     with patch("manage_agenda.cli.select_llm") as mock_select_llm, patch(
-    #         "manage_agenda.cli.process_email_cli"
-    #     ) as mock_process_email_cli:
-    #         # Mock select_llm to return None
-    #         mock_select_llm.return_value = None
-    #
-    #         mock_process_email_cli.side_effect = lambda args, model: None
-
-    #         result = self.runner.invoke(
-    #             self.cli.cli, ["add", "-s", self.llm_name, "-d", "False"]
-    #         )
-    #         self.assertEqual(result.exit_code, 1)
-    #         self.assertIn("Invalid LLM", result.output)
-    #         expected_args = self.Args(interactive=False, delete=True, source=self.llm_name)
-    #         mock_select_llm.assert_called_once_with(expected_args)
-    #         mock_process_email_cli.assert_not_called()
+        # All necessary mocks are set up in setUp
+        result = self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name])
+        self.assertEqual(result.exit_code, 0)
+        self.mock_process_email_cli.assert_called_once() # Now using self.mock_process_email_cli
 
     def test_add_no_posts(self):
-        with (
-            patch("manage_agenda.utils.GeminiClient") as mock_gemini_client,
-            patch("manage_agenda.cli.process_email_cli") as mock_process_email_cli,
-        ):
-            # Mock the LLM client
-            mock_llm_client = MagicMock()
-
-            def generate_text_side_effect(prompt):
-                return '{"start": {"dateTime": "2024-12-12T10:00:00"}, "end": {"dateTime": "2024-12-12T11:00:00"}}'
-
-            mock_llm_client.generate_text.side_effect = generate_text_side_effect
-            mock_gemini_client.return_value = mock_llm_client
-
-            # Mock api_src to return no posts
-            mock_api_src = MagicMock()
-            mock_api_src.service = "gmail"
-            mock_api_src.getLabels.return_value = [{"id": "Label_0"}]
-            mock_api_src.getPosts.return_value = []
-
-            mock_process_email_cli.side_effect = lambda args, model: True
-
-            with patch("manage_agenda.utils.moduleRules.moduleRules") as mock_module_rules:
-                mock_rules = MagicMock()
-                mock_rules.selectRule.return_value = ["mocked_rule"]
-                mock_rules.more.get.return_value = {"key": "value"}
-                mock_rules.readConfigSrc.return_value = mock_api_src
-                mock_module_rules.return_value = mock_rules
-
-                result = self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name])
-                self.assertEqual(result.exit_code, 0)
-                mock_process_email_cli.assert_called_once()
-
-    def _mock_api(self, mock_process_email_cli):
-        # Mock api_src and api_dst
+        # Mock api_src to return no posts
         mock_api_src = MagicMock()
         mock_api_src.service = "gmail"
         mock_api_src.getLabels.return_value = [{"id": "Label_0"}]
-        mock_api_src.getPosts.return_value = ["post_id"]
-        mock_api_src.getPostId.return_value = "post_id"
-        mock_api_src.getPostDate.return_value = 1701937200000  # 12/07/2023
-        mock_api_src.getPostTitle.return_value = "Test title"
-        mock_api_src.getPostBody.return_value = "Test Body"
-        mock_api_src.getMessage.return_value = "message"
-        mock_process_email_cli.side_effect = lambda args, model: True
+        mock_api_src.getPosts.return_value = []
 
-    @patch("manage_agenda.cli.select_llm")
-    @patch("manage_agenda.cli.process_email_cli")
-    def test_add_verbose_flag(self, mock_process_email, mock_select_llm):
-        """Test add command with verbose flag."""
-        mock_llm = MagicMock()
-        mock_select_llm.return_value = mock_llm
-        mock_process_email.return_value = True
+        # Temporarily override the mock_module_rules for this test
+        with patch.object(self.mock_module_rules, 'return_value') as mock_rules_instance_inner:
+            mock_rules_instance_inner.selectRule.return_value = ["mocked_rule"]
+            mock_rules_instance_inner.more.get.return_value = {"key": "value"}
+            mock_rules_instance_inner.readConfigSrc.return_value = mock_api_src
 
-        result = self.runner.invoke(self.cli.cli, ["-v", "add", "-s", "gemini"])
+            result = self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name])
+            self.assertEqual(result.exit_code, 0)
+            self.mock_process_email_cli.assert_called_once()
 
+
+    def _mock_api(self, mock_process_email_cli):
+        # This helper is probably not needed anymore with setUp
+        pass
+
+    def test_add_verbose_flag(self):
+        # All necessary mocks are set up in setUp
+        result = self.runner.invoke(self.cli.cli, ["-v", "add", "-s", self.llm_name])
         self.assertEqual(result.exit_code, 0)
+        self.mock_process_email_cli.assert_called_once()
 
-    @patch("manage_agenda.cli.get_add_sources", return_value=["gmail", "web"])
-    @patch("manage_agenda.cli.select_from_list", return_value=(1, "web"))
-    @patch("manage_agenda.cli.select_llm")
-    @patch("manage_agenda.cli.process_web_cli")
-    def test_add_interactive_web(
-        self, mock_process_web, mock_select_llm, mock_select_list, mock_get_sources
-    ):
+
+    def test_add_interactive_web(self):
         """Test add command in interactive mode selecting web source."""
-        mock_llm = MagicMock()
-        mock_select_llm.return_value = mock_llm
-        mock_process_web.return_value = True
+        # Configure select_from_list for this specific test
+        self.mock_select_from_list.return_value = (2, "Web (Enter URL)")
 
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
         self.assertEqual(result.exit_code, 0)
-        mock_get_sources.assert_called_once()
-        mock_process_web.assert_called_once()
+        self.mock_get_add_sources.assert_called_once()
+        self.mock_process_web_cli.assert_called_once()
 
-    @patch("manage_agenda.cli.get_add_sources", return_value=["gmail1", "imap1"])
-    @patch("manage_agenda.cli.select_from_list", return_value=(0, "gmail1"))
-    @patch("manage_agenda.cli.select_llm")
-    @patch("manage_agenda.cli.process_email_cli")
-    def test_add_interactive_email(
-        self, mock_process_email, mock_select_llm, mock_select_list, mock_get_sources
-    ):
+    def test_add_interactive_email(self):
         """Test add command in interactive mode selecting email source."""
-        mock_llm = MagicMock()
-        mock_select_llm.return_value = mock_llm
-        mock_process_email.return_value = True
+        # Configure select_from_list for this specific test
+        self.mock_select_from_list.return_value = (0, "gmail1")
 
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
         self.assertEqual(result.exit_code, 0)
-        mock_process_email.assert_called_once()
+        self.mock_process_email_cli.assert_called_once()
         # Verify source_name was passed
-        call_args = mock_process_email.call_args
+        call_args = self.mock_process_email_cli.call_args
         self.assertEqual(call_args[1].get("source_name"), "gmail1")
 
     @patch("manage_agenda.cli.authorize")

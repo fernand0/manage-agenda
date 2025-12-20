@@ -621,7 +621,7 @@ more text"""
 
         self.assertIn("gmail1", sources)
         self.assertIn("imap1", sources)
-        self.assertIn("web", sources)
+        self.assertIn("Web (Enter URL)", sources)
 
     def test_extract_json_with_braces(self):
         """Test extract_json finds JSON within text."""
@@ -763,7 +763,7 @@ more text"""
             self.assertEqual(mock_new_api_src.deletePostId.call_count, 1)
             
             # Check that the error message was logged
-            mock_logging_error.assert_called_once_with("Could not delete email post123 after 2 attempts.")
+            mock_logging_error.assert_called_once_with("Could not delete email post123 after 2 attempts: Connection error 2")
 
 
 
