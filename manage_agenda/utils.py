@@ -782,13 +782,12 @@ def _delete_email(args, api_src, post_id, source_name):
                     return # Exit after last attempt failure
 
 
-
-def _is_email_too_old(args, time_difference):
+def _is_post_too_old(args, time_difference):
     """Checks if an email is too old and confirms processing if interactive."""
     if time_difference.days > 7:
         if args.interactive:
             confirmation = input(
-                f"El correo tiene {time_difference.days} dias. ¿Desea procesarlo? (y/n): "
+                f"The post has {time_difference.days} days. Do you want to process it? (y/n): "
             )
             if confirmation.lower() != "y":
                 return True
@@ -797,7 +796,6 @@ def _is_email_too_old(args, time_difference):
                 print(f"Too old ({time_difference.days} days), skipping.")
             return True
     return False
-
 
 def process_email_cli(args, model, source_name=None):
     """Processes emails and creates calendar events."""
@@ -817,7 +815,7 @@ def process_email_cli(args, model, source_name=None):
             print(f"Processing Title: {post_title}", flush=True)
             post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
 
-            if _is_email_too_old(args, time_difference):
+            if _is_post_too_old(args, time_difference):
                 continue
 
             full_email_content = api_src.getPostBody(post)
@@ -894,14 +892,36 @@ def process_web_cli(args, model, urls=None):
     if posts:
         processed_any_event = False
         for i, post in enumerate(posts):
-            url = api_src.url[i]
-            print(f"Processing URL: {url}", flush=True)
-
-            rules = moduleRules.moduleRules()
-
-            post_id = rules.cleanUrlRule(url)
+            post_id = api_src.getPostId(url)
             post_title = api_src.getPostTitle(post)
             post_date = datetime.datetime.now()
+
+            print(f"Processing Title: {post_title}", flush=True)
+            post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
+
+            if _is_post_too_old(args, time_difference):
+                continue
+
+            full_email_content = api_src.getPostBody(post)
+
+            # pattern_generic = re.compile(
+            #                              r'[\u200c\u00a0\u2007\u00ad\u2007\u200b\u200e\ufeff\u0847]',
+            #                      #r'[\p{Cf}\p{Cc}\p{Zs}\u00ad]',
+            #                      #r'[\p{Cf}\p{Cc}\p{Zs}]',
+            #                      re.UNICODE
+            #                      )
+            # full_email_content = pattern_generic.sub('', full_email_content)
+            # full_email_content = re.sub(r'[ \t]+\n', r'\n', full_email_content)
+            # full_email_content = re.sub(r" {3,}", "\n\n", full_email_content)
+            # full_email_content = re.sub(r"\n{3,}", "\n\n", full_email_content)
+            # print(f"Email: {full_email_content}")
+
+            date_message = str(post_date_time).split(' ')[0]
+            email_text = (
+                f"Subject: {post_title}\n"
+                f"Message: {full_email_content}\n"
+                f"Message date: {date_message}\n"
+            )
             date_message = str(post_date).split(' ')[0]
 
             web_content_reduced = reduce_html(url, post)
