@@ -902,26 +902,6 @@ def process_web_cli(args, model, urls=None):
             if _is_post_too_old(args, time_difference):
                 continue
 
-            full_email_content = api_src.getPostBody(post)
-
-            # pattern_generic = re.compile(
-            #                              r'[\u200c\u00a0\u2007\u00ad\u2007\u200b\u200e\ufeff\u0847]',
-            #                      #r'[\p{Cf}\p{Cc}\p{Zs}\u00ad]',
-            #                      #r'[\p{Cf}\p{Cc}\p{Zs}]',
-            #                      re.UNICODE
-            #                      )
-            # full_email_content = pattern_generic.sub('', full_email_content)
-            # full_email_content = re.sub(r'[ \t]+\n', r'\n', full_email_content)
-            # full_email_content = re.sub(r" {3,}", "\n\n", full_email_content)
-            # full_email_content = re.sub(r"\n{3,}", "\n\n", full_email_content)
-            # print(f"Email: {full_email_content}")
-
-            date_message = str(post_date_time).split(' ')[0]
-            email_text = (
-                f"Subject: {post_title}\n"
-                f"Message: {full_email_content}\n"
-                f"Message date: {date_message}\n"
-            )
             date_message = str(post_date).split(' ')[0]
 
             web_content_reduced = reduce_html(url, post)
