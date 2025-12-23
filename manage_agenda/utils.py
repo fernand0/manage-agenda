@@ -707,12 +707,14 @@ def _get_post_datetime_and_diff(post_date):
     Calculates the post datetime and the difference in days from now.
 
     Args:
-        post_date (str): The date of the post.
+        post_date (str or datetime.datetime): The date of the post.
 
     Returns:
         tuple: A tuple containing the post datetime and the time difference in days.
     """
-    if post_date.isdigit():
+    if isinstance(post_date, datetime.datetime):
+        post_date_time = post_date
+    elif post_date.isdigit():
         post_date_time = datetime.datetime.fromtimestamp(int(post_date) / 1000)
     else:
         from email.utils import parsedate_to_datetime
@@ -722,13 +724,21 @@ def _get_post_datetime_and_diff(post_date):
     try:
         import pytz
 
-        time_difference = (
-            pytz.timezone("Europe/Madrid").localize(datetime.datetime.now()) - post_date_time
-        )
+        # Define the timezone
+        madrid_tz = pytz.timezone("Europe/Madrid")
+
+        # Make post_date_time timezone-aware if it's naive
+        if post_date_time.tzinfo is None:
+            post_date_time = madrid_tz.localize(post_date_time)
+
+        # Get the current time as timezone-aware
+        now_aware = datetime.datetime.now(madrid_tz)
+
+        time_difference = now_aware - post_date_time
         logging.debug(f"Date: {post_date_time} Diff: {time_difference.days}")
     except Exception as e:
         logging.error(f"Error processing post date: {e}")
-        time_difference = datetime.datetime.now() - datetime.datetime.now()
+        time_difference = datetime.timedelta(0)
 
     return post_date_time, time_difference
 
