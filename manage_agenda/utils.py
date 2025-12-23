@@ -881,7 +881,7 @@ def process_web_cli(args, model, urls=None):
     if posts:
         processed_any_event = False
         for i, post in enumerate(posts):
-            post_id = api_src.getPostId(url)
+            post_id = api_src.getPostId(post)
             post_title = api_src.getPostTitle(post)
             post_date = datetime.datetime.now()
 
