@@ -903,7 +903,7 @@ def process_web_cli(args, model, urls=None):
 
             #date_message = str(post_date).split(' ')[0]
 
-            web_content_reduced = reduce_html(url, post)
+            web_content_reduced = reduce_html(urls[i], post)
             if not web_content_reduced:
                 print(f"Could not process {url}, skipping.")
                 continue
