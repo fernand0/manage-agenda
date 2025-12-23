@@ -902,7 +902,7 @@ def process_web_cli(args, model, urls=None):
             if _is_post_too_old(args, time_difference):
                 continue
 
-            date_message = str(post_date).split(' ')[0]
+            #date_message = str(post_date).split(' ')[0]
 
             web_content_reduced = reduce_html(url, post)
             if not web_content_reduced:

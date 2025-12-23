@@ -15,13 +15,17 @@ def extract_domain_and_path_from_url(url):
     parsed_url = urlparse(url)
     domain = parsed_url.netloc
     path = parsed_url.path
-
     # If path is empty or just a slash, return domain
     if not path or path == "/":
         return domain
 
     # Remove filename
     path_directory = os.path.dirname(path)
+    if ((path_directory == path) or (path_directory == path[:-1])):
+        new_path = os.path.split(path_directory)[0]
+        if new_path:
+            path_directory = new_path
+
 
     # Remove date-like patterns from the path
     # Handles formats like /YYYY/MM/DD, /YYYY-MM-DD, /YYYY/MM, etc.
@@ -53,10 +57,10 @@ def reduce_html(url, post):
     cached_file_path = os.path.join(CACHE_DIR, safe_filename)
 
     new_html = post
-    print(f"Post: {post}")
+    logging.debug(f"Post: {post}")
 
     if os.path.exists(cached_file_path):
-        print("URL encontrada en cache. Comparando...")
+        logging.info("URL encontrada en cache. Comparando...")
         with open(cached_file_path, encoding="utf-8") as f:
             old_html = f.read()
 
@@ -93,7 +97,7 @@ def reduce_html(url, post):
             f.write(new_html)
 
     else:
-        print("URL no encontrada en cache. Descargando y guardando...")
+        print("URL not found in cache. Downloading and storing it...")
         # Save the new HTML to the cache
         with open(cached_file_path, "w", encoding="utf-8") as f:
             f.write(new_html)
