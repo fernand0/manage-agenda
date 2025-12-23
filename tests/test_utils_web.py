@@ -150,20 +150,20 @@ class TestReduceHtml(unittest.TestCase):
         # Cache dir should be created
         self.assertTrue(os.path.exists(self.temp_cache))
 
-    @patch("builtins.print")
-    def test_reduce_html_prints_cache_messages(self, mock_print):
-        """Test that reduce_html prints appropriate messages."""
+    @patch("manage_agenda.utils_web.logging.info")
+    def test_reduce_html_prints_cache_messages(self, mock_logging_info):
+        """Test that reduce_html logs appropriate messages."""
         url = "https://example.com/msg"
         html = "<html><body>Test</body></html>"
 
         # First call - not cached
         reduce_html(url, html)
-        mock_print.assert_called_with("URL no encontrada en cache. Descargando y guardando...")
+        mock_logging_info.assert_called_with("URL not found in cache. Downloading and storing it...")
 
         # Second call - cached
-        mock_print.reset_mock()
+        mock_logging_info.reset_mock()
         reduce_html(url, html)
-        mock_print.assert_called_with("URL encontrada en cache. Comparando...")
+        mock_logging_info.assert_called_with("URL found in cache. Comparing...")
 
     def test_reduce_html_safe_filename_generation(self):
         """Test that special characters in URL are converted to safe filename."""

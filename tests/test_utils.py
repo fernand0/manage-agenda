@@ -769,47 +769,47 @@ more text"""
 
     def test_is_email_too_old_recent(self):
         """Test _is_email_too_old with recent email."""
-        from manage_agenda.utils import _is_email_too_old
+        from manage_agenda.utils import _is_post_too_old
 
         args = Args(interactive=False, verbose=False)
         time_diff = datetime.timedelta(days=3)
 
-        result = _is_email_too_old(args, time_diff)
+        result = _is_post_too_old(args, time_diff)
 
         self.assertFalse(result)
 
     def test_is_email_too_old_old_non_interactive(self):
         """Test _is_email_too_old with old email, non-interactive."""
-        from manage_agenda.utils import _is_email_too_old
+        from manage_agenda.utils import _is_post_too_old
 
         args = Args(interactive=False, verbose=True)
         time_diff = datetime.timedelta(days=10)
 
-        result = _is_email_too_old(args, time_diff)
+        result = _is_post_too_old(args, time_diff)
 
         self.assertTrue(result)
 
     @patch("manage_agenda.utils.input", return_value="n")
     def test_is_email_too_old_interactive_reject(self, mock_input):
         """Test _is_email_too_old with interactive rejection."""
-        from manage_agenda.utils import _is_email_too_old
+        from manage_agenda.utils import _is_post_too_old
 
         args = Args(interactive=True, verbose=False)
         time_diff = datetime.timedelta(days=10)
 
-        result = _is_email_too_old(args, time_diff)
+        result = _is_post_too_old(args, time_diff)
 
         self.assertTrue(result)
 
     @patch("manage_agenda.utils.input", return_value="y")
     def test_is_email_too_old_interactive_accept(self, mock_input):
         """Test _is_email_too_old with interactive acceptance."""
-        from manage_agenda.utils import _is_email_too_old
+        from manage_agenda.utils import _is_post_too_old
 
         args = Args(interactive=True, verbose=False)
         time_diff = datetime.timedelta(days=10)
 
-        result = _is_email_too_old(args, time_diff)
+        result = _is_post_too_old(args, time_diff)
 
         self.assertFalse(result)
 

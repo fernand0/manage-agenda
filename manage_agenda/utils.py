@@ -807,6 +807,54 @@ def _is_post_too_old(args, time_difference):
             return True
     return False
 
+def _process_common_flow(args, model, items, metadata_extractor, content_extractor, item_cleaner=None):
+    """
+    Common flow for processing items (emails, web pages).
+
+    metadata_extractor: func(item, index) -> (post_id, post_title, post_date)
+    content_extractor: func(item, index, post_date_time, post_title) -> content_text
+    item_cleaner: func(item, index, post_id) -> void
+    """
+    processed_any_event = False
+    for i, item in enumerate(items):
+        # 1. Metadata
+        post_id, post_title, post_date = metadata_extractor(item, i)
+
+        print(f"Processing Title: {post_title}", flush=True)
+
+        # 2. Check Age
+        post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
+        if _is_post_too_old(args, time_difference):
+            continue
+
+        # 3. Content
+        content_text = content_extractor(item, i, post_date_time, post_title)
+        if not content_text:
+            continue
+
+        # 4. Save & Print (Common)
+        write_file(f"{post_id}.txt", content_text)
+        print_first_10_lines(content_text, "content")
+
+        # 5. Process with LLM
+        processed_event, calendar_result = _process_event_with_llm_and_calendar(
+            args,
+            model,
+            content_text,
+            post_date_time,
+            post_id,
+            post_title,
+        )
+
+        if processed_event:
+            processed_any_event = True
+            # 6. Post-process
+            if item_cleaner:
+                item_cleaner(item, i, post_id)
+
+    return processed_any_event
+
+
 def process_email_cli(args, model, source_name=None):
     """Processes emails and creates calendar events."""
 
@@ -816,53 +864,28 @@ def process_email_cli(args, model, source_name=None):
     api_src, posts = _get_emails_from_folder(args, source_name)
 
     if posts:
-        processed_any_event = False
-        for i, post in enumerate(posts):
-            post_id = api_src.getPostId(post)
-            post_date = api_src.getPostDate(post)
-            post_title = api_src.getPostTitle(post)
+        def metadata_extractor(post, i):
+            return api_src.getPostId(post), api_src.getPostTitle(post), api_src.getPostDate(post)
 
-            print(f"Processing Title: {post_title}", flush=True)
-            post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
-
-            if _is_post_too_old(args, time_difference):
-                continue
-
+        def content_extractor(post, i, post_date_time, post_title):
             full_email_content = api_src.getPostBody(post)
-
             date_message = str(post_date_time).split(' ')[0]
-            email_text = (
+            return (
                 f"Subject: {post_title}\n"
                 f"Message: {full_email_content}\n"
                 f"Message date: {date_message}\n"
             )
 
-            write_file(f"{post_id}.txt", email_text)  # Save email text
-
-            print_first_10_lines(email_text, "email content")
-
-            # Call the common helper function
-            processed_event, calendar_result = _process_event_with_llm_and_calendar(
-                args,
-                model,
-                email_text,
-                post_date_time,
-                post_id,
-                post_title,
-            )
-
-            if processed_event is None:
-                continue  # Skip to the next email if helper failed
-            else:
-                processed_any_event = True  # Mark that at least one event was processed
-
+        def item_cleaner(post, i, post_id):
             if "imap" in api_src.service.lower():
                 post_pos = i + 1
             else:
                 post_pos = post_id
             _delete_email(args, api_src, post_pos, source_name)
 
-        return processed_any_event  # Return True if any event was processed, False otherwise
+        return _process_common_flow(
+            args, model, posts, metadata_extractor, content_extractor, item_cleaner
+        )
     return False  # Default return if something went wrong before the main logic
 
 def _get_pages_from_urls(args, urls):
@@ -889,57 +912,29 @@ def process_web_cli(args, model, urls=None):
     api_src, posts = _get_pages_from_urls(args, urls)
 
     if posts:
-        processed_any_event = False
-        for i, post in enumerate(posts):
-            post_id = api_src.getPostId(post)
-            post_title = api_src.getPostTitle(post)
-            post_date = datetime.datetime.now()
+        def metadata_extractor(post, i):
+            title = api_src.getPostTitle(post)
+            if not title:
+                title = urls[i]
+            return api_src.getPostId(post), title, datetime.datetime.now()
 
-            print(f"Processing Title: {post_title}", flush=True)
-            post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
-
-            if _is_post_too_old(args, time_difference):
-                continue
-
-            #date_message = str(post_date).split(' ')[0]
-
+        def content_extractor(post, i, post_date_time, post_title):
             web_content_reduced = reduce_html(urls[i], post)
             if not web_content_reduced:
-                print(f"Could not process {url}, skipping.")
-                continue
-
-            if not post_title:
-                post_title = url  # Use URL as the title
+                print(f"Could not process {urls[i]}, skipping.")
+                return None
 
             date_message = str(post_date_time).split(' ')[0]
-            web_content_text = (
+            return (
                 f"Url: {urls[i]}\n"
                 f"Subject: {post_title}\n"
-                f"Message: {web_content_reduced}"
+                f"Message: {web_content_reduced}\n"
                 f"Message date: {date_message}\n"
             )
 
-            write_file(f"{post_id}.txt", web_content_text)  # Save email text
-
-            print_first_10_lines(web_content_text, "web content")
-
-            # Call the common helper function
-
-            processed_event, calendar_result = _process_event_with_llm_and_calendar(
-                args,
-                model,
-                web_content_text,
-                post_date,
-                post_id,
-                post_title,  # post_identifier and subject_for_print can both be url
-            )
-
-            if processed_event is None:
-                continue  # Skip if helper failed
-            else:
-                processed_any_event = True  # Mark that at least one event was processed
-
-        return processed_any_event  # Return True if any event was processed, False otherwise
+        return _process_common_flow(
+            args, model, posts, metadata_extractor, content_extractor
+        )
 
     return False  # Default return if something went wrong before the main logic
 

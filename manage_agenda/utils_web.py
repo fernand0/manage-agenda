@@ -61,7 +61,7 @@ def reduce_html(url, post):
     logging.debug(f"Post: {post}")
 
     if os.path.exists(cached_file_path):
-        logging.info("URL encontrada en cache. Comparando...")
+        logging.info("URL found in cache. Comparing...")
         with open(cached_file_path, encoding="utf-8") as f:
             old_html = f.read()
 
@@ -98,7 +98,7 @@ def reduce_html(url, post):
             f.write(new_html)
 
     else:
-        print("URL not found in cache. Downloading and storing it...")
+        logging.info("URL not found in cache. Downloading and storing it...")
         # Save the new HTML to the cache
         with open(cached_file_path, "w", encoding="utf-8") as f:
             f.write(new_html)

@@ -76,14 +76,13 @@ class TestProcessWebCli(unittest.TestCase):
         
         mock_rules = MagicMock()
         mock_module_rules.return_value = mock_rules
-        mock_rules.cleanUrlRule.return_value = "clean_id"
         
         mock_reduce_html.return_value = "reduced content"
         
         mock_process_event.return_value = (True, "Calendar Event Created")
         
         # Execute
-        result = process_web_cli(self.args, self.model, urls=["http://example.com"])
+        result = process_web_cli(self.args, self.model, urls=["http://example.com/post1"])
         
         # Verify
         self.assertTrue(result)
@@ -96,7 +95,6 @@ class TestProcessWebCli(unittest.TestCase):
         # We implicitly verified the fix because the function ran successfully and we mocked the calls 
         # that happen *after* accessing api_src.url[i].
         
-        mock_rules.cleanUrlRule.assert_called_with("http://example.com/post1")
         mock_page.getPostTitle.assert_called_with("post_obj")
         mock_reduce_html.assert_called_with("http://example.com/post1", "post_obj")
 
