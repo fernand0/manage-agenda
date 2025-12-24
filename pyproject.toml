@@ -14,7 +14,7 @@ dependencies = [
     "mistralai",
     "ollama",
     "setuptools",
-    "social-modules @ git+https://github.com/fernand0/socialModules.git@devel",
+    "social-modules @ git+https://github.com/fernand0/socialModules.git",
     "beautifulsoup4",
 ]
 
