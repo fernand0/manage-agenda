@@ -11,3 +11,6 @@ settings.json
 *.swp
 .env
 .coverage
+.ruff_cache
+htmlcov
+*.log
