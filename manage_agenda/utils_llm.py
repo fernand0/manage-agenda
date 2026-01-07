@@ -2,14 +2,14 @@ import configparser
 import logging
 import os
 import time
+
 import google.generativeai as genai
 import ollama
-from ollama import chat, ChatResponse
 from mistralai import Mistral
-from socialModules.configMod import CONFIGDIR
+from ollama import ChatResponse, chat
 
 # from manage_agenda.utils_base import select_from_list
-from socialModules.configMod import select_from_list
+from socialModules.configMod import CONFIGDIR, select_from_list
 
 
 def evaluate_models(prompt):
@@ -28,9 +28,7 @@ def evaluate_models(prompt):
         end_time = time.time()
 
         duration = end_time - start_time
-        results.append(
-            {"model": model_name, "response": response, "duration": duration}
-        )
+        results.append({"model": model_name, "response": response, "duration": duration})
 
     print("\n--- Evaluation Results ---")
     for result in results:
@@ -68,13 +66,13 @@ class LLMClient:
             try:
                 config_file = f"{CONFIGDIR}/.rss{name_class[:-6]}"
                 config = load_config(config_file)
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 raise FileNotFoundError(
                     f"Configuration file: {config_file} does not exist\n"
                     f"You need to create it and add the API key"
-                )
+                ) from None
             except Exception as e:
-                raise Exception(e)
+                raise Exception(e) from e
 
             section = config.sections()[0]
             self.api_key = config.get(section, "api_key")
@@ -100,17 +98,18 @@ class OllamaClient(LLMClient):
             self.model_name = model_name
 
     def generate_text(self, prompt):
-        print(f"Self: {self}")
-        # print(f"Self: {self.options}")
-        # self["options"]["num_ctx"] = len(prompt)
         try:
             response: ChatResponse = chat(
-                model=self.model_name, messages=[{"role": "user", "content": prompt}],
-                options= { "num_ctx": len(prompt) }
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                options={"num_ctx": len(prompt)},
             )
             return response.message.content
         except Exception as e:
             logging.error(f"Error generating text with Ollama: {e}")
+            if "model requires more system memory" in str(e) or "out of memory" in str(e).lower():
+                logging.error(f"Ollama model {self.model_name} requires more memory than available: {e}")
+                return "Memory"
             return None
 
     @staticmethod
@@ -166,9 +165,7 @@ class MistralClient(LLMClient):
         if not self.model_name:
             # names = [el.id for el in self.list_models(self).data]
             models = self.list_models(self).data
-            sel, name = select_from_list(
-                models, identifier="id", default="mistral-small-latest"
-            )
+            sel, name = select_from_list(models, identifier="id", default="mistral-small-latest")
             # sel = select_from_list(names, default="mistral-small-latest")
             self.model_name = name
 

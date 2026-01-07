@@ -9,3 +9,8 @@ venv
 .DS_Store
 settings.json
 *.swp
+.env
+.coverage
+.ruff_cache
+htmlcov
+*.log

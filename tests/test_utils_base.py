@@ -1,13 +1,11 @@
-import unittest
-from unittest.mock import patch, mock_open
 import logging
-import os
-
 import sys
+import unittest
+from unittest.mock import mock_open, patch
 
 sys.path.append(".")
 
-from manage_agenda.utils_base import write_file, setup_logging
+from manage_agenda.utils_base import setup_logging, write_file
 
 
 class TestUtilsBase(unittest.TestCase):
@@ -28,7 +26,7 @@ class TestUtilsBase(unittest.TestCase):
         mock_open_file().write.assert_called_once_with(content)
         mock_logging_info.assert_called_once_with(f"File written: {filename}")
 
-    @patch("builtins.open", side_effect=IOError("Disk full"))
+    @patch("builtins.open", side_effect=OSError("Disk full"))
     @patch("logging.error")
     def test_write_file_failure(self, mock_logging_error, mock_open_file):
         """
@@ -48,7 +46,10 @@ class TestUtilsBase(unittest.TestCase):
         """
         Tests that setup_logging configures logging to the default /tmp directory.
         """
-        with patch("manage_agenda.utils_base.LOGDIR", ""):
+        with (
+            patch("manage_agenda.utils_base.LOGDIR", ""),
+            patch("manage_agenda.utils_base.config.LOG_FILE", "/tmp/manage_agenda.log"),
+        ):
             setup_logging(verbose=True)
 
         mock_basic_config.assert_called_once()

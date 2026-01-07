@@ -1,29 +1,55 @@
+
 import click
-import os
 
 # Import auxiliary functions and classes from utils.py
 from .utils import (
-    select_llm,
     Args,
     authorize,
+    copy_events_cli,
+    delete_events_cli,
+    get_add_sources,
+    list_emails_folder,
+    list_events_folder,
+    move_events_cli,
     process_email_cli,
     process_web_cli,
     select_api_source,
-    list_emails_folder,
-    list_events_folder,
-    copy_events_cli,
-    delete_events_cli,
-    move_events_cli,
-)  # Import only what's needed
-
+    select_email_prompt,
+    select_llm,
+)
 from .utils_base import (
     setup_logging,
 )
-
 from .utils_llm import (
     evaluate_models,
 )
-from .utils import select_email_prompt, Args
+
+def select_from_list(options, identifier="", selector="", default=""):
+    """
+    Presents a list of options to the user and returns the selected option.
+    """
+    for i, option in enumerate(options):
+        print(f"{i}) {option}")
+
+    while True:
+        try:
+            selection = input("Select an option: ")
+            if selection.isdigit():
+                selection = int(selection)
+                if 0 <= selection < len(options):
+                    return selection, options[selection]
+            elif selection.startswith('http'):
+                return len(options)-1, selection
+            else:
+                for i, option in enumerate(options):
+                    if selection.lower() in option.lower():
+                        return i, option
+        except (ValueError, IndexError):
+            pass
+        except (KeyboardInterrupt, EOFError):
+            print("\nSelection cancelled.")
+            return None, None
+        print("Invalid selection. Please try again.")
 
 
 @click.group()
@@ -70,7 +96,7 @@ def evaluate(ctx, prompt):
         evaluate_models(prompt)
 
 
-@cli.group(invoke_without_command=True)
+@cli.command()
 @click.option(
     "-i",
     "--interactive",
@@ -86,28 +112,7 @@ def evaluate(ctx, prompt):
 )
 @click.pass_context
 def add(ctx, interactive, source):
-    """Add entries to the calendar (defaults to 'mail')."""
-    if ctx.invoked_subcommand is None:
-        ctx.invoke(mail, interactive=interactive, source=source)
-
-
-@add.command()
-@click.option(
-    "-i",
-    "--interactive",
-    is_flag=True,
-    default=False,
-    help="Running in interactive mode",
-)
-@click.option(
-    "-s",
-    "--source",
-    default="gemini",
-    help="Select LLM",
-)
-@click.pass_context
-def mail(ctx, interactive, source):
-    """Add entries to the calendar from email."""
+    """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
         interactive=interactive,
@@ -123,44 +128,25 @@ def mail(ctx, interactive, source):
     if verbose:
         print(f"Model: {model}")
 
-    success = process_email_cli(args, model)
-    if not success:
-        ctx.exit(1)
+    if interactive:
+        sources = get_add_sources()
+        print(f"Sources: {sources}")
+        sel, selected = select_from_list(sources)
 
-
-@add.command()
-@click.option(
-    "-i",
-    "--interactive",
-    is_flag=True,
-    default=False,
-    help="Running in interactive mode",
-)
-@click.option(
-    "-s",
-    "--source",
-    default="gemini",
-    help="Select LLM",
-)
-@click.pass_context
-def web(ctx, interactive, source):
-    """Add entries to the calendar from a web page."""
-    verbose = ctx.obj["VERBOSE"]
-    args = Args(
-        interactive=interactive,
-        delete=None,
-        source=source,
-        verbose=verbose,
-        destination=None,
-        text=None,
-    )
-
-    model = select_llm(args)
-
-    if verbose:
-        print(f"Model: {model}")
-
-    process_web_cli(args, model)
+        #if "Web" in selected_source:  # Check if "Web" is in the selected source string
+        print(f"Selected: {selected} - {type(selected)}")
+        if (isinstance(selected, str) 
+            and (("Web" in selected) 
+            or selected.startswith('http'))):
+            url = None
+            if selected.startswith('http'):
+                process_web_cli(args, model, urls = selected.split(' '))
+            else:
+                process_web_cli(args, model)
+        else:
+            process_email_cli(args, model, source_name=selected)
+    else:
+        process_email_cli(args, model)
 
 
 @cli.command()
@@ -211,7 +197,7 @@ def auth(ctx, interactive):
         )
         print(msg)
     else:
-        print(f"This account has been correctly authorized")
+        print("This account has been correctly authorized")
 
 
 @cli.command()

@@ -1,4 +1,5 @@
 from click.testing import CliRunner
+
 from manage_agenda.cli import cli
 
 

@@ -1,49 +1,59 @@
 import datetime
-from datetime import timedelta
-import time
 import json
-import googleapiclient
 import logging
-import pytz  # Added pytz import
+import time
+from dataclasses import dataclass
+from datetime import timedelta
+from typing import Optional
 
-import urllib.request
-import re
-
-from bs4 import BeautifulSoup
-
-from socialModules import moduleImap, moduleRules, moduleHtml
+import googleapiclient
+import pytz
+from socialModules import moduleHtml, moduleRules
 from socialModules.configMod import (
-    CONFIGDIR,
-    DATADIR,
-    checkFile,
-    fileNamePath,
-    logMsg,
-    select_from_list,
     safe_get,
+    select_from_list,
 )
-from collections import namedtuple
 
-# Define the default CET timezone using a specific IANA name.
-# 'CET' is an abbreviation, so we use a common IANA timezone that observes CET.
-# For example, 'Europe/Berlin' or 'Europe/Paris'. Let's use 'Europe/Berlin'.
+from manage_agenda.config import config
+from manage_agenda.exceptions import (
+    CalendarError,
+)
+
+# Define the default timezone from config
 try:
-    DEFAULT_NAIVE_TIMEZONE = pytz.timezone("Europe/Berlin")
+    DEFAULT_NAIVE_TIMEZONE = pytz.timezone(config.DEFAULT_TIMEZONE)
 except pytz.exceptions.UnknownTimeZoneError:
-    print(
-        "Error: 'Europe/Berlin' is not a recognized timezone by pytz. Falling back to UTC."
-    )
+    logging.error(f"Invalid timezone '{config.DEFAULT_TIMEZONE}' in config. Falling back to UTC.")
     DEFAULT_NAIVE_TIMEZONE = pytz.utc
 
 from manage_agenda.utils_base import (
-    setup_logging,
-    write_file,
     format_time,
-)  # , select_from_list
-from manage_agenda.utils_llm import OllamaClient, GeminiClient, MistralClient
-
-Args = namedtuple(
-    "args", ["interactive", "delete", "source", "verbose", "destination", "text"]
+    write_file,
 )
+from manage_agenda.utils_llm import GeminiClient, MistralClient, OllamaClient
+from manage_agenda.utils_web import reduce_html
+
+
+@dataclass
+class Args:
+    """Arguments container for CLI commands."""
+
+    interactive: bool = False
+    delete: Optional[bool] = None
+    source: Optional[str] = None
+    verbose: bool = False
+    destination: Optional[str] = None
+    text: Optional[str] = None
+
+
+def get_add_sources():
+    """Returns a list of available sources for the add command."""
+    from socialModules import moduleRules
+
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+    return email_sources + ["Web (Enter URL)"]
 
 
 def print_first_10_lines(content, content_type="content"):
@@ -58,25 +68,42 @@ def print_first_10_lines(content, content_type="content"):
 
 def select_calendar(calendar_api):
     """Selects a Google Calendar.
-    FIXME: maybe it should be in socialModules?
 
     Args:
         calendar_api: An object to interact with the Google Calendar API.
 
     Returns:
-        The ID of the selected calendar or the calendar object.
+        The ID of the selected calendar.
+
+    Raises:
+        CalendarError: If calendar selection fails.
     """
-    calendar_api.setCalendarList()
-    calendars = calendar_api.getCalendarList()
-    eligible_calendars = [
-        cal for cal in calendars if "reader" not in cal.get("accessRole", "")
-    ]
+    try:
+        calendar_api.setCalendarList()
+        calendars = calendar_api.getCalendarList()
 
-    # names = [safe_get(cal, ["summary"]) for cal in eligible_calendars]
-    selection, cal = select_from_list(eligible_calendars, "summary")
+        if not calendars:
+            raise CalendarError("No calendars found in your Google Calendar account")
 
-    print(f"Cal: {cal}")
-    return eligible_calendars[selection]["id"]
+        eligible_calendars = [cal for cal in calendars if "reader" not in cal.get("accessRole", "")]
+
+        if not eligible_calendars:
+            raise CalendarError("No writable calendars found. Check your calendar permissions.")
+
+        selection, cal = select_from_list(eligible_calendars, "summary")
+
+        if selection < 0 or selection >= len(eligible_calendars):
+            raise CalendarError(f"Invalid calendar selection: {selection}")
+
+        calendar_id = eligible_calendars[selection]["id"]
+        logging.info(f"Selected calendar: {safe_get(cal, ['summary'])} (ID: {calendar_id})")
+
+        return calendar_id
+
+    except (KeyError, IndexError, TypeError) as e:
+        raise CalendarError(f"Failed to select calendar: {e}") from e
+    except Exception as e:
+        raise CalendarError(f"Unexpected error selecting calendar: {e}") from e
 
 
 # --- Event Handling ---
@@ -89,7 +116,7 @@ def create_event_dict():
         "start": {"dateTime": "", "timeZone": ""},
         "end": {"dateTime": "", "timeZone": ""},
         "recurrence": [],
-        #"attendees": [],
+        # "attendees": [],
     }
 
 
@@ -101,12 +128,22 @@ def process_event_data(event, content):
         content (str): The content of the email.
     """
     event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
-    #event["attendees"] = []  # Clear attendees
+    # event["attendees"] = []  # Clear attendees
     return event
 
 
 def adjust_event_times(event):
-    """Adjusts event start/end times, localizing naive times to CET and converting all to UTC."""
+    """Adjusts event start/end times, localizing naive times and converting to UTC.
+
+    Args:
+        event (dict): Event dictionary with start/end datetime fields.
+
+    Returns:
+        dict: Event with adjusted times in UTC.
+
+    Raises:
+        ValidationError: If datetime validation fails critically.
+    """
 
     def _process_single_time_field(time_str, input_tz_name, field_name_for_logging):
         """
@@ -125,22 +162,22 @@ def adjust_event_times(event):
                         local_tz = pytz.timezone(input_tz_name)
                         dt_obj = local_tz.localize(dt_obj)
                     except pytz.exceptions.UnknownTimeZoneError:
-                        print(
-                            f"Validation Error: Unknown timezone "
-                            f"'{input_tz_name}' for {field_name_for_logging} "
-                            "time. Falling back to default CET."
+                        logging.warning(
+                            f"Unknown timezone '{input_tz_name}' for {field_name_for_logging}. "
+                            f"Using default timezone: {config.DEFAULT_TIMEZONE}"
                         )
                         dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
                 else:
                     dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
 
             return dt_obj.astimezone(pytz.utc).isoformat(), True
-        except ValueError:
-            print(
-                f"Validation Error: {field_name_for_logging} "
-                f"time '{time_str}' is not a valid ISO 8601 format."
-                "Skipping adjustment."
+        except ValueError as e:
+            logging.error(
+                f"Invalid datetime format for {field_name_for_logging}: '{time_str}'. Error: {e}"
             )
+            return None, False
+        except Exception as e:
+            logging.error(f"Unexpected error processing {field_name_for_logging}: {e}")
             return None, False
 
     def _infer_missing_time(existing_dt_iso, target_field_dict, infer_type):
@@ -155,9 +192,7 @@ def adjust_event_times(event):
             return
 
         try:
-            existing_dt = datetime.datetime.fromisoformat(
-                existing_dt_iso
-            )  # This is already UTC
+            existing_dt = datetime.datetime.fromisoformat(existing_dt_iso)  # This is already UTC
 
             if infer_type == "start":
                 inferred_dt = existing_dt - timedelta(minutes=30)
@@ -242,14 +277,14 @@ def adjust_event_times(event):
 def extract_json(text):
     # extract json (assuming response contains json within backticks)
 
-    if not text.startswith('{'):
-        pos = text.find('{')
+    if not text.startswith("{"):
+        pos = text.find("{")
         if pos != -1:
             text = text[pos:]
-    if not text.endswith('}'):
-        pos = text.rfind('}')
+    if not text.endswith("}"):
+        pos = text.rfind("}")
         if pos != -1:
-            text = text[:pos+1]
+            text = text[: pos + 1]
     vcal_json = text
     # if "```" in text:
     #     start_index = text.find("```")
@@ -278,32 +313,34 @@ def get_event_from_llm(model, prompt, verbose=False):
 
     if not llm_response:
         print("Failed to get response from LLM.")
-
-    if verbose:
-        print(f"Reply:\n{llm_response}")
-        print(f"End Reply")
-    llm_response = llm_response.replace("\\", "").replace("\n", " ")
-
-    try:
-        import ast
-
-        vcal_json = ast.literal_eval(extract_json(llm_response))
+    elif 'Memory' in llm_response:
+        print("LLM failed due to insufficient memory. Model requires more system memory than available.")
+        # Return a special indicator that memory error occurred
+        return None, "MemoryError", elapsed_time
+    else:
         if verbose:
-            print(f"Json:\n{vcal_json}")
-            print(f"Json:\n{type(vcal_json)}")
-        event = vcal_json
-        print(f"Event: {event}")
+            print(f"Reply:\n{llm_response}")
+            print("End Reply")
 
-        # event = json.loads(vcal_json)
-    except json.JSONDecodeError as e:
-        logging.error(f"Invalid JSON in vCal data: {vcal_json}")
-        logging.error(f"Error: {e}")
-    except SyntaxError as e:
-        logging.error(f"Syntax error: {vcal_json}")
-        logging.error(f"Error: {e}")
-    print("Aquíiii")
+        llm_response = llm_response.replace("\\", "").replace("\n", " ")
 
-    return event, vcal_json
+        try:
+            import ast
+
+            vcal_json = ast.literal_eval(extract_json(llm_response))
+            if verbose:
+                print(f"Json:\n{vcal_json}")
+            event = vcal_json
+
+            # event = json.loads(vcal_json)
+        except json.JSONDecodeError as e:
+            logging.error(f"Invalid JSON in vCal data: {vcal_json}")
+            logging.error(f"Error: {e}")
+        except SyntaxError as e:
+            logging.error(f"Syntax error: {vcal_json}")
+            logging.error(f"Error: {e}")
+
+    return event, vcal_json, elapsed_time
 
 
 def authorize(args):
@@ -353,11 +390,15 @@ def list_events_folder(args, api_src, calendar=""):
         print("Some problem with the account")
 
 
-def _get_emails_from_folder(args):
+def _get_emails_from_folder(args, source_name):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
-    api_src_type = ["gmail", "imap"]
-    api_src = select_api_source(args, api_src_type)
+    from socialModules import moduleRules
+
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    source_details = rules.more.get(source_name, {})
+    api_src = rules.readConfigSrc("", source_name, source_details)
 
     if not api_src.getClient():
         print("Some problem with the account")
@@ -371,21 +412,37 @@ def _get_emails_from_folder(args):
         print(f"There are no posts tagged with label {folder}")
         return api_src, None
 
-    label_id = safe_get(label[0], ["id"])
+    #label_id = safe_get(label[0], ["id"])
     api_src.setChannel(folder)
     api_src.setPosts()
     posts = api_src.getPosts()
 
     if not posts:
         print(f"There are no posts tagged with label {folder}")
-        return api_src, None
+        posts = None
 
     return api_src, posts
 
 
+def select_email_source(args):
+    """Selects an email source, interactive or not."""
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+
+    if args.interactive:
+        selected_source, _ = select_from_list(email_sources)
+        source_name = selected_source
+    else:
+        source_name = email_sources[0]
+
+    return source_name
+
+
 def list_emails_folder(args):
     """Lists emails and in folder."""
-    api_src, posts = _get_emails_from_folder(args)
+    source_name = select_email_source(args)
+    api_src, posts = _get_emails_from_folder(args, source_name)
     if posts:
         for i, post in enumerate(posts):
             # post_id = api_src.getPostId(post)
@@ -396,31 +453,45 @@ def list_emails_folder(args):
 
 def _create_llm_prompt(event, content_text, reference_date_time):
     """Constructs the LLM prompt for event extraction."""
-    content_text = content_text.replace('\r','')
-    return (
-        "Rellenar los datos del JSON:\n"
-        f"{event}\n"
-        "Puedes obtener los datos en el cuerpo del mensaje ('Message:') o en "
-        "el asunto ('Subject:'). "
-        "La fecha que se marca con 'Message date:' se usa como una referencia "
-        "cuando se indican fechas relativas como por ejemplo, 'el próximo jueves'.\n"
-        "Si no se indica otra cosa la timezone es CET.\n"
-        "El resultado incluye un json y sus campos y contenidos deben ir entre comillas dobles. "
-        "El inicio y el fin de la actividad son fechas y se pondrán en los campos event['start']['dateTime']  y "
-        " event['end']['dateTime'] respectivamente" #, y serán fechas iguales o "
-        # f"posteriores a {reference_date_time}. "
-        "No traduzcas el texto, conserva la información en el idioma en que se presenta.\n"
-        "No añadas comentarios al resultado que se representará como un JSON."
-        f"El texto es:\n"
-        f"{content_text}.\n"
-    )
+    import os
+    from pathlib import Path
+
+    content_text = content_text.replace("\r", "")
+
+    # Get the path to the prompt template
+    prompt_dir = Path(__file__).parent / "prompts"
+    prompt_file = prompt_dir / "event_extraction_prompt.txt"
+
+    # Read the prompt template
+    if prompt_file.exists():
+        prompt_template = prompt_file.read_text(encoding='utf-8')
+    else:
+        # Fallback to the original prompt if file is not found
+        prompt_template = (
+            "Extract event information from the provided text and fill in the JSON structure below.\n\n"
+            f"JSON structure to fill:\n{event}\n\n"
+            "INSTRUCTIONS:\n"
+            "1. Extract event details from the message body ('Message:') and subject ('Subject:').\n"
+            "2. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').\n"
+            "3. Default timezone is CET if not specified otherwise.\n"
+            "4. The result must be a valid JSON with all fields and values enclosed in double quotes.\n"
+            "5. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.\n"
+            "6. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.\n"
+            "7. Do not translate the text; keep all information in the original language.\n"
+            "8. Return ONLY the completed JSON structure without any additional comments or explanations.\n\n"
+            "SOURCE TEXT:\n"
+            f"{content_text}.\n"
+        )
+
+    # Fill in the template with actual values
+    return prompt_template.format(event=event, content_text=content_text)
 
 
 def _interactive_date_confirmation(args, event):
     """Interactively confirms and corrects event dates."""
     if args.interactive:
         confirmation = input("Are the dates correct? (y/n): ").lower()
-        if confirmation != 'y':
+        if confirmation != "y":
             new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
             if new_start_str:
                 event.setdefault("start", {})["dateTime"] = new_start_str
@@ -429,9 +500,13 @@ def _interactive_date_confirmation(args, event):
                     end_dt = start_dt + timedelta(minutes=45)
                     new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-                    modify_end_time = input(f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): ").lower()
-                    if modify_end_time == 'y':
-                        new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+                    modify_end_time = input(
+                        f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
+                    ).lower()
+                    if modify_end_time == "y":
+                        new_end_str = input(
+                            "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
+                        )
                     else:
                         new_end_str = new_end_str_default
                 except ValueError:
@@ -472,11 +547,60 @@ def _process_event_with_llm_and_calendar(
     prompt = _create_llm_prompt(event, content_text, reference_date_time)
     if args.verbose:
         print(f"Prompt:\n{prompt}")
-        print(f"\nEnd Prompt:")
+        print("\nEnd Prompt:")
 
     # Get AI reply
-    event, vcal_json = get_event_from_llm(model, prompt, args.verbose)
-    print(f"Event: {event}")
+    event = None
+    while not event:
+        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+
+        # Handle memory error specifically
+        if vcal_json == "MemoryError":
+            print("Switching to a different LLM due to memory constraints...")
+            if args.interactive:
+                # Ask user to select a different model
+                new_args = Args(
+                    interactive=True,
+                    delete=args.delete,
+                    source=None,
+                    verbose=args.verbose,
+                    destination=args.destination,
+                    text=args.text,
+                )
+                new_model = select_llm(new_args)
+
+                if new_model:
+                    model = new_model
+                    print(f"Selected new AI model: {model.__class__.__name__}")
+                    # Retry with the new model
+                    event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+                else:
+                    print("No alternative model selected. Skipping event processing.")
+                    return None, None
+            else:
+                # In non-interactive mode, try to switch to a lighter model automatically
+                print("Trying to switch to a lighter model automatically...")
+                new_args = Args(
+                    interactive=False,
+                    delete=args.delete,
+                    source="gemini",  # Default to gemini which is typically lighter than large ollama models
+                    verbose=args.verbose,
+                    destination=args.destination,
+                    text=args.text,
+                )
+                new_model = select_llm(new_args)
+
+                if new_model:
+                    model = new_model
+                    print(f"Switched to lighter AI model: {model.__class__.__name__}")
+                    # Retry with the new model
+                    event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+                else:
+                    print("Could not switch to a lighter model. Skipping event processing.")
+                    return None, None
+        elif not event and vcal_json != "MemoryError":
+            # Other types of failures - continue with existing logic
+            continue
     process_event_data(event, content_text)
     adjust_event_times(event)
 
@@ -524,9 +648,7 @@ def _process_event_with_llm_and_calendar(
                     if new_summary:
                         event["summary"] = new_summary
                 if not start_datetime:
-                    new_start_datetime_str = input(
-                        "Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): "
-                    )
+                    new_start_datetime_str = input("Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): ")
                     if new_start_datetime_str:
                         try:
                             new_start_datetime = datetime.datetime.strptime(
@@ -537,22 +659,18 @@ def _process_event_with_llm_and_calendar(
                             )
                             # Removed event['start'].setdefault('timeZone', 'Europe/Madrid') as adjust_event_times handles it
                         except ValueError:
-                            print(
-                                "Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS."
-                            )
+                            print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
                             continue
                 data_complete = True
             elif choice == "a":
                 retries += 1
                 if retries > max_retries:
-                    print(
-                        "Max AI retries reached. Skipping item."
-                    )  # Generalized message
+                    print("Max AI retries reached. Skipping item.")  # Generalized message
                     break
 
                 print("Selecting another AI model...")
-                original_model = model
-                original_args_source = args.source
+                _ = model
+                _ = args.source
 
                 new_args = Args(
                     interactive=True,
@@ -567,12 +685,38 @@ def _process_event_with_llm_and_calendar(
                 if new_model:
                     model = new_model
                     print(f"Trying with new AI model: {model.__class__.__name__}")
-                    new_event, new_vcal_json = get_event_from_llm(
+                    new_event, new_vcal_json, elapsed_time = get_event_from_llm(
                         model, prompt, args.verbose
                     )
                     if new_event:
                         event = new_event
                         vcal_json = new_vcal_json
+                    elif new_vcal_json == "MemoryError":
+                        print("New AI model also failed due to memory constraints.")
+                        # Ask user to select yet another model
+                        retry_args = Args(
+                            interactive=True,
+                            delete=args.delete,
+                            source=None,
+                            verbose=args.verbose,
+                            destination=args.destination,
+                            text=args.text,
+                        )
+                        retry_model = select_llm(retry_args)
+
+                        if retry_model:
+                            model = retry_model
+                            print(f"Selected another AI model: {model.__class__.__name__}")
+                            new_event, new_vcal_json, elapsed_time = get_event_from_llm(
+                                model, prompt, args.verbose
+                            )
+                            if new_event:
+                                event = new_event
+                                vcal_json = new_vcal_json
+                            else:
+                                print("Another AI model failed to generate a response.")
+                        else:
+                            print("No alternative model selected.")
                     else:
                         print("New AI model failed to generate a response.")
                 else:
@@ -607,21 +751,27 @@ def _process_event_with_llm_and_calendar(
 
     start_time = safe_get(event, ["start", "dateTime"])
     end_time = safe_get(event, ["end", "dateTime"])
+    if args.interactive:
+        print(f"Start time: {start_time}")
+        print(f"End time: {end_time}")
 
-    start_time_local = (
-        datetime.datetime.fromisoformat(start_time).astimezone()
-        if start_time
-        else "N/A"
-    )
-    end_time_local = (
-        datetime.datetime.fromisoformat(end_time).astimezone() if end_time else "N/A"
-    )
+    try:
+        start_time_local = (
+            datetime.datetime.fromisoformat(start_time).astimezone() if start_time else "N/A"
+        )
+        end_time_local = (
+            datetime.datetime.fromisoformat(end_time).astimezone() if end_time else "N/A"
+        )
+    except ValueError:
+        start_time_local = start_time
+        end_time_local = end_time
 
-    print(f"=====================================")
+    print("=====================================")
     print(f"Subject: {subject_for_print}")  # Use dynamic subject
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
-    print(f"=====================================")
+    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+    print("=====================================")
 
     event = _interactive_date_confirmation(args, event)
 
@@ -634,7 +784,7 @@ def _process_event_with_llm_and_calendar(
         calendar_result = api_dst.publishPost(
             post={"event": event, "idCal": selected_calendar}, api=api_dst
         )
-        print(f"Calendar event created")
+        print("Calendar event created")
         return event, calendar_result  # Return event and result for further processing
     except googleapiclient.errors.HttpError as e:
         logging.error(f"Error creating calendar event: {e}")
@@ -646,12 +796,14 @@ def _get_post_datetime_and_diff(post_date):
     Calculates the post datetime and the difference in days from now.
 
     Args:
-        post_date (str): The date of the post.
+        post_date (str or datetime.datetime): The date of the post.
 
     Returns:
         tuple: A tuple containing the post datetime and the time difference in days.
     """
-    if post_date.isdigit():
+    if isinstance(post_date, datetime.datetime):
+        post_date_time = post_date
+    elif post_date.isdigit():
         post_date_time = datetime.datetime.fromtimestamp(int(post_date) / 1000)
     else:
         from email.utils import parsedate_to_datetime
@@ -661,50 +813,80 @@ def _get_post_datetime_and_diff(post_date):
     try:
         import pytz
 
-        time_difference = (
-            pytz.timezone("Europe/Madrid").localize(datetime.datetime.now())
-            - post_date_time
-        )
+        # Define the timezone
+        madrid_tz = pytz.timezone("Europe/Madrid")
+
+        # Make post_date_time timezone-aware if it's naive
+        if post_date_time.tzinfo is None:
+            post_date_time = madrid_tz.localize(post_date_time)
+
+        # Get the current time as timezone-aware
+        now_aware = datetime.datetime.now(madrid_tz)
+
+        time_difference = now_aware - post_date_time
         logging.debug(f"Date: {post_date_time} Diff: {time_difference.days}")
-    except:
-        # FIXME
-        time_difference = datetime.datetime.now() - datetime.datetime.now()
+    except Exception as e:
+        logging.error(f"Error processing post date: {e}")
+        time_difference = datetime.timedelta(0)
 
     return post_date_time, time_difference
 
 
-def _delete_email(args, api_src, post_id):
-    """Deletes an email, handling interactive confirmation."""
+def _delete_email(args, api_src, post_id, source_name):
+    """Deletes an email, handling interactive confirmation and connection errors."""
     delete_confirmed = False
     if args.interactive:
-        confirmation = input(
-            "Do you want to remove the label from the email? (y/n): "
-        )
+        confirmation = input("Do you want to remove the label from the email? (y/n): ")
         if confirmation.lower() == "y":
             delete_confirmed = True
-    elif (
-        args.delete
-    ):  # Only auto-confirm if not interactive but delete flag is set
+    elif args.delete:  # Only auto-confirm if not interactive but delete flag is set
         delete_confirmed = True
 
     if delete_confirmed:
-        if "imap" not in api_src.service.lower():
-            print(f"label: {api_src.getChannel()}")
-            logging.info(f"label: {api_src.getChannel()}")
-            folder = api_src.getChannel()
-            label = api_src.getLabels(folder)
-            logging.info(f"label: {label}")
-            res = api_src.modifyLabels(post_id, label[0], None)
-            logging.info(f"Label removed from email {post_id}.")
-        else:
-            api_src.deletePostId(post_id)
+        max_retries = 1
+        label = None
+        for attempt in range(max_retries + 1):
+            try:
+                print(f"Service: {api_src.service.lower()}")
+                res = ""
+                if "imap" not in api_src.service.lower():
+                    print(f"label: {api_src.getChannel()}")
+                    logging.info(f"label: {api_src.getChannel()}")
+                    folder = api_src.getChannel()
+                    label = api_src.getLabels(folder)
+                    logging.info(f"label: {label}")
+                    res = api_src.modifyLabels(post_id, label[0], None)
+                    logging.info(f"Label removed from email {post_id}.")
+                else:
+                    label = api_src.getChannel()
+                    res = api_src.deletePostId(post_id)
+                    logging.info(f"State: {api_src.getClient().state}")
+                if not "Fail!" in res:
+                    logging.info(f"Email {post_id} processed successfully.")
+                    return  # Success
+            except Exception as e:
+                logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
+                if attempt < max_retries:
+                    logging.info("Retrying to connect to the email server...")
+                    from socialModules import moduleRules
 
-def _is_email_too_old(args, time_difference):
+                    rules = moduleRules.moduleRules()
+                    rules.checkRules()
+                    source_details = rules.more.get(source_name, {})
+                    api_src = rules.readConfigSrc("", source_name, source_details)
+                    if label:
+                        api_src.setChannel(label)
+                else:
+                    logging.error(f"Could not delete email {post_id} after {max_retries + 1} attempts: {e}")
+                    return # Exit after last attempt failure
+
+
+def _is_post_too_old(args, time_difference):
     """Checks if an email is too old and confirms processing if interactive."""
     if time_difference.days > 7:
         if args.interactive:
             confirmation = input(
-                f"El correo tiene {time_difference.days} dias. ¿Desea procesarlo? (y/n): "
+                f"The post has {time_difference.days} days. Do you want to process it? (y/n): "
             )
             if confirmation.lower() != "y":
                 return True
@@ -714,126 +896,134 @@ def _is_email_too_old(args, time_difference):
             return True
     return False
 
-def process_email_cli(args, model):
+def _process_common_flow(args, model, items, metadata_extractor, content_extractor, item_cleaner=None):
+    """
+    Common flow for processing items (emails, web pages).
+
+    metadata_extractor: func(item, index) -> (post_id, post_title, post_date)
+    content_extractor: func(item, index, post_date_time, post_title) -> content_text
+    item_cleaner: func(item, index, post_id) -> void
+    """
+    processed_any_event = False
+    for i, item in enumerate(items):
+        # 1. Metadata
+        post_id, post_title, post_date = metadata_extractor(item, i)
+
+        print(f"Processing Title: {post_title}", flush=True)
+
+        # 2. Check Age
+        post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
+        if _is_post_too_old(args, time_difference):
+            continue
+
+        # 3. Content
+        content_text = content_extractor(item, i, post_date_time, post_title)
+        if not content_text:
+            continue
+
+        # 4. Save & Print (Common)
+        write_file(f"{post_id}.txt", content_text)
+        print_first_10_lines(content_text, "content")
+
+        # 5. Process with LLM
+        processed_event, calendar_result = _process_event_with_llm_and_calendar(
+            args,
+            model,
+            content_text,
+            post_date_time,
+            post_id,
+            post_title,
+        )
+
+        if processed_event:
+            processed_any_event = True
+            # 6. Post-process
+            if item_cleaner:
+                item_cleaner(item, i, post_id)
+
+    return processed_any_event
+
+
+def process_email_cli(args, model, source_name=None):
     """Processes emails and creates calendar events."""
 
-    api_src, posts = _get_emails_from_folder(args)
+    if not source_name:
+        source_name = select_email_source(args)
+
+    api_src, posts = _get_emails_from_folder(args, source_name)
 
     if posts:
-        processed_any_event = False
-        for post in posts:
-            post_id = api_src.getPostIdM(post)
-            post_date = api_src.getPostDate(post)
-            post_title = api_src.getPostTitle(post)
+        def metadata_extractor(post, i):
+            return api_src.getPostId(post), api_src.getPostTitle(post), api_src.getPostDate(post)
 
-            print(f"Processing Title: {post_title}", flush=True)
-            post_date_time, time_difference = _get_post_datetime_and_diff(post_date)
-
-            if _is_email_too_old(args, time_difference):
-                continue
-
+        def content_extractor(post, i, post_date_time, post_title):
             full_email_content = api_src.getPostBody(post)
-
-            if isinstance(full_email_content, bytes):
-                # FIXME: does this belong here?
-                full_email_content = full_email_content.decode("utf-8")
-
-            full_email_content = re.sub(r"\n{3,}", "\n\n", full_email_content)
-
-            email_text = (
-                    f"Subject: {post_title}\n"
-                    f"Message: {full_email_content}\n"
-                    f"Message date: {post_date_time}\n"
-            )
-            write_file(f"{post_id}.txt", email_text)  # Save email text
-
-            print_first_10_lines(email_text, "email content")
-
-            # Call the common helper function
-            processed_event, calendar_result = _process_event_with_llm_and_calendar(
-                args,
-                model,
-                email_text,
-                post_date_time,
-                post_id,
-                post_title,
+            date_message = str(post_date_time).split(' ')[0]
+            return (
+                f"Subject: {post_title}\n"
+                f"Message: {full_email_content}\n"
+                f"Message date: {date_message}\n"
             )
 
-            if processed_event is None:
-                continue  # Skip to the next email if helper failed
+        def item_cleaner(post, i, post_id):
+            if "imap" in api_src.service.lower():
+                post_pos = i + 1
             else:
-                processed_any_event = (
-                    True  # Mark that at least one event was processed
-                )
+                post_pos = post_id
+            _delete_email(args, api_src, post_pos, source_name)
 
-            _delete_email(args, api_src, post_id)
-
-        return processed_any_event  # Return True if any event was processed, False otherwise
+        return _process_common_flow(
+            args, model, posts, metadata_extractor, content_extractor, item_cleaner
+        )
     return False  # Default return if something went wrong before the main logic
 
-def process_web_cli(args, model):
+def _get_pages_from_urls(args, urls):
 
+    page = moduleHtml.moduleHtml()
+    if args.verbose:
+        print(f"Urls: {urls}")
+    page.setUrl(urls)
+    page.setApiPosts()
+    posts = page.getPosts()
+
+    if not posts:
+        print(f"There are no posts with these urls {urls}")
+        posts = None
+
+    return page, posts
+
+def process_web_cli(args, model, urls=None):
     """Processes web pages and creates calendar events."""
 
-    urls = input("Enter URLs separated by spaces: ").split()
+    if not urls:
+        urls = input("Enter URLs separated by spaces: ").split()
 
-    if urls:
-        processed_any_event = False
-        page = moduleHtml.moduleHtml()
-        print(urls)
-        page.setUrl(urls)
-        page.setApiPosts()
-        print(page.getPosts())
-        for i, post in enumerate(page.getPosts()):
-            url = page.url[i]
-            print(f"Processing URL: {page.url}", flush=True)
+    api_src, posts = _get_pages_from_urls(args, urls)
 
-            rules = moduleRules.moduleRules()
-            post_id = rules.cleanUrlRule(url)
-            post_title = page.getPostTitle(post)
-            post_date = datetime.datetime.now()
+    if posts:
+        def metadata_extractor(post, i):
+            title = api_src.getPostTitle(post)
+            if not title:
+                title = urls[i]
+            return api_src.getPostId(post), title, datetime.datetime.now()
 
-            print(f"Processing Title: {post_title}", flush=True)
+        def content_extractor(post, i, post_date_time, post_title):
+            web_content_reduced = reduce_html(urls[i], post)
+            if not web_content_reduced:
+                print(f"Could not process {urls[i]}, skipping.")
+                return None
 
-            # if isinstance(web_content_html, bytes):
-            #     web_content_html = web_content_html.decode("utf-8", errors="ignore")
-
-            # soup = BeautifulSoup(web_content_html, "html.parser")
-
-            # web_content = soup.get_text()
-            # web_content = re.sub(r"\n{3,}", "\n\n", web_content)
-
-            web_content_text = (
-                    f"Url: {url}\n"
-                    f"Message date: {post_date}\n"
-                    f"Subject: {post_title}\n"
-                    f"Message: {page.getPostContent(post)}"
+            date_message = str(post_date_time).split(' ')[0]
+            return (
+                f"Url: {urls[i]}\n"
+                f"Subject: {post_title}\n"
+                f"Message: {web_content_reduced}\n"
+                f"Message date: {date_message}\n"
             )
 
-            write_file(f"{post_id}.txt", web_content_text)  # Save email text
-
-            print_first_10_lines(web_content_text, "web content")
-
-            # Call the common helper function
-
-            processed_event, calendar_result = _process_event_with_llm_and_calendar(
-                args,
-                model,
-                web_content_text,
-                post_date,
-                post_id,
-                post_title,  # post_identifier and subject_for_print can both be url
-            )
-
-
-            if processed_event is None:
-                continue  # Skip if helper failed
-            else:
-                processed_any_event = (
-                    True  # Mark that at least one event was processed
-                )
-
-        return processed_any_event  # Return True if any event was processed, False otherwise
+        return _process_common_flow(
+            args, model, posts, metadata_extractor, content_extractor
+        )
 
     return False  # Default return if something went wrong before the main logic
 
@@ -848,7 +1038,7 @@ def select_email_prompt(args):
         return None
 
     api_src.setLabels()
-    labels = api_src.getLabels()
+    # labels = api_src.getLabels()
     # names = [safe_get(label, ["name"]) for label in labels]
 
     label_name = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
@@ -868,6 +1058,16 @@ def select_email_prompt(args):
     full_email_content = api_src.getPostBody(selected_post)
     if isinstance(full_email_content, bytes):
         full_email_content = full_email_content.decode("utf-8")
+    # pattern_generic = re.compile(
+    #                             #r'[\u200c\u00a0\u2007\u00ad\u200b\u200e\ufeff]',
+    #                             #r'[\p{Cf}\p{Cc}\p{Zs}\
+    #                             r'[\p{Cf}\p{Cc}\p{Zs}]',
+    #                             re.UNICODE
+    #                             )
+    # full_email_content = pattern_generic.sub('', full_email_content)
+    # print(f"Email: {full_email_content}")
+
+    # sys.exit()
 
     return full_email_content
 
@@ -1009,9 +1209,7 @@ def copy_events_cli(args):
         if "location" in event:
             my_event["location"] = event["location"]
 
-        api_cal.getClient().events().insert(
-            calendarId=my_calendar_dst, body=my_event
-        ).execute()
+        api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
         print(f"Copied event: {my_event['summary']}")
 
 
@@ -1080,9 +1278,7 @@ def delete_events_cli(args):
             return
 
     for event in selected_events:
-        api_cal.getClient().events().delete(
-            calendarId=my_calendar, eventId=event["id"]
-        ).execute()
+        api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
         print(f"Deleted event: {event['summary']}")
 
 
@@ -1165,11 +1361,7 @@ def move_events_cli(args):
         if "location" in event:
             my_event["location"] = event["location"]
 
-        api_cal.getClient().events().insert(
-            calendarId=my_calendar_dst, body=my_event
-        ).execute()
+        api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
         print(f"Copied event: {my_event['summary']}")
-        api_cal.getClient().events().delete(
-            calendarId=my_calendar, eventId=event["id"]
-        ).execute()
+        api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
         print(f"Deleted event: {event['summary']}")

@@ -35,7 +35,48 @@ CI = "https://github.com/fernand0/manage-agenda/actions"
 manage-agenda = "manage_agenda.cli:cli"
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["pytest", "pytest-cov", "pytest-mock"]
+dev = ["pytest", "pytest-cov", "pytest-mock", "pre-commit", "black", "isort", "ruff", "bandit"]
 
 [tool.uv]
-dev-dependencies = ["pytest"]
+dev-dependencies = ["pytest", "pytest-cov", "pytest-mock", "pre-commit", "black", "isort", "ruff"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "venv"]
+skips = ["B101", "B601"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --cov=manage_agenda --cov-report=term-missing --cov-report=html"
+
