@@ -5,13 +5,16 @@ JSON structure to fill:
 
 INSTRUCTIONS:
 1. Extract event details from the message body ('Message:') and subject ('Subject:').
-2. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').
-3. Default timezone is CET if not specified otherwise.
-4. The result must be a valid JSON with all fields and values enclosed in double quotes.
-5. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.
-6. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.
-7. Do not translate the text; keep all information in the original language.
-8. Return ONLY the completed JSON structure without any additional comments or explanations.
+2. When multiple dates are mentioned, prioritize the date of the main event being organized/announced, not dates of related events or historical references (e.g., movie release dates vs. screening discussion dates).
+3. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').
+4. Default timezone is CET if not specified otherwise.
+5. The result must be a valid JSON with all fields and values enclosed in double quotes.
+6. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.
+7. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.
+8. For the summary, focus on the main event being announced, not background information.
+9. If time is specified (e.g., '19:00h'), include it in the dateTime field along with the date.
+10. Do not translate the text; keep all information in the original language.
+11. Return ONLY the completed JSON structure without any additional comments or explanations.
 
 SOURCE TEXT:
 {content_text}.
