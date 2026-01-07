@@ -5,185 +5,164 @@
 [![Tests](https://github.com/fernand0/manage-agenda/actions/workflows/test.yml/badge.svg)](https://github.com/fernand0/manage-agenda/actions/workflows/test.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/fernand0/manage-agenda/blob/master/LICENSE)
 
-A tool for adding entries on my Google Calendar from email messages
+A tool for adding entries to your Google Calendar from email messages and web pages using Large Language Models (LLMs) to extract event information.
 
-## Steps of an execution.
+## Features
 
-When running (in ineractive mode, `-i True`) with:
-
-```bash
-uv run manage-agenda add -i True 
-```
-
-1. Asks for the selection of some AI
-
-    ```
-    Local/mistral/gemini model )(l/m/g)? 
-    ```
-    
-    Let us choose, for instance, (g)emini.
-
-2. Asks to choose one of the available models.
-
-    ![image](https://github.com/user-attachments/assets/bd49fb8d-885e-4e70-8239-d4b72e62bb22)
-    
-    ...
-    
-    ![image](https://github.com/user-attachments/assets/e55beb11-6383-4c06-8314-2180aaa68045)
-    
-    It has a default selection. Let us suppose that we push [Enter].
-
-4. Then we can select one of the configured email accounts.
-
-    ```
-    Rules:
-    0) ('gmail', 'set', 'fernand0@elmundoesimperfecto', 'posts')
-    1) ('gmail', 'set', 'fernand0@elmundoesimperfecto.com', 'drafts')
-    1) ('gmail', 'set', 'otherOne@elmundoesimperfecto.com', 'posts')
-    ```
-    
-    We can select the first one, for example.
-
-5. It will read the messages tagged with `zAgenda` (it can be selected)
-6. Extracts the content of each message and sends an adequate prompt to the selected AI. 
-It will return a `json` formatted event suitable for Google calendar.
-7. Asks to choose a Google calendar account.
-
-    ```
-    Rules:
-    0) ('gcalendar', 'set', 'fernand0@elmundoesimperfecto.com', 'posts')
-    1) ('gcalendar', 'set', 'otherOne@elmundoesimperfecto.com', 'posts')
-    ```
-    
-    Let us suppose that we choose the first one.
-
-8. It will show the subject of the message and it will ask to choose the calendar to enter the event.
-
-    ```
-    Subject: (some subject)
-    
-    0) Work
-    1) Leissure 
-    2) Meetings
-    ...
-    6) Others
-    Selection 
-    ```
-
-9. It will ask if we want to delete the tag.
-
-    ```
-    Delete tag? (Press Enter to continue)
-    ```
-
-It will repeat the last four steps for each message with the tag.
-
-## Dependencies
-
-It relies on:
-
-- Module [socialModules](https://github.com/fernand0/socialModules) for reading in your gmail account and writing in your google calendar (needs configuration).
-
-- [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/) for parsing HTML content.
-
-At this moment it can use several AI modules:
-
-- [Gemini](https://gemini.google.com/) via [Gemini API Python SDK](https://ai.google.dev/gemini-api/docs/quickstart?lang=python)
-- [Mistral](https://mistral.ai/) via [Mistral Python Client](https://github.com/mistralai/client-python)
-- Locally installed AIs with [Ollama](https://ollama.com/) via [Ollama code](https://github.com/ollama/ollama)
-
-All of them need some configuration (provided in their respective sites)
+- **Email Integration**: Automatically extract event information from Gmail messages
+- **Web Page Processing**: Extract events from URLs/web pages
+- **Multi-LLM Support**: Works with Gemini, Mistral, and Ollama (local models)
+- **Smart Date Recognition**: Advanced date parsing for complex scheduling scenarios
+- **Memory Error Handling**: Automatic fallback when LLM models require more memory
+- **Google Calendar Sync**: Seamlessly add events to your Google Calendar
+- **Flexible Configuration**: Support for multiple email and calendar accounts
 
 ## Installation
 
-<!---
-Install this tool using `pip`:
-```bash
-pip install manage-agenda
-```
---->
+### Prerequisites
+- Python 3.8+
+- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+- API keys for LLM providers (optional, for cloud models)
 
+### Quick Setup
 ```bash
 git clone git@github.com:fernand0/manage-agenda.git
+cd manage-agenda
+uv sync  # or pip install -e .
 ```
 
-It can not be installed via pip (does it make sense in such a raw state?).
-
-This is my first attempt at using `click` (using 
-[click-app cookiecutter template](https://github.com/simonw/click-app)
-some parts will not work.
+### Configuration
+1. Install [socialModules](https://github.com/fernand0/socialModules) for email/calendar integration
+2. Configure your email and calendar accounts using socialModules
+3. Set up API keys for LLM providers (if using cloud models)
 
 ## Usage
 
-The easiest way to run it is to use `uv`.
-
-For example, for help, run:
+### Basic Usage
+The easiest way to run the tool is using `uv`:
 
 ```bash
+# Show help
 uv run manage-agenda --help
+
+# Add events from email (interactive mode)
+uv run manage-agenda add -i True
+
+# Add events from a web page
+uv run manage-agenda add web -u https://example.com/event
+
+# Copy events between calendars
+uv run manage-agenda copy
 ```
 
-<---
-For help, run:
+### Interactive Email Processing
+When running in interactive mode (`-i True`):
+
+1. Select an AI model (Local/mistral/gemini) (l/m/g)
+2. Choose a specific model from the available options
+3. Select an email account to process
+4. The tool reads messages tagged with `zAgenda` (configurable)
+5. Extracts content and sends to selected AI for event parsing
+6. Select a Google Calendar account
+7. Review and confirm event details
+8. Optionally remove the tag from processed emails
+
+### Web Page Processing
+The `add web` command allows you to add events from URLs:
 ```bash
-manage-agenda --help
+uv run manage-agenda add web -u https://example.com/event-page
 ```
-You can also use:
-```bash
-python -m manage_agenda --help
-```
---->
 
 ## Commands
 
-### `add`
-
-This command is now a group for adding entries to your calendar. By default, it behaves like `add mail`.
+### `add` - Add Events
+Group command for adding entries to your calendar.
 
 #### `add mail`
-
-This subcommand allows you to add entries to your calendar from email messages.
+Add events from email messages. Reads messages tagged with `zAgenda` and extracts event information using LLMs.
 
 #### `add web`
+Add events from web pages. Fetches content from a URL, processes HTML to extract text, and uses LLMs to extract event details.
 
-This subcommand allows you to add entries to your calendar from a web page. It fetches the content of the provided URL, processes the HTML to extract only the textual information, and then uses an LLM to extract event details.
+### `copy` - Copy Events
+Copy events from one calendar to another with filtering capabilities.
 
-### `copy`
+### `delete` - Delete Events
+Delete events from a calendar with text-based filtering.
 
-This command allows you to copy events from one calendar to another. You can filter the events by text and select which ones to copy.
+### `move` - Move Events
+Move events between calendars (equivalent to copy + delete).
 
-### `delete`
+### `gcalendar` - List Calendar Events
+Display events from your Google Calendar.
 
-This command allows you to delete events from a calendar. You can filter the events by text and select which ones to delete.
+### `gmail` - List Emails
+Display emails from your Gmail account.
 
-### `move`
+## Supported LLM Providers
 
-This command allows you to move events from one calendar to another. This is equivalent to copying the events and then deleting them from the source calendar.
+The tool supports multiple LLM providers:
 
-### `gcalendar`
+- **Google Gemini**: Via Gemini API Python SDK
+- **Mistral**: Via Mistral Python Client
+- **Ollama**: Local models with automatic memory error handling
 
-This command allows you to list events from your Google Calendar.
+Each provider requires specific configuration and API keys (for cloud services).
 
-### `gmail`
+## Key Improvements
 
-This command allows you to list emails from your Gmail account.
+### Smart Date Extraction
+- Prioritizes main event dates over background/historical dates
+- Handles complex date formats in multiple languages
+- Distinguishes between relative dates and explicit dates
+- Includes time information when specified (e.g., '19:00h')
 
+### Memory Error Handling
+- Detects when Ollama models require more memory than available
+- Prompts for alternative models or automatically switches to lighter models
+- Prevents infinite retry loops with memory-constrained models
+
+### External Prompt Management
+- Stores prompts in external files for easy modification
+- Allows prompt customization without code changes
+- Maintains prompt versioning alongside code
+
+## Dependencies
+
+- [socialModules](https://github.com/fernand0/socialModules): Email and calendar integration
+- [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/): HTML parsing
+- [Google Generative AI SDK](https://ai.google.dev/gemini-api/docs/quickstart?lang=python): Gemini integration
+- [Mistral Python Client](https://github.com/mistralai/client-python): Mistral integration
+- [Ollama Python Client](https://github.com/ollama/ollama): Local model integration
 
 ## Development
 
-Tests now cover core functionalities and are more comprehensive.
-
-To contribute to this tool, first checkout the code. Then create a new virtual environment:
+### Setting Up for Development
 ```bash
+# Clone the repository
+git clone git@github.com:fernand0/manage-agenda.git
 cd manage-agenda
+
+# Create virtual environment and install dependencies
 python -m venv venv
-source venv/bin/activate
-```
-Now install the dependencies and test dependencies:
-```bash
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -e '.[test]'
 ```
-To run the tests:
+
+### Running Tests
 ```bash
 python -m pytest
 ```
+
+### Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+Tests cover core functionalities comprehensively and include both unit and integration tests.
+
+## License
+
+Apache 2.0 - See [LICENSE](LICENSE) file for details.
