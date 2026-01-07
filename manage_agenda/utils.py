@@ -450,26 +450,38 @@ def list_emails_folder(args):
 
 def _create_llm_prompt(event, content_text, reference_date_time):
     """Constructs the LLM prompt for event extraction."""
+    import os
+    from pathlib import Path
+
     content_text = content_text.replace("\r", "")
-    return (
-        "Rellenar los datos del JSON:\n"
-        f"{event}\n"
-        "Puedes obtener los datos en el cuerpo del mensaje ('Message:') o en "
-        "el asunto ('Subject:'). "
-        "La fecha que se marca con 'Message date:' se usa como una referencia "
-        "cuando se indican fechas relativas como por ejemplo, 'el próximo jueves'.\n"
-        "Si no se indica otra cosa la timezone es CET.\n"
-        "El resultado incluye un json y sus campos y contenidos deben ir entre comillas dobles. "
-        "Si el mensaje tiene comillas de cualquier tipo sustitúyelas por comillas simples (') "
-        "para no tener problemas con el json. "
-        "El inicio y el fin de la actividad son fechas y se pondrán en los campos event['start']['dateTime']  y "
-        " event['end']['dateTime'] respectivamente"  # , y serán fechas iguales o "
-        # f"posteriores a {reference_date_time}. "
-        "No traduzcas el texto, conserva la información en el idioma en que se presenta.\n"
-        "No añadas comentarios al resultado que se representará como un JSON."
-        f"El texto es:\n"
-        f"{content_text}.\n"
-    )
+
+    # Get the path to the prompt template
+    prompt_dir = Path(__file__).parent / "prompts"
+    prompt_file = prompt_dir / "event_extraction_prompt.txt"
+
+    # Read the prompt template
+    if prompt_file.exists():
+        prompt_template = prompt_file.read_text(encoding='utf-8')
+    else:
+        # Fallback to the original prompt if file is not found
+        prompt_template = (
+            "Extract event information from the provided text and fill in the JSON structure below.\n\n"
+            f"JSON structure to fill:\n{event}\n\n"
+            "INSTRUCTIONS:\n"
+            "1. Extract event details from the message body ('Message:') and subject ('Subject:').\n"
+            "2. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').\n"
+            "3. Default timezone is CET if not specified otherwise.\n"
+            "4. The result must be a valid JSON with all fields and values enclosed in double quotes.\n"
+            "5. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.\n"
+            "6. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.\n"
+            "7. Do not translate the text; keep all information in the original language.\n"
+            "8. Return ONLY the completed JSON structure without any additional comments or explanations.\n\n"
+            "SOURCE TEXT:\n"
+            f"{content_text}.\n"
+        )
+
+    # Fill in the template with actual values
+    return prompt_template.format(event=event, content_text=content_text)
 
 
 def _interactive_date_confirmation(args, event):

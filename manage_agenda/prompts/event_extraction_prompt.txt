@@ -1,0 +1,17 @@
+Extract event information from the provided text and fill in the JSON structure below.
+
+JSON structure to fill:
+{event}
+
+INSTRUCTIONS:
+1. Extract event details from the message body ('Message:') and subject ('Subject:').
+2. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').
+3. Default timezone is CET if not specified otherwise.
+4. The result must be a valid JSON with all fields and values enclosed in double quotes.
+5. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.
+6. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.
+7. Do not translate the text; keep all information in the original language.
+8. Return ONLY the completed JSON structure without any additional comments or explanations.
+
+SOURCE TEXT:
+{content_text}.
