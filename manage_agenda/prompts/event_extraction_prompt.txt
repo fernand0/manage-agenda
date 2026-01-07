@@ -6,15 +6,16 @@ JSON structure to fill:
 INSTRUCTIONS:
 1. Extract event details from the message body ('Message:') and subject ('Subject:').
 2. When multiple dates are mentioned, prioritize the date of the main event being organized/announced, not dates of related events or historical references (e.g., movie release dates vs. screening discussion dates).
-3. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').
-4. Default timezone is CET if not specified otherwise.
-5. The result must be a valid JSON with all fields and values enclosed in double quotes.
-6. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.
-7. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.
-8. For the summary, focus on the main event being announced, not background information.
-9. If time is specified (e.g., '19:00h'), include it in the dateTime field along with the date.
-10. Do not translate the text; keep all information in the original language.
-11. Return ONLY the completed JSON structure without any additional comments or explanations.
+3. Use the reference date marked with 'Message date:' ONLY when interpreting relative dates (e.g., 'next Thursday', 'this Friday', 'tomorrow'). Do NOT use the reference date as the event date unless the text specifically indicates it.
+4. Look carefully for explicit dates in the text (e.g., 'January 9th', '9 de enero', 'viernes 9 de enero') and prioritize these over the reference date.
+5. Default timezone is CET if not specified otherwise.
+6. The result must be a valid JSON with all fields and values enclosed in double quotes.
+7. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.
+8. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.
+9. For the summary, focus on the main event being announced, not background information.
+10. If time is specified (e.g., '19:00h'), include it in the dateTime field along with the date.
+11. Do not translate the text; keep all information in the original language.
+12. Return ONLY the completed JSON structure without any additional comments or explanations.
 
 SOURCE TEXT:
 {content_text}.
