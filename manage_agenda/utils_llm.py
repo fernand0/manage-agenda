@@ -107,7 +107,8 @@ class OllamaClient(LLMClient):
             return response.message.content
         except Exception as e:
             logging.error(f"Error generating text with Ollama: {e}")
-            if "model requires more system memory" in str(e):
+            if "model requires more system memory" in str(e) or "out of memory" in str(e).lower():
+                logging.error(f"Ollama model {self.model_name} requires more memory than available: {e}")
                 return "Memory"
             return None
 
