@@ -3,6 +3,8 @@ import logging
 import os
 import time
 
+# TODO: Migrate from google.generativeai to google-cloud-aiplatform due to deprecation
+# The google.generativeai package is deprecated. Need to migrate to Vertex AI SDK.
 import google.generativeai as genai
 import ollama
 from mistralai import Mistral
