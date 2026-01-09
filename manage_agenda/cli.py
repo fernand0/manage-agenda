@@ -1,10 +1,10 @@
-
 import click
 
 # Import auxiliary functions and classes from utils.py
 from .utils import (
     Args,
     authorize,
+    clean_events_cli,
     copy_events_cli,
     delete_events_cli,
     get_add_sources,
@@ -16,6 +16,7 @@ from .utils import (
     select_api_source,
     select_email_prompt,
     select_llm,
+    update_event_status_cli,
 )
 from .utils_base import (
     setup_logging,
@@ -135,8 +136,8 @@ def add(ctx, interactive, source):
 
         #if "Web" in selected_source:  # Check if "Web" is in the selected source string
         print(f"Selected: {selected} - {type(selected)}")
-        if (isinstance(selected, str) 
-            and (("Web" in selected) 
+        if (isinstance(selected, str)
+            and (("Web" in selected)
             or selected.startswith('http'))):
             url = None
             if selected.startswith('http'):
@@ -304,6 +305,48 @@ def copy(ctx, interactive, source, destination, text):
     help="Select source calendar",
 )
 @click.option(
+    "-d",
+    "--destination",
+    default=None,
+    help="Select destination calendar",
+)
+@click.option(
+    "-t",
+    "--text",
+    default=None,
+    help="Select text in title",
+)
+@click.pass_context
+def clean(ctx, interactive, source, destination, text):
+    """Clean calendar entries (select between copy or delete)"""
+    verbose = ctx.obj["VERBOSE"]
+    args = Args(
+        interactive=interactive,
+        delete=None,
+        source=source,
+        verbose=verbose,
+        destination=destination,
+        text=text,
+    )
+
+    clean_events_cli(args)
+
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default=None,
+    help="Select source calendar",
+)
+@click.option(
     "-t",
     "--text",
     default=None,
@@ -365,3 +408,39 @@ def move(ctx, interactive, source, destination, text):
     )
 
     move_events_cli(args)
+
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default=None,
+    help="Select source calendar",
+)
+@click.option(
+    "-t",
+    "--text",
+    default=None,
+    help="Select text in title",
+)
+@click.pass_context
+def update_status(ctx, interactive, source, text):
+    """Update event status from busy to available"""
+    verbose = ctx.obj["VERBOSE"]
+    args = Args(
+        interactive=interactive,
+        delete=None,
+        source=source,
+        verbose=verbose,
+        destination=None,
+        text=text,
+    )
+
+    update_event_status_cli(args)

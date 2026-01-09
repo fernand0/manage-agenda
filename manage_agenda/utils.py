@@ -1365,3 +1365,190 @@ def move_events_cli(args):
         print(f"Copied event: {my_event['summary']}")
         api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
         print(f"Deleted event: {event['summary']}")
+
+
+def update_event_status_cli(args):
+    """Update event status from busy to available for selected events."""
+    api_cal = select_api_source(args, "gcalendar")
+
+    if args.source:
+        my_calendar = args.source
+    else:
+        my_calendar = select_calendar(api_cal)
+
+    today = datetime.datetime.now()
+    the_date = today.isoformat(timespec="seconds") + "Z"
+
+    res = (
+        api_cal.getClient()
+        .events()
+        .list(
+            calendarId=my_calendar,
+            timeMin=the_date,
+            singleEvents=True,
+            eventTypes="default",
+            orderBy="startTime",
+        )
+        .execute()
+    )
+
+    print("Upcoming events (up to 20):")
+    for event in res["items"][:20]:
+        status = event.get("transparency", "opaque")  # "opaque" means busy, "transparent" means free
+        title = api_cal.getPostTitle(event) or "No Title"
+        print(f"- [{status}] {title}")
+
+    text_filter = args.text
+    if args.interactive and not text_filter:
+        text_filter = input("Text to filter by (leave empty for no filter): ")
+
+    events_to_update = []
+    for event in res["items"]:
+        title = api_cal.getPostTitle(event) or "No Title"
+        if text_filter in title:
+            # Only include events that are currently "busy" (opaque)
+            if event.get("transparency", "opaque") == "opaque":
+                events_to_update.append(event)
+
+    if not events_to_update:
+        print("No busy events found matching the criteria.")
+        return
+
+    print("Select events to update from busy to available:")
+    for i, event in enumerate(events_to_update):
+        title = api_cal.getPostTitle(event) or "No Title"
+        print(f"{i}) {title}")
+
+    print(f"{len(events_to_update)}) All")
+
+    selection = input("Which event(s) to update? (comma-separated, or 'all') ")
+
+    selected_events = []
+    if selection.lower() == "all" or selection == str(len(events_to_update)):
+        selected_events = events_to_update
+    else:
+        try:
+            indices = [int(i.strip()) for i in selection.split(",")]
+            for i in indices:
+                if 0 <= i < len(events_to_update):
+                    selected_events.append(events_to_update[i])
+        except ValueError:
+            print("Invalid selection.")
+            return
+
+    for event in selected_events:
+        # Update the event's transparency to "transparent" (available/free)
+        event["transparency"] = "transparent"
+
+        # Perform the update
+        updated_event = (
+            api_cal.getClient()
+            .events()
+            .update(
+                calendarId=my_calendar,
+                eventId=event["id"],
+                body=event
+            )
+            .execute()
+        )
+
+        title = api_cal.getPostTitle(event) or "No Title"
+        print(f"Updated event status to available: {title}")
+
+
+def clean_events_cli(args):
+    """Combined command to clean calendar entries (select between copy or delete)."""
+    api_cal = select_api_source(args, "gcalendar")
+
+    if args.source:
+        my_calendar = args.source
+    else:
+        my_calendar = select_calendar(api_cal)
+
+    today = datetime.datetime.now()
+    the_date = today.isoformat(timespec="seconds") + "Z"
+
+    res = (
+        api_cal.getClient()
+        .events()
+        .list(
+            calendarId=my_calendar,
+            timeMin=the_date,
+            singleEvents=True,
+            eventTypes="default",
+            orderBy="startTime",
+        )
+        .execute()
+    )
+
+    print("Upcoming events (up to 20):")
+    for event in res["items"][:20]:
+        print(f"- {api_cal.getPostTitle(event)}")
+
+    text_filter = args.text
+    if args.interactive and not text_filter:
+        text_filter = input("Text to filter by (leave empty for no filter): ")
+
+    events_to_process = []
+    for event in res["items"]:
+        if api_cal.getPostTitle(event):
+            if text_filter in api_cal.getPostTitle(event):
+                events_to_process.append(event)
+
+    if not events_to_process:
+        print("No events found matching the criteria.")
+        return
+
+    print("Select events to process:")
+    for i, event in enumerate(events_to_process):
+        print(f"{i}) {api_cal.getPostTitle(event)}")
+
+    print(f"{len(events_to_process)}) All")
+
+    selection = input("Which event(s) to process? (comma-separated, or 'all') ")
+
+    selected_events = []
+    if selection.lower() == "all" or selection == str(len(events_to_process)):
+        selected_events = events_to_process
+    else:
+        try:
+            indices = [int(i.strip()) for i in selection.split(",")]
+            for i in indices:
+                if 0 <= i < len(events_to_process):
+                    selected_events.append(events_to_process[i])
+        except ValueError:
+            print("Invalid selection.")
+            return
+
+    # Ask user whether to copy or delete
+    actions = ['Delete', 'Copy']
+    msg = "Select operation:"
+    for i, act in enumerate(actions):
+        msg = f"{msg}\n{i}) {act}"
+    msg = f"{msg}\n"
+
+    action_sel = input(msg)
+
+    my_calendar_dst = None
+    if action_sel == '1':  # Copy action
+        if args.destination:
+            my_calendar_dst = args.destination
+        else:
+            my_calendar_dst = select_calendar(api_cal)
+
+    for event in selected_events:
+        if action_sel == '1':  # Copy
+            my_event = {
+                "summary": event["summary"],
+                "description": event["description"],
+                "start": event["start"],
+                "end": event["end"],
+            }
+            if "location" in event:
+                my_event["location"] = event["location"]
+
+            api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
+            print(f"Copied event: {my_event['summary']}")
+        else:  # Delete
+            api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
+            print(f"Deleted event: {event['summary']}")
