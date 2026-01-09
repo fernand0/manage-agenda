@@ -16,6 +16,7 @@ A tool for adding entries to your Google Calendar from email messages and web pa
 - **Memory Error Handling**: Automatic fallback when LLM models require more memory
 - **Google Calendar Sync**: Seamlessly add events to your Google Calendar
 - **Flexible Configuration**: Support for multiple email and calendar accounts
+- **Calendar Management**: Clean and update calendar events with new utility commands
 
 ## Installation
 
@@ -53,6 +54,12 @@ uv run manage-agenda add web -u https://example.com/event
 
 # Copy events between calendars
 uv run manage-agenda copy
+
+# Clean calendar entries (select between copy or delete)
+uv run manage-agenda clean
+
+# Update event status from busy to available
+uv run manage-agenda update-status
 ```
 
 ### Interactive Email Processing
@@ -84,6 +91,9 @@ Add events from email messages. Reads messages tagged with `zAgenda` and extract
 #### `add web`
 Add events from web pages. Fetches content from a URL, processes HTML to extract text, and uses LLMs to extract event details.
 
+### `clean` - Clean Calendar Entries
+Combined command that allows users to select between copy or delete operations in a single workflow. This command provides an interactive menu to choose between copying events to another calendar or deleting them, with filtering capabilities.
+
 ### `copy` - Copy Events
 Copy events from one calendar to another with filtering capabilities.
 
@@ -92,6 +102,9 @@ Delete events from a calendar with text-based filtering.
 
 ### `move` - Move Events
 Move events between calendars (equivalent to copy + delete).
+
+### `update-status` - Update Event Status
+Change event status from busy to available (free) for selected events. This command allows users to update the transparency of calendar events from "opaque" (busy) to "transparent" (available), making them appear as free time on your calendar.
 
 ### `gcalendar` - List Calendar Events
 Display events from your Google Calendar.
@@ -126,6 +139,11 @@ Each provider requires specific configuration and API keys (for cloud services).
 - Stores prompts in external files for easy modification
 - Allows prompt customization without code changes
 - Maintains prompt versioning alongside code
+
+### Calendar Management Utilities
+- **Combined Operations**: The `clean` command provides both copy and delete functionality in a single workflow
+- **Status Updates**: The `update-status` command allows changing event visibility from busy to available
+- **Interactive Filtering**: Both new commands support text-based filtering and selective processing
 
 ## Dependencies
 
