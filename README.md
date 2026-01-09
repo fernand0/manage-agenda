@@ -16,6 +16,7 @@ A tool for adding entries to your Google Calendar from email messages and web pa
 - **Google Calendar Sync**: Seamlessly add events to your Google Calendar
 - **Flexible Configuration**: Support for multiple email and calendar accounts
 - **Calendar Management**: Clean and update calendar events with new utility commands
+- **Version 0.2**: Includes new 'clean' and 'update-status' commands for enhanced calendar management
 
 ## Installation
 
