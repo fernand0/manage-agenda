@@ -365,21 +365,52 @@ def authorize(args, rules=None):
     return api_src
 
 
-def select_api_source(args, api_src_type, rules=None):
-    """Selects an API source, interactive or not."""
+def _get_sources_by_type(source_type, rules):
+    """Helper function to get sources based on type."""
+    if source_type == 'email':
+        return rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+    else:
+        # For API sources and others, use the direct approach
+        return rules.selectRule(source_type, "")
+
+
+def select_source_by_type(args, source_type, rules=None):
+    """Factory function to select sources by type."""
     if rules is None:
         from socialModules import moduleRules
         rules = moduleRules.moduleRules()
         rules.checkRules()
 
+    sources = _get_sources_by_type(source_type, rules)
+
     if args.interactive:
-        api_src = rules.selectRuleInteractive(api_src_type)
+        if source_type == 'email':
+            selected_source, _ = select_from_list(sources)
+            return selected_source
+        else:
+            # For API sources and others
+            api_src = rules.selectRuleInteractive(source_type)
+            return api_src
     else:
-        source_name = rules.selectRule(api_src_type, "")[0]
-        source_details = rules.more.get(source_name, {})
-        logging.info(f"Source: {source_name} - {source_details}")
-        api_src = rules.readConfigSrc("", source_name, source_details)
-    return api_src
+        if not sources:
+            logging.warning(f"No {source_type} sources configured.")
+            return None
+
+        if source_type == 'email':
+            # For email sources, return the source name
+            return sources[0]
+        else:
+            # For API sources, load the configuration
+            source_name = sources[0]
+            source_details = rules.more.get(source_name, {})
+            logging.info(f"Source: {source_name} - {source_details}")
+            api_src = rules.readConfigSrc("", source_name, source_details)
+            return api_src
+
+
+def select_api_source(args, api_src_type, rules=None):
+    """Selects an API source, interactive or not."""
+    return select_source_by_type(args, api_src_type, rules)
 
 
 def list_events_folder(args, api_src, calendar=""):
@@ -431,19 +462,7 @@ def _get_emails_from_folder(args, source_name, rules=None):
 
 def select_email_source(args, rules=None):
     """Selects an email source, interactive or not."""
-    if rules is None:
-        from socialModules import moduleRules
-        rules = moduleRules.moduleRules()
-        rules.checkRules()
-    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
-
-    if args.interactive:
-        selected_source, _ = select_from_list(email_sources)
-        source_name = selected_source
-    else:
-        source_name = email_sources[0]
-
-    return source_name
+    return select_source_by_type(args, 'email', rules)
 
 
 def list_emails_folder(args, rules=None):
