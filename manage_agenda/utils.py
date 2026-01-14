@@ -133,6 +133,30 @@ def process_event_data(event, content):
     return event
 
 
+def filter_events_by_title(api_cal, events, text_filter):
+    """
+    Helper function to filter events by title text.
+
+    Args:
+        api_cal: Calendar API object
+        events: List of events to filter
+        text_filter: Text to filter by (can be None)
+
+    Returns:
+        List of filtered events
+    """
+    filtered_events = []
+    for event in events:
+        title = api_cal.getPostTitle(event)
+        if title and text_filter and text_filter.lower() in title.lower():
+            filtered_events.append(event)
+        elif not text_filter:  # If no filter, include all events with titles
+            if title:
+                filtered_events.append(event)
+
+    return filtered_events
+
+
 def adjust_event_times(event):
     """Adjusts event start/end times, localizing naive times and converting to UTC.
 
@@ -1191,14 +1215,8 @@ def copy_events_cli(args):
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    events_to_copy = []
-    for event in res["items"]:
-        title = api_cal.getPostTitle(event)
-        if title and text_filter and text_filter.lower() in title.lower():
-            events_to_copy.append(event)
-        elif not text_filter:  # If no filter, include all events with titles
-            if title:
-                events_to_copy.append(event)
+    # Use the helper function to filter events by title
+    events_to_copy = filter_events_by_title(api_cal, res["items"], text_filter)
 
     if not events_to_copy:
         print("No events found matching the criteria.")
@@ -1277,14 +1295,8 @@ def delete_events_cli(args):
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    events_to_delete = []
-    for event in res["items"]:
-        title = api_cal.getPostTitle(event)
-        if title and text_filter and text_filter.lower() in title.lower():
-            events_to_delete.append(event)
-        elif not text_filter:  # If no filter, include all events with titles
-            if title:
-                events_to_delete.append(event)
+    # Use the helper function to filter events by title
+    events_to_delete = filter_events_by_title(api_cal, res["items"], text_filter)
 
     if not events_to_delete:
         print("No events found matching the criteria.")
@@ -1349,14 +1361,8 @@ def move_events_cli(args):
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    events_to_move = []
-    for event in res["items"]:
-        title = api_cal.getPostTitle(event)
-        if title and text_filter and text_filter.lower() in title.lower():
-            events_to_move.append(event)
-        elif not text_filter:  # If no filter, include all events with titles
-            if title:
-                events_to_move.append(event)
+    # Use the helper function to filter events by title
+    events_to_move = filter_events_by_title(api_cal, res["items"], text_filter)
 
     if not events_to_move:
         print("No events found matching the criteria.")
@@ -1526,14 +1532,8 @@ def clean_events_cli(args):
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    events_to_process = []
-    for event in res["items"]:
-        title = api_cal.getPostTitle(event)
-        if title and text_filter and text_filter.lower() in title.lower():
-            events_to_process.append(event)
-        elif not text_filter:  # If no filter, include all events with titles
-            if title:
-                events_to_process.append(event)
+    # Use the helper function to filter events by title
+    events_to_process = filter_events_by_title(api_cal, res["items"], text_filter)
 
     if not events_to_process:
         print("No events found matching the criteria.")
