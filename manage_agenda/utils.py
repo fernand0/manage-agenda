@@ -886,6 +886,7 @@ def _delete_email(args, api_src, post_id, source_name):
                     logging.info(f"Label removed from email {post_id}.")
                 else:
                     label = api_src.getChannel()
+                    api_src.getClient().select(label)
                     res = api_src.deletePostId(post_id)
                     logging.info(f"State: {api_src.getClient().state}")
                 if not "Fail!" in res:
