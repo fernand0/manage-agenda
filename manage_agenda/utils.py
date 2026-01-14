@@ -33,6 +33,29 @@ from manage_agenda.utils_base import (
 from manage_agenda.utils_llm import GeminiClient, MistralClient, OllamaClient
 from manage_agenda.utils_web import reduce_html
 
+class RulesCache:
+    """Singleton class to cache rules instance and avoid repeated checkRules() calls."""
+    _instance = None
+    _rules = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(RulesCache, cls).__new__(cls)
+        return cls._instance
+
+    def get_rules(self):
+        """Get cached rules instance, initializing it if necessary."""
+        if self._rules is None:
+            from socialModules import moduleRules
+            rules_instance = moduleRules.moduleRules()
+            rules_instance.checkRules()
+            self._rules = rules_instance
+        return self._rules
+
+    def reset(self):
+        """Reset the cached rules instance."""
+        self._rules = None
+
 
 @dataclass
 class Args:
@@ -46,12 +69,21 @@ class Args:
     text: Optional[str] = None
 
 
+def get_cached_rules():
+    """Get cached rules instance, initializing it if necessary."""
+    cache = RulesCache()
+    return cache.get_rules()
+
+
+def reset_cached_rules():
+    """Reset the cached rules instance, forcing a reload."""
+    cache = RulesCache()
+    cache.reset()
+
+
 def get_add_sources():
     """Returns a list of available sources for the add command."""
-    from socialModules import moduleRules
-
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+    rules = get_cached_rules()
     email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
     return email_sources + ["Web (Enter URL)"]
 
@@ -344,8 +376,7 @@ def get_event_from_llm(model, prompt, verbose=False):
 
 
 def authorize(args):
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+    rules = get_cached_rules()
     if args.interactive:
         service = input("Service? ")
         api_src = rules.selectRuleInteractive(service)
@@ -364,8 +395,7 @@ def authorize(args):
 
 def select_api_source(args, api_src_type):
     """Selects an API source, interactive or not."""
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+    rules = get_cached_rules()
 
     if args.interactive:
         api_src = rules.selectRuleInteractive(api_src_type)
@@ -393,10 +423,8 @@ def list_events_folder(args, api_src, calendar=""):
 def _get_emails_from_folder(args, source_name):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
-    from socialModules import moduleRules
 
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+    rules = get_cached_rules()
     source_details = rules.more.get(source_name, {})
     api_src = rules.readConfigSrc("", source_name, source_details)
 
@@ -426,8 +454,7 @@ def _get_emails_from_folder(args, source_name):
 
 def select_email_source(args):
     """Selects an email source, interactive or not."""
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+    rules = get_cached_rules()
     email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
 
     if args.interactive:
@@ -868,10 +895,8 @@ def _delete_email(args, api_src, post_id, source_name):
                 logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
                 if attempt < max_retries:
                     logging.info("Retrying to connect to the email server...")
-                    from socialModules import moduleRules
 
-                    rules = moduleRules.moduleRules()
-                    rules.checkRules()
+                    rules = get_cached_rules()
                     source_details = rules.more.get(source_name, {})
                     api_src = rules.readConfigSrc("", source_name, source_details)
                     if label:
