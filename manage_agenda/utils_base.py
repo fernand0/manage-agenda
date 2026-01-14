@@ -69,7 +69,7 @@ def setup_logging(verbose: bool = False) -> None:
     # Also add console handler if verbose
     if verbose:
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(log_level)
+        console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(logging.Formatter(log_format, date_format))
         logging.getLogger().addHandler(console_handler)
 
