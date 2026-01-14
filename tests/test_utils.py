@@ -13,12 +13,10 @@ from manage_agenda.utils import (
     authorize,
     create_event_dict,
     extract_json,
-    get_cached_rules,
     list_emails_folder,
     list_events_folder,
     process_email_cli,
     process_event_data,
-    reset_cached_rules,
     safe_get,
     select_api_source,
     select_calendar,
@@ -329,9 +327,6 @@ more text"""
 
     @patch("manage_agenda.utils.moduleRules.moduleRules")
     def test_select_api_source_interactive(self, mock_module_rules):
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
-
         args = self.Args(
             interactive=True,
             delete=False,
@@ -342,15 +337,12 @@ more text"""
         )
         mock_rules = MagicMock()
         mock_module_rules.return_value = mock_rules
-        select_api_source(args, "gmail")
-        mock_rules.checkRules.assert_called_once()
+        select_api_source(args, "gmail", rules=mock_rules)
+        # When rules are injected, checkRules is not called internally
         mock_rules.selectRuleInteractive.assert_called_once_with("gmail")
 
     @patch("manage_agenda.utils.moduleRules.moduleRules")
     def test_select_api_source_non_interactive(self, mock_module_rules):
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
-
         args = self.Args(
             interactive=False,
             delete=False,
@@ -363,8 +355,8 @@ more text"""
         mock_rules.selectRule.return_value = ["test_rule"]
         mock_rules.more.get.return_value = {"key": "value"}
         mock_module_rules.return_value = mock_rules
-        select_api_source(args, "gmail")
-        mock_rules.checkRules.assert_called_once()
+        select_api_source(args, "gmail", rules=mock_rules)
+        # When rules are injected, checkRules is not called internally
         mock_rules.selectRule.assert_called_once_with("gmail", "")
         mock_rules.readConfigSrc.assert_called_once_with("", "test_rule", {"key": "value"})
 
@@ -373,10 +365,6 @@ more text"""
             "args",
             ["interactive", "delete", "source", "verbose", "destination", "text"],
         )
-
-    def tearDown(self):
-        # Reset the rules cache after each test to ensure test isolation
-        reset_cached_rules()
 
     @patch("manage_agenda.utils.input", return_value="l")
     @patch("manage_agenda.utils.OllamaClient")
@@ -625,14 +613,11 @@ more text"""
         """Test get_add_sources returns correct sources."""
         from manage_agenda.utils import get_add_sources
 
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
-
         mock_rules = MagicMock()
         mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
         mock_module_rules.return_value = mock_rules
 
-        sources = get_add_sources()
+        sources = get_add_sources(rules=mock_rules)
 
         self.assertIn("gmail1", sources)
         self.assertIn("imap1", sources)
@@ -862,15 +847,12 @@ more text"""
         """Test select_email_source in non-interactive mode."""
         from manage_agenda.utils import select_email_source
 
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
-
         args = Args(interactive=False)
         mock_rules = MagicMock()
         mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
         mock_module_rules.return_value = mock_rules
 
-        result = select_email_source(args)
+        result = select_email_source(args, rules=mock_rules)
 
         self.assertEqual(result, "gmail1")
 
@@ -926,9 +908,6 @@ more text"""
         """Test _get_emails_from_folder with successful retrieval."""
         from manage_agenda.utils import _get_emails_from_folder
 
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
-
         args = Args(interactive=False, delete=False, verbose=False)
 
         mock_rules = MagicMock()
@@ -943,7 +922,7 @@ more text"""
         mock_rules.readConfigSrc.return_value = mock_api_src
         mock_module_rules.return_value = mock_rules
 
-        api_src, posts = _get_emails_from_folder(args, "gmail1")
+        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
 
         self.assertIsNotNone(api_src)
         self.assertIsNotNone(posts)
@@ -955,9 +934,6 @@ more text"""
         import io
 
         from manage_agenda.utils import _get_emails_from_folder
-
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
 
         args = Args(interactive=False, delete=False, verbose=False)
 
@@ -972,7 +948,7 @@ more text"""
 
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        api_src, posts = _get_emails_from_folder(args, "gmail1")
+        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
         sys.stdout = sys.__stdout__
 
         self.assertIsNone(api_src)
@@ -982,9 +958,6 @@ more text"""
     def test_get_emails_from_folder_no_label(self, mock_module_rules):
         """Test _get_emails_from_folder when label doesn't exist."""
         from manage_agenda.utils import _get_emails_from_folder
-
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
 
         args = Args(interactive=False, delete=False, verbose=False)
 
@@ -999,7 +972,7 @@ more text"""
         mock_rules.readConfigSrc.return_value = mock_api_src
         mock_module_rules.return_value = mock_rules
 
-        api_src, posts = _get_emails_from_folder(args, "imap1")
+        api_src, posts = _get_emails_from_folder(args, "imap1", rules=mock_rules)
 
         self.assertIsNotNone(api_src)
         self.assertIsNone(posts)
@@ -1008,9 +981,6 @@ more text"""
     def test_get_emails_from_folder_no_posts(self, mock_module_rules):
         """Test _get_emails_from_folder when no posts found."""
         from manage_agenda.utils import _get_emails_from_folder
-
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
 
         args = Args(interactive=False, delete=False, verbose=False)
 
@@ -1026,7 +996,7 @@ more text"""
         mock_rules.readConfigSrc.return_value = mock_api_src
         mock_module_rules.return_value = mock_rules
 
-        api_src, posts = _get_emails_from_folder(args, "gmail1")
+        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
 
         self.assertIsNotNone(api_src)
         self.assertIsNone(posts)
@@ -1059,9 +1029,6 @@ more text"""
         """Test authorize function."""
         from manage_agenda.utils import authorize
 
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
-
         args = Args(interactive=False, delete=False, verbose=False)
 
         mock_rules = MagicMock()
@@ -1072,7 +1039,7 @@ more text"""
         mock_rules.readConfigSrc.return_value = mock_api_src
         mock_module_rules.return_value = mock_rules
 
-        result = authorize(args)
+        result = authorize(args, rules=mock_rules)
 
         self.assertIsNotNone(result)
         self.assertEqual(result, mock_api_src)
@@ -1082,16 +1049,13 @@ more text"""
         """Test authorize when no services configured."""
         from manage_agenda.utils import authorize
 
-        # Reset cache to ensure fresh instance for this test
-        reset_cached_rules()
-
         args = Args(interactive=False, delete=False, verbose=False)
 
         mock_rules = MagicMock()
         mock_rules.selectRule.return_value = []
         mock_module_rules.return_value = mock_rules
 
-        result = authorize(args)
+        result = authorize(args, rules=mock_rules)
 
         self.assertIsNone(result)
 

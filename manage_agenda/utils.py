@@ -33,30 +33,6 @@ from manage_agenda.utils_base import (
 from manage_agenda.utils_llm import GeminiClient, MistralClient, OllamaClient
 from manage_agenda.utils_web import reduce_html
 
-class RulesCache:
-    """Singleton class to cache rules instance and avoid repeated checkRules() calls."""
-    _instance = None
-    _rules = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(RulesCache, cls).__new__(cls)
-        return cls._instance
-
-    def get_rules(self):
-        """Get cached rules instance, initializing it if necessary."""
-        if self._rules is None:
-            from socialModules import moduleRules
-            rules_instance = moduleRules.moduleRules()
-            rules_instance.checkRules()
-            self._rules = rules_instance
-        return self._rules
-
-    def reset(self):
-        """Reset the cached rules instance."""
-        self._rules = None
-
-
 @dataclass
 class Args:
     """Arguments container for CLI commands."""
@@ -69,21 +45,14 @@ class Args:
     text: Optional[str] = None
 
 
-def get_cached_rules():
-    """Get cached rules instance, initializing it if necessary."""
-    cache = RulesCache()
-    return cache.get_rules()
 
 
-def reset_cached_rules():
-    """Reset the cached rules instance, forcing a reload."""
-    cache = RulesCache()
-    cache.reset()
-
-
-def get_add_sources():
+def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
-    rules = get_cached_rules()
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
     email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
     return email_sources + ["Web (Enter URL)"]
 
@@ -375,8 +344,11 @@ def get_event_from_llm(model, prompt, verbose=False):
     return event, vcal_json, elapsed_time
 
 
-def authorize(args):
-    rules = get_cached_rules()
+def authorize(args, rules=None):
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
     if args.interactive:
         service = input("Service? ")
         api_src = rules.selectRuleInteractive(service)
@@ -393,9 +365,12 @@ def authorize(args):
     return api_src
 
 
-def select_api_source(args, api_src_type):
+def select_api_source(args, api_src_type, rules=None):
     """Selects an API source, interactive or not."""
-    rules = get_cached_rules()
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
 
     if args.interactive:
         api_src = rules.selectRuleInteractive(api_src_type)
@@ -420,11 +395,13 @@ def list_events_folder(args, api_src, calendar=""):
         print("Some problem with the account")
 
 
-def _get_emails_from_folder(args, source_name):
+def _get_emails_from_folder(args, source_name, rules=None):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
-
-    rules = get_cached_rules()
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
     source_details = rules.more.get(source_name, {})
     api_src = rules.readConfigSrc("", source_name, source_details)
 
@@ -452,9 +429,12 @@ def _get_emails_from_folder(args, source_name):
     return api_src, posts
 
 
-def select_email_source(args):
+def select_email_source(args, rules=None):
     """Selects an email source, interactive or not."""
-    rules = get_cached_rules()
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
     email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
 
     if args.interactive:
@@ -466,10 +446,10 @@ def select_email_source(args):
     return source_name
 
 
-def list_emails_folder(args):
+def list_emails_folder(args, rules=None):
     """Lists emails and in folder."""
-    source_name = select_email_source(args)
-    api_src, posts = _get_emails_from_folder(args, source_name)
+    source_name = select_email_source(args, rules=rules)
+    api_src, posts = _get_emails_from_folder(args, source_name, rules=rules)
     if posts:
         for i, post in enumerate(posts):
             # post_id = api_src.getPostId(post)
@@ -859,7 +839,7 @@ def _get_post_datetime_and_diff(post_date):
     return post_date_time, time_difference
 
 
-def _delete_email(args, api_src, post_id, source_name):
+def _delete_email(args, api_src, post_id, source_name, rules=None):
     """Deletes an email, handling interactive confirmation and connection errors."""
     delete_confirmed = False
     if args.interactive:
@@ -897,7 +877,10 @@ def _delete_email(args, api_src, post_id, source_name):
                 if attempt < max_retries:
                     logging.info("Retrying to connect to the email server...")
 
-                    rules = get_cached_rules()
+                    if rules is None:
+                        from socialModules import moduleRules
+                        rules = moduleRules.moduleRules()
+                        rules.checkRules()
                     source_details = rules.more.get(source_name, {})
                     api_src = rules.readConfigSrc("", source_name, source_details)
                     if label:
@@ -970,13 +953,13 @@ def _process_common_flow(args, model, items, metadata_extractor, content_extract
     return processed_any_event
 
 
-def process_email_cli(args, model, source_name=None):
+def process_email_cli(args, model, source_name=None, rules=None):
     """Processes emails and creates calendar events."""
 
     if not source_name:
-        source_name = select_email_source(args)
+        source_name = select_email_source(args, rules=rules)
 
-    api_src, posts = _get_emails_from_folder(args, source_name)
+    api_src, posts = _get_emails_from_folder(args, source_name, rules=rules)
 
     if posts:
         def metadata_extractor(post, i):
@@ -996,7 +979,7 @@ def process_email_cli(args, model, source_name=None):
                 post_pos = i + 1
             else:
                 post_pos = post_id
-            _delete_email(args, api_src, post_pos, source_name)
+            _delete_email(args, api_src, post_pos, source_name, rules=rules)
 
         return _process_common_flow(
             args, model, posts, metadata_extractor, content_extractor, item_cleaner

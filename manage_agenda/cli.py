@@ -124,13 +124,18 @@ def add(ctx, interactive, source):
         text=None,
     )
 
+    # Create rules instance once and reuse it
+    from socialModules import moduleRules
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
+
     model = select_llm(args)
 
     if verbose:
         print(f"Model: {model}")
 
     if interactive:
-        sources = get_add_sources()
+        sources = get_add_sources(rules=rules)
         sel, selected = select_from_list(sources)
 
         #if "Web" in selected_source:  # Check if "Web" is in the selected source string
@@ -144,9 +149,9 @@ def add(ctx, interactive, source):
             else:
                 process_web_cli(args, model)
         else:
-            process_email_cli(args, model, source_name=selected)
+            process_email_cli(args, model, source_name=selected, rules=rules)
     else:
-        process_email_cli(args, model)
+        process_email_cli(args, model, rules=rules)
 
 
 @cli.command()
