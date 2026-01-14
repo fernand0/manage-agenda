@@ -174,8 +174,8 @@ class TestProcessEmailCli(unittest.TestCase):
             text="",
         )
         list_emails_folder(args)
-        mock_select_email_source.assert_called_once_with(args)
-        mock_get_emails.assert_called_once_with(args, "test_source")
+        mock_select_email_source.assert_called_once_with(args, rules=None)
+        mock_get_emails.assert_called_once_with(args, "test_source", rules=None)
         self.assertEqual(mock_print.call_count, 2)
 
     @patch("manage_agenda.utils.select_email_source")
@@ -195,8 +195,8 @@ class TestProcessEmailCli(unittest.TestCase):
             text="",
         )
         list_emails_folder(args)
-        mock_select_email_source.assert_called_once_with(args)
-        mock_get_emails.assert_called_once_with(args, "test_source")
+        mock_select_email_source.assert_called_once_with(args, rules=None)
+        mock_get_emails.assert_called_once_with(args, "test_source", rules=None)
         mock_print.assert_not_called()
 
 
