@@ -1193,8 +1193,11 @@ def copy_events_cli(args):
 
     events_to_copy = []
     for event in res["items"]:
-        if api_cal.getPostTitle(event):
-            if text_filter in api_cal.getPostTitle(event):
+        title = api_cal.getPostTitle(event)
+        if title and text_filter and text_filter.lower() in title.lower():
+            events_to_copy.append(event)
+        elif not text_filter:  # If no filter, include all events with titles
+            if title:
                 events_to_copy.append(event)
 
     if not events_to_copy:
@@ -1276,8 +1279,11 @@ def delete_events_cli(args):
 
     events_to_delete = []
     for event in res["items"]:
-        if api_cal.getPostTitle(event):
-            if text_filter in api_cal.getPostTitle(event):
+        title = api_cal.getPostTitle(event)
+        if title and text_filter and text_filter.lower() in title.lower():
+            events_to_delete.append(event)
+        elif not text_filter:  # If no filter, include all events with titles
+            if title:
                 events_to_delete.append(event)
 
     if not events_to_delete:
@@ -1345,8 +1351,11 @@ def move_events_cli(args):
 
     events_to_move = []
     for event in res["items"]:
-        if api_cal.getPostTitle(event):
-            if text_filter in api_cal.getPostTitle(event):
+        title = api_cal.getPostTitle(event)
+        if title and text_filter and text_filter.lower() in title.lower():
+            events_to_move.append(event)
+        elif not text_filter:  # If no filter, include all events with titles
+            if title:
                 events_to_move.append(event)
 
     if not events_to_move:
@@ -1519,8 +1528,11 @@ def clean_events_cli(args):
 
     events_to_process = []
     for event in res["items"]:
-        if api_cal.getPostTitle(event):
-            if text_filter in api_cal.getPostTitle(event):
+        title = api_cal.getPostTitle(event)
+        if title and text_filter and text_filter.lower() in title.lower():
+            events_to_process.append(event)
+        elif not text_filter:  # If no filter, include all events with titles
+            if title:
                 events_to_process.append(event)
 
     if not events_to_process:
