@@ -1044,7 +1044,7 @@ def _get_pages_from_urls(args, urls):
 
     return page, posts
 
-def process_web_cli(args, model, urls=None):
+def process_web_cli(args, model, urls=None, force_refresh=False):
     """Processes web pages and creates calendar events."""
 
     if not urls:
@@ -1060,7 +1060,7 @@ def process_web_cli(args, model, urls=None):
             return api_src.getPostId(post), title, datetime.datetime.now()
 
         def content_extractor(post, i, post_date_time, post_title):
-            web_content_reduced = reduce_html(urls[i], post)
+            web_content_reduced = reduce_html(urls[i], post, force_refresh=force_refresh)
             if not web_content_reduced:
                 print(f"Could not process {urls[i]}, skipping.")
                 return None

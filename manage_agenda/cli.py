@@ -111,8 +111,15 @@ def evaluate(ctx, prompt):
     default="gemini",
     help="Select LLM",
 )
+@click.option(
+    "-f",
+    "--force-refresh",
+    is_flag=True,
+    default=False,
+    help="Force refresh web content to bypass cache",
+)
 @click.pass_context
-def add(ctx, interactive, source):
+def add(ctx, interactive, source, force_refresh):
     """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
@@ -145,9 +152,9 @@ def add(ctx, interactive, source):
             or selected.startswith('http'))):
             url = None
             if selected.startswith('http'):
-                process_web_cli(args, model, urls = selected.split(' '))
+                process_web_cli(args, model, urls = selected.split(' '), force_refresh=force_refresh)
             else:
-                process_web_cli(args, model)
+                process_web_cli(args, model, force_refresh=force_refresh)
         else:
             process_email_cli(args, model, source_name=selected, rules=rules)
     else:

@@ -44,10 +44,15 @@ def extract_domain_and_path_from_url(url):
         return f"{domain}{final_path}"
 
 
-def reduce_html(url, post):
+def reduce_html(url, post, force_refresh=False):
     """
     Reduces the HTML content of a URL by comparing it with a cached version.
     Returns the new or unique content of the page.
+
+    Args:
+        url: The URL being processed
+        post: The HTML content to process
+        force_refresh: If True, bypass cache comparison and return full content
     """
     if not os.path.exists(CACHE_DIR):
         os.makedirs(CACHE_DIR)
@@ -60,7 +65,20 @@ def reduce_html(url, post):
     new_html = post
     logging.debug(f"Post: {post}")
 
-    if os.path.exists(cached_file_path):
+    if force_refresh:
+        logging.info("Force refresh enabled. Returning full content after cleaning...")
+        # Save the new HTML to the cache
+        with open(cached_file_path, "w", encoding="utf-8") as f:
+            f.write(new_html)
+
+        # Return the full content after basic cleaning
+        soup = BeautifulSoup(new_html, "html.parser")
+        for script in soup.find_all("script"):
+            script.decompose()
+        for meta in soup.find_all("meta"):
+            meta.decompose()
+        result = soup.get_text(separator="\n", strip=True)
+    elif os.path.exists(cached_file_path):
         logging.info("URL found in cache. Comparing...")
         with open(cached_file_path, encoding="utf-8") as f:
             old_html = f.read()

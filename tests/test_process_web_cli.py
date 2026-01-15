@@ -97,7 +97,7 @@ class TestProcessWebCli(unittest.TestCase):
         # that happen *after* accessing api_src.url[i].
 
         mock_page.getPostTitle.assert_called_with("post_obj")
-        mock_reduce_html.assert_called_with("http://example.com/post1", "post_obj")
+        mock_reduce_html.assert_called_with("http://example.com/post1", "post_obj", force_refresh=False)
 
     @patch("manage_agenda.utils._get_pages_from_urls")
     def test_process_web_cli_no_posts(self, mock_get_pages):
