@@ -540,7 +540,48 @@ def _create_llm_prompt(event, content_text, reference_date_time):
 def _interactive_date_confirmation(args, event, model=None, content_text=None, reference_date_time=None, post_identifier=None, subject_for_print=None):
     """Interactively confirms and corrects event dates."""
     if args.interactive:
-        confirmation = input("Are the dates correct? (y/n/r): ").lower()
+        # Get current start and end times
+        current_start_str = safe_get(event, ["start", "dateTime"])
+        current_end_str = safe_get(event, ["end", "dateTime"])
+
+        # Parse current times if they exist
+        if current_start_str:
+            try:
+                current_start = datetime.datetime.fromisoformat(current_start_str.replace('Z', '+00:00'))
+            except ValueError:
+                # Handle cases where the format isn't ISO
+                try:
+                    current_start = datetime.datetime.strptime(current_start_str, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    current_start = None
+                    print("Could not parse start time, using empty value")
+        else:
+            current_start = None
+
+        if current_end_str:
+            try:
+                current_end = datetime.datetime.fromisoformat(current_end_str.replace('Z', '+00:00'))
+            except ValueError:
+                # Handle cases where the format isn't ISO
+                try:
+                    current_end = datetime.datetime.strptime(current_end_str, "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    current_end = None
+                    print("Could not parse end time, using empty value")
+            else:
+                current_end = None
+
+        print(f"\nCurrent start time: {current_start}")
+        print(f"Current end time: {current_end}")
+
+        # Extended prompt with options for individual components
+        prompt_msg = (
+            "Are the dates correct? "
+            "(y)es, (n)o, (r)etry with LLM, "
+            "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
+        )
+        confirmation = input(prompt_msg).lower()
+
         if confirmation == "r" and model and content_text and reference_date_time:
             # Retry with LLM
             print("Retrying with LLM...")
@@ -573,7 +614,7 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
                     end_time_local = end_time
 
                 print("=====================================")
-                print(f"Subject: {subject_for_print}")  # Use dynamic subject
+                print(f"Subject: {subject_for_print}")  # Use dynamic sh
                 print(f"Start: {start_time_local}")
                 print(f"End: {end_time_local}")
                 print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
@@ -585,32 +626,83 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
                 print("LLM failed to generate a response. Proceeding with manual correction.")
                 # Continue with manual correction below
 
-        elif confirmation != "y":
-            new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
-            if new_start_str:
-                event.setdefault("start", {})["dateTime"] = new_start_str
-                try:
-                    start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
-                    end_dt = start_dt + timedelta(minutes=45)
-                    new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+        elif confirmation in ["n", "y", "m", "d", "h", "f"]:  # Process all non-LLM options
+            if confirmation == "y":
+                # Yes, dates are correct
+                return event
+            elif confirmation == "f":
+                # Full date/time modification
+                new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+                if new_start_str:
+                    event.setdefault("start", {})["dateTime"] = new_start_str
+                    try:
+                        start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                        end_dt = start_dt + timedelta(minutes=45)
+                        new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-                    modify_end_time = input(
-                        f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
-                    ).lower()
-                    if modify_end_time == "y":
-                        new_end_str = input(
-                            "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
-                        )
-                    else:
-                        new_end_str = new_end_str_default
-                except ValueError:
-                    print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
-                    new_end_str = ""
-            else:
-                new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+                        modify_end_time = input(
+                            f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
+                        ).lower()
+                        if modify_end_time == "y":
+                            new_end_str = input(
+                                "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
+                            )
+                        else:
+                            new_end_str = new_end_str_default
+                    except ValueError:
+                        print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
+                        new_end_str = ""
+                else:
+                    new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
 
-            if new_end_str:
-                event.setdefault("end", {})["dateTime"] = new_end_str
+                if new_end_str:
+                    event.setdefault("end", {})["dateTime"] = new_end_str
+
+            elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
+                # Determine which component to modify
+                component_map = {
+                    'y': 'year',
+                    'm': 'month',
+                    'd': 'day',
+                    'h': 'hour',
+                    'i': 'minute'
+                }
+                component = component_map.get(confirmation)
+
+                # Modify the selected component for both start and end times
+                if current_start and component:
+                    new_start = _modify_single_component(current_start, component, "start")
+                    event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+
+                if current_end and component:
+                    new_end = _modify_single_component(current_end, component, "end")
+                    event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+
+            else:  # confirmation == "n" - modify all components individually
+                # Modify individual components
+                if current_start:
+                    new_start = _modify_datetime_components(current_start, "start")
+                    event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+                else:
+                    new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS): ")
+                    if new_start_str:
+                        try:
+                            new_start = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                            event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+                        except ValueError:
+                            print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
+
+                if current_end:
+                    new_end = _modify_datetime_components(current_end, "end")
+                    event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+                else:
+                    new_end_str_input = input("Enter new end time (YYYY-MM-DD HH:MM:SS): ")
+                    if new_end_str_input:
+                        try:
+                            new_end = datetime.datetime.strptime(new_end_str_input, "%Y-%m-%d %H:%M:%S")
+                            event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+                        except ValueError:
+                            print("Invalid end time format. Please use YYYY-MM-DD HH:MM:SS.")
 
             event = adjust_event_times(event)
 
@@ -622,6 +714,91 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
             print(f"End: {end_time}")
             print("---------------------------")
     return event
+
+
+def _modify_single_component(dt, component, time_label):
+    """
+    Modify a single component of a datetime object.
+
+    Args:
+        dt: datetime object to modify
+        component: component to modify ('year', 'month', 'day', 'hour', 'minute')
+        time_label: label for the time being modified ('start' or 'end')
+
+    Returns:
+        Modified datetime object
+    """
+    print(f"\nModifying {component} for {time_label} time:")
+    print(f"Current: {dt}")
+
+    # Get user input for the specific component
+    value_str = input(f"New {component} ({getattr(dt, component)}): ").strip()
+    if value_str:
+        try:
+            new_value = int(value_str)
+            # Create new datetime with modified component
+            if component == 'year':
+                new_dt = dt.replace(year=new_value)
+            elif component == 'month':
+                new_dt = dt.replace(month=new_value)
+            elif component == 'day':
+                new_dt = dt.replace(day=new_value)
+            elif component == 'hour':
+                new_dt = dt.replace(hour=new_value)
+            elif component == 'minute':
+                new_dt = dt.replace(minute=new_value)
+            else:
+                print(f"Unknown component: {component}. Keeping original time.")
+                return dt
+
+            print(f"New {time_label} time: {new_dt}")
+            return new_dt
+        except ValueError as e:
+            print(f"Invalid value: {e}. Keeping original time.")
+            return dt
+    else:
+        # User pressed Enter, keep original value
+        return dt
+
+
+def _modify_datetime_components(dt, time_label):
+    """
+    Interactively modify individual components of a datetime object.
+
+    Args:
+        dt: datetime object to modify
+        time_label: label for the time being modified ('start' or 'end')
+
+    Returns:
+        Modified datetime object
+    """
+    print(f"\nModifying {time_label} time components:")
+    print(f"Current: {dt}")
+
+    # Get user input for each component
+    year = input(f"Year ({dt.year}): ").strip()
+    year = int(year) if year else dt.year
+
+    month = input(f"Month ({dt.month}): ").strip()
+    month = int(month) if month else dt.month
+
+    day = input(f"Day ({dt.day}): ").strip()
+    day = int(day) if day else dt.day
+
+    hour = input(f"Hour ({dt.hour}): ").strip()
+    hour = int(hour) if hour else dt.hour
+
+    minute = input(f"Minute ({dt.minute}): ").strip()
+    minute = int(minute) if minute else dt.minute
+
+    # Create new datetime with modified components
+    try:
+        new_dt = dt.replace(year=year, month=month, day=day, hour=hour, minute=minute)
+        print(f"New {time_label} time: {new_dt}")
+        return new_dt
+    except ValueError as e:
+        print(f"Invalid date/time combination: {e}. Keeping original time.")
+        return dt
 
 
 def _process_event_with_llm_and_calendar(
