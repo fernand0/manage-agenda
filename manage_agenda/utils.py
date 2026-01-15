@@ -33,7 +33,6 @@ from manage_agenda.utils_base import (
 from manage_agenda.utils_llm import GeminiClient, MistralClient, OllamaClient
 from manage_agenda.utils_web import reduce_html
 
-
 @dataclass
 class Args:
     """Arguments container for CLI commands."""
@@ -46,12 +45,14 @@ class Args:
     text: Optional[str] = None
 
 
-def get_add_sources():
-    """Returns a list of available sources for the add command."""
-    from socialModules import moduleRules
 
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+
+def get_add_sources(rules=None):
+    """Returns a list of available sources for the add command."""
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
     email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
     return email_sources + ["Web (Enter URL)"]
 
@@ -130,6 +131,30 @@ def process_event_data(event, content):
     event["description"] = f"{safe_get(event, ['description'])}\n\nMessage:\n{content}"
     # event["attendees"] = []  # Clear attendees
     return event
+
+
+def filter_events_by_title(api_cal, events, text_filter):
+    """
+    Helper function to filter events by title text.
+
+    Args:
+        api_cal: Calendar API object
+        events: List of events to filter
+        text_filter: Text to filter by (can be None)
+
+    Returns:
+        List of filtered events
+    """
+    filtered_events = []
+    for event in events:
+        title = api_cal.getPostTitle(event)
+        if title and text_filter and text_filter.lower() in title.lower():
+            filtered_events.append(event)
+        elif not text_filter:  # If no filter, include all events with titles
+            if title:
+                filtered_events.append(event)
+
+    return filtered_events
 
 
 def adjust_event_times(event):
@@ -343,9 +368,11 @@ def get_event_from_llm(model, prompt, verbose=False):
     return event, vcal_json, elapsed_time
 
 
-def authorize(args):
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+def authorize(args, rules=None):
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
     if args.interactive:
         service = input("Service? ")
         api_src = rules.selectRuleInteractive(service)
@@ -362,19 +389,52 @@ def authorize(args):
     return api_src
 
 
-def select_api_source(args, api_src_type):
-    """Selects an API source, interactive or not."""
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+def _get_sources_by_type(source_type, rules):
+    """Helper function to get sources based on type."""
+    if source_type == 'email':
+        return rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+    else:
+        # For API sources and others, use the direct approach
+        return rules.selectRule(source_type, "")
+
+
+def select_source_by_type(args, source_type, rules=None):
+    """Factory function to select sources by type."""
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
+
+    sources = _get_sources_by_type(source_type, rules)
 
     if args.interactive:
-        api_src = rules.selectRuleInteractive(api_src_type)
+        if source_type == 'email':
+            selected_source, _ = select_from_list(sources)
+            return selected_source
+        else:
+            # For API sources and others
+            api_src = rules.selectRuleInteractive(source_type)
+            return api_src
     else:
-        source_name = rules.selectRule(api_src_type, "")[0]
-        source_details = rules.more.get(source_name, {})
-        logging.info(f"Source: {source_name} - {source_details}")
-        api_src = rules.readConfigSrc("", source_name, source_details)
-    return api_src
+        if not sources:
+            logging.warning(f"No {source_type} sources configured.")
+            return None
+
+        if source_type == 'email':
+            # For email sources, return the source name
+            return sources[0]
+        else:
+            # For API sources, load the configuration
+            source_name = sources[0]
+            source_details = rules.more.get(source_name, {})
+            logging.info(f"Source: {source_name} - {source_details}")
+            api_src = rules.readConfigSrc("", source_name, source_details)
+            return api_src
+
+
+def select_api_source(args, api_src_type, rules=None):
+    """Selects an API source, interactive or not."""
+    return select_source_by_type(args, api_src_type, rules)
 
 
 def list_events_folder(args, api_src, calendar=""):
@@ -390,13 +450,13 @@ def list_events_folder(args, api_src, calendar=""):
         print("Some problem with the account")
 
 
-def _get_emails_from_folder(args, source_name):
+def _get_emails_from_folder(args, source_name, rules=None):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
-    from socialModules import moduleRules
-
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+    if rules is None:
+        from socialModules import moduleRules
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
     source_details = rules.more.get(source_name, {})
     api_src = rules.readConfigSrc("", source_name, source_details)
 
@@ -424,25 +484,15 @@ def _get_emails_from_folder(args, source_name):
     return api_src, posts
 
 
-def select_email_source(args):
+def select_email_source(args, rules=None):
     """Selects an email source, interactive or not."""
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
-    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
-
-    if args.interactive:
-        selected_source, _ = select_from_list(email_sources)
-        source_name = selected_source
-    else:
-        source_name = email_sources[0]
-
-    return source_name
+    return select_source_by_type(args, 'email', rules)
 
 
-def list_emails_folder(args):
+def list_emails_folder(args, rules=None):
     """Lists emails and in folder."""
-    source_name = select_email_source(args)
-    api_src, posts = _get_emails_from_folder(args, source_name)
+    source_name = select_email_source(args, rules=rules)
+    api_src, posts = _get_emails_from_folder(args, source_name, rules=rules)
     if posts:
         for i, post in enumerate(posts):
             # post_id = api_src.getPostId(post)
@@ -832,7 +882,7 @@ def _get_post_datetime_and_diff(post_date):
     return post_date_time, time_difference
 
 
-def _delete_email(args, api_src, post_id, source_name):
+def _delete_email(args, api_src, post_id, source_name, rules=None):
     """Deletes an email, handling interactive confirmation and connection errors."""
     delete_confirmed = False
     if args.interactive:
@@ -859,6 +909,7 @@ def _delete_email(args, api_src, post_id, source_name):
                     logging.info(f"Label removed from email {post_id}.")
                 else:
                     label = api_src.getChannel()
+                    api_src.getClient().select(label)
                     res = api_src.deletePostId(post_id)
                     logging.info(f"State: {api_src.getClient().state}")
                 if not "Fail!" in res:
@@ -868,10 +919,11 @@ def _delete_email(args, api_src, post_id, source_name):
                 logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
                 if attempt < max_retries:
                     logging.info("Retrying to connect to the email server...")
-                    from socialModules import moduleRules
 
-                    rules = moduleRules.moduleRules()
-                    rules.checkRules()
+                    if rules is None:
+                        from socialModules import moduleRules
+                        rules = moduleRules.moduleRules()
+                        rules.checkRules()
                     source_details = rules.more.get(source_name, {})
                     api_src = rules.readConfigSrc("", source_name, source_details)
                     if label:
@@ -944,13 +996,13 @@ def _process_common_flow(args, model, items, metadata_extractor, content_extract
     return processed_any_event
 
 
-def process_email_cli(args, model, source_name=None):
+def process_email_cli(args, model, source_name=None, rules=None):
     """Processes emails and creates calendar events."""
 
     if not source_name:
-        source_name = select_email_source(args)
+        source_name = select_email_source(args, rules=rules)
 
-    api_src, posts = _get_emails_from_folder(args, source_name)
+    api_src, posts = _get_emails_from_folder(args, source_name, rules=rules)
 
     if posts:
         def metadata_extractor(post, i):
@@ -978,7 +1030,7 @@ def process_email_cli(args, model, source_name=None):
                 post_pos = original_post_id
             else:
                 post_pos = post_id
-            _delete_email(args, api_src, post_pos, source_name)
+            _delete_email(args, api_src, post_pos, source_name, rules=rules)
 
         return _process_common_flow(
             args, model, posts, metadata_extractor, content_extractor, item_cleaner
@@ -1176,11 +1228,8 @@ def copy_events_cli(args):
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    events_to_copy = []
-    for event in res["items"]:
-        if api_cal.getPostTitle(event):
-            if text_filter in api_cal.getPostTitle(event):
-                events_to_copy.append(event)
+    # Use the helper function to filter events by title
+    events_to_copy = filter_events_by_title(api_cal, res["items"], text_filter)
 
     if not events_to_copy:
         print("No events found matching the criteria.")
@@ -1259,11 +1308,8 @@ def delete_events_cli(args):
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    events_to_delete = []
-    for event in res["items"]:
-        if api_cal.getPostTitle(event):
-            if text_filter in api_cal.getPostTitle(event):
-                events_to_delete.append(event)
+    # Use the helper function to filter events by title
+    events_to_delete = filter_events_by_title(api_cal, res["items"], text_filter)
 
     if not events_to_delete:
         print("No events found matching the criteria.")
@@ -1328,11 +1374,8 @@ def move_events_cli(args):
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    events_to_move = []
-    for event in res["items"]:
-        if api_cal.getPostTitle(event):
-            if text_filter in api_cal.getPostTitle(event):
-                events_to_move.append(event)
+    # Use the helper function to filter events by title
+    events_to_move = filter_events_by_title(api_cal, res["items"], text_filter)
 
     if not events_to_move:
         print("No events found matching the criteria.")
@@ -1502,11 +1545,8 @@ def clean_events_cli(args):
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    events_to_process = []
-    for event in res["items"]:
-        if api_cal.getPostTitle(event):
-            if text_filter in api_cal.getPostTitle(event):
-                events_to_process.append(event)
+    # Use the helper function to filter events by title
+    events_to_process = filter_events_by_title(api_cal, res["items"], text_filter)
 
     if not events_to_process:
         print("No events found matching the criteria.")

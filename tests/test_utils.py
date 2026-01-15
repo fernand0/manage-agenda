@@ -174,8 +174,8 @@ class TestProcessEmailCli(unittest.TestCase):
             text="",
         )
         list_emails_folder(args)
-        mock_select_email_source.assert_called_once_with(args)
-        mock_get_emails.assert_called_once_with(args, "test_source")
+        mock_select_email_source.assert_called_once_with(args, rules=None)
+        mock_get_emails.assert_called_once_with(args, "test_source", rules=None)
         self.assertEqual(mock_print.call_count, 2)
 
     @patch("manage_agenda.utils.select_email_source")
@@ -195,8 +195,8 @@ class TestProcessEmailCli(unittest.TestCase):
             text="",
         )
         list_emails_folder(args)
-        mock_select_email_source.assert_called_once_with(args)
-        mock_get_emails.assert_called_once_with(args, "test_source")
+        mock_select_email_source.assert_called_once_with(args, rules=None)
+        mock_get_emails.assert_called_once_with(args, "test_source", rules=None)
         mock_print.assert_not_called()
 
 
@@ -337,8 +337,8 @@ more text"""
         )
         mock_rules = MagicMock()
         mock_module_rules.return_value = mock_rules
-        select_api_source(args, "gmail")
-        mock_rules.checkRules.assert_called_once()
+        select_api_source(args, "gmail", rules=mock_rules)
+        # When rules are injected, checkRules is not called internally
         mock_rules.selectRuleInteractive.assert_called_once_with("gmail")
 
     @patch("manage_agenda.utils.moduleRules.moduleRules")
@@ -355,8 +355,8 @@ more text"""
         mock_rules.selectRule.return_value = ["test_rule"]
         mock_rules.more.get.return_value = {"key": "value"}
         mock_module_rules.return_value = mock_rules
-        select_api_source(args, "gmail")
-        mock_rules.checkRules.assert_called_once()
+        select_api_source(args, "gmail", rules=mock_rules)
+        # When rules are injected, checkRules is not called internally
         mock_rules.selectRule.assert_called_once_with("gmail", "")
         mock_rules.readConfigSrc.assert_called_once_with("", "test_rule", {"key": "value"})
 
@@ -617,7 +617,7 @@ more text"""
         mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
         mock_module_rules.return_value = mock_rules
 
-        sources = get_add_sources()
+        sources = get_add_sources(rules=mock_rules)
 
         self.assertIn("gmail1", sources)
         self.assertIn("imap1", sources)
@@ -852,7 +852,7 @@ more text"""
         mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
         mock_module_rules.return_value = mock_rules
 
-        result = select_email_source(args)
+        result = select_email_source(args, rules=mock_rules)
 
         self.assertEqual(result, "gmail1")
 
@@ -922,7 +922,7 @@ more text"""
         mock_rules.readConfigSrc.return_value = mock_api_src
         mock_module_rules.return_value = mock_rules
 
-        api_src, posts = _get_emails_from_folder(args, "gmail1")
+        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
 
         self.assertIsNotNone(api_src)
         self.assertIsNotNone(posts)
@@ -948,7 +948,7 @@ more text"""
 
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        api_src, posts = _get_emails_from_folder(args, "gmail1")
+        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
         sys.stdout = sys.__stdout__
 
         self.assertIsNone(api_src)
@@ -972,7 +972,7 @@ more text"""
         mock_rules.readConfigSrc.return_value = mock_api_src
         mock_module_rules.return_value = mock_rules
 
-        api_src, posts = _get_emails_from_folder(args, "imap1")
+        api_src, posts = _get_emails_from_folder(args, "imap1", rules=mock_rules)
 
         self.assertIsNotNone(api_src)
         self.assertIsNone(posts)
@@ -996,7 +996,7 @@ more text"""
         mock_rules.readConfigSrc.return_value = mock_api_src
         mock_module_rules.return_value = mock_rules
 
-        api_src, posts = _get_emails_from_folder(args, "gmail1")
+        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
 
         self.assertIsNotNone(api_src)
         self.assertIsNone(posts)
@@ -1039,7 +1039,7 @@ more text"""
         mock_rules.readConfigSrc.return_value = mock_api_src
         mock_module_rules.return_value = mock_rules
 
-        result = authorize(args)
+        result = authorize(args, rules=mock_rules)
 
         self.assertIsNotNone(result)
         self.assertEqual(result, mock_api_src)
@@ -1055,7 +1055,7 @@ more text"""
         mock_rules.selectRule.return_value = []
         mock_module_rules.return_value = mock_rules
 
-        result = authorize(args)
+        result = authorize(args, rules=mock_rules)
 
         self.assertIsNone(result)
 
