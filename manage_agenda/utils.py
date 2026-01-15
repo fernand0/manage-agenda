@@ -539,181 +539,272 @@ def _create_llm_prompt(event, content_text, reference_date_time):
 
 def _interactive_date_confirmation(args, event, model=None, content_text=None, reference_date_time=None, post_identifier=None, subject_for_print=None):
     """Interactively confirms and corrects event dates."""
-    if args.interactive:
-        # Get current start and end times
-        current_start_str = safe_get(event, ["start", "dateTime"])
-        current_end_str = safe_get(event, ["end", "dateTime"])
+    if not args.interactive:
+        return event, False  # Return event and a flag indicating if user wants to retry
 
-        # Parse current times if they exist
-        if current_start_str:
-            try:
-                current_start = datetime.datetime.fromisoformat(current_start_str.replace('Z', '+00:00'))
-            except ValueError:
-                # Handle cases where the format isn't ISO
-                try:
-                    current_start = datetime.datetime.strptime(current_start_str, "%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    current_start = None
-                    print("Could not parse start time, using empty value")
-        else:
-            current_start = None
+    # Get current start and end times
+    current_start_str = safe_get(event, ["start", "dateTime"])
+    current_end_str = safe_get(event, ["end", "dateTime"])
 
-        if current_end_str:
+    # Parse current times if they exist
+    if current_start_str:
+        try:
+            current_start = datetime.datetime.fromisoformat(current_start_str.replace('Z', '+00:00'))
+        except ValueError:
+            # Handle cases where the format isn't ISO
             try:
-                current_end = datetime.datetime.fromisoformat(current_end_str.replace('Z', '+00:00'))
+                current_start = datetime.datetime.strptime(current_start_str, "%Y-%m-%d %H:%M:%S")
             except ValueError:
-                # Handle cases where the format isn't ISO
-                try:
-                    current_end = datetime.datetime.strptime(current_end_str, "%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    current_end = None
-                    print("Could not parse end time, using empty value")
-            else:
+                current_start = None
+                print("Could not parse start time, using empty value")
+    else:
+        current_start = None
+
+    if current_end_str:
+        try:
+            current_end = datetime.datetime.fromisoformat(current_end_str.replace('Z', '+00:00'))
+        except ValueError:
+            # Handle cases where the format isn't ISO
+            try:
+                current_end = datetime.datetime.strptime(current_end_str, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
                 current_end = None
+                print("Could not parse end time, using empty value")
+    else:
+        current_end = None
 
-        print(f"\nCurrent start time: {current_start}")
-        print(f"Current end time: {current_end}")
+    print(f"\nCurrent start time: {current_start}")
+    print(f"Current end time: {current_end}")
 
-        # Extended prompt with options for individual components
-        prompt_msg = (
-            "Are the dates correct? "
-            "(y)es, (n)o, (r)etry with LLM, "
-            "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
-        )
-        confirmation = input(prompt_msg).lower()
+    # Extended prompt with options for individual components (removed 'r' option)
+    prompt_msg = (
+        "Are the dates correct? "
+        "(y)es, (n)o, "
+        "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
+    )
+    confirmation = input(prompt_msg).lower()
 
-        if confirmation == "r" and model and content_text and reference_date_time:
-            # Retry with LLM
-            print("Retrying with LLM...")
-            # Recreate the prompt and call the LLM again
-            event = create_event_dict()
-            prompt = _create_llm_prompt(event, content_text, reference_date_time)
-            if args.verbose:
-                print(f"Prompt:\n{prompt}")
-                print("\nEnd Prompt:")
-
-            # Get AI reply
-            event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
-
-            if event:
-                process_event_data(event, content_text)
-                adjust_event_times(event)
-
-                # Print the new results
-                start_time = safe_get(event, ["start", "dateTime"])
-                end_time = safe_get(event, ["end", "dateTime"])
+    if confirmation == "y":
+        # Yes, dates are correct
+        return event, False  # No retry needed
+    elif confirmation in ["n", "m", "d", "h", "f", "y", "i"]:  # Process all options
+        if confirmation == "f":
+            # Full date/time modification
+            new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+            if new_start_str:
+                event.setdefault("start", {})["dateTime"] = new_start_str
                 try:
-                    start_time_local = (
-                        datetime.datetime.fromisoformat(start_time).astimezone() if start_time else "N/A"
-                    )
-                    end_time_local = (
-                        datetime.datetime.fromisoformat(end_time).astimezone() if end_time else "N/A"
-                    )
+                    start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                    end_dt = start_dt + timedelta(minutes=45)
+                    new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                    modify_end_time = input(
+                        f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
+                    ).lower()
+                    if modify_end_time == "y":
+                        new_end_str = input(
+                            "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
+                        )
+                    else:
+                        new_end_str = new_end_str_default
                 except ValueError:
-                    start_time_local = start_time
-                    end_time_local = end_time
-
-                print("=====================================")
-                print(f"Subject: {subject_for_print}")  # Use dynamic sh
-                print(f"Start: {start_time_local}")
-                print(f"End: {end_time_local}")
-                print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
-                print("=====================================")
-
-                # Recursive call to confirm the new dates
-                return _interactive_date_confirmation(args, event, model, content_text, reference_date_time, post_identifier, subject_for_print)
+                    print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
+                    new_end_str = ""
             else:
-                print("LLM failed to generate a response. Proceeding with manual correction.")
-                # Continue with manual correction below
+                new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
 
-        elif confirmation in ["n", "y", "m", "d", "h", "f"]:  # Process all non-LLM options
-            if confirmation == "y":
-                # Yes, dates are correct
-                return event
-            elif confirmation == "f":
-                # Full date/time modification
-                new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+            if new_end_str:
+                event.setdefault("end", {})["dateTime"] = new_end_str
+
+        elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
+            # Determine which component to modify
+            component_map = {
+                'y': 'year',
+                'm': 'month',
+                'd': 'day',
+                'h': 'hour',
+                'i': 'minute'
+            }
+            component = component_map.get(confirmation)
+
+            # Modify the selected component for both start and end times
+            if current_start and component:
+                new_start = _modify_single_component(current_start, component, "start")
+                event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+
+            if current_end and component:
+                new_end = _modify_single_component(current_end, component, "end")
+                event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+
+        elif confirmation == "n":  # Modify all components individually
+            # Modify individual components
+            if current_start:
+                new_start = _modify_datetime_components(current_start, "start")
+                event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+            else:
+                new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS): ")
                 if new_start_str:
-                    event.setdefault("start", {})["dateTime"] = new_start_str
                     try:
-                        start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
-                        end_dt = start_dt + timedelta(minutes=45)
-                        new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
-
-                        modify_end_time = input(
-                            f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
-                        ).lower()
-                        if modify_end_time == "y":
-                            new_end_str = input(
-                                "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
-                            )
-                        else:
-                            new_end_str = new_end_str_default
+                        new_start = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                        event.setdefault("start", {})["dateTime"] = new_start.isoformat()
                     except ValueError:
                         print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
-                        new_end_str = ""
-                else:
-                    new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
 
-                if new_end_str:
-                    event.setdefault("end", {})["dateTime"] = new_end_str
+            if current_end:
+                new_end = _modify_datetime_components(current_end, "end")
+                event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+            else:
+                new_end_str_input = input("Enter new end time (YYYY-MM-DD HH:MM:SS): ")
+                if new_end_str_input:
+                    try:
+                        new_end = datetime.datetime.strptime(new_end_str_input, "%Y-%m-%d %H:%M:%S")
+                        event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+                    except ValueError:
+                        print("Invalid end time format. Please use YYYY-MM-DD HH:MM:SS.")
 
-            elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
-                # Determine which component to modify
-                component_map = {
-                    'y': 'year',
-                    'm': 'month',
-                    'd': 'day',
-                    'h': 'hour',
-                    'i': 'minute'
-                }
-                component = component_map.get(confirmation)
+        # Process the event after modifications
+        event = adjust_event_times(event)
 
-                # Modify the selected component for both start and end times
-                if current_start and component:
-                    new_start = _modify_single_component(current_start, component, "start")
-                    event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+        # Update and print new times
+        start_time = safe_get(event, ["start", "dateTime"])
+        end_time = safe_get(event, ["end", "dateTime"])
+        print("--- Updated Event Times ---")
+        print(f"Start: {start_time}")
+        print(f"End: {end_time}")
+        print("---------------------------")
 
-                if current_end and component:
-                    new_end = _modify_single_component(current_end, component, "end")
-                    event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+    # Return the event and flag indicating no retry needed
+    return event, False
 
-            else:  # confirmation == "n" - modify all components individually
-                # Modify individual components
-                if current_start:
-                    new_start = _modify_datetime_components(current_start, "start")
-                    event.setdefault("start", {})["dateTime"] = new_start.isoformat()
-                else:
-                    new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS): ")
-                    if new_start_str:
-                        try:
-                            new_start = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
-                            event.setdefault("start", {})["dateTime"] = new_start.isoformat()
-                        except ValueError:
-                            print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
 
-                if current_end:
-                    new_end = _modify_datetime_components(current_end, "end")
-                    event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-                else:
-                    new_end_str_input = input("Enter new end time (YYYY-MM-DD HH:MM:SS): ")
-                    if new_end_str_input:
-                        try:
-                            new_end = datetime.datetime.strptime(new_end_str_input, "%Y-%m-%d %H:%M:%S")
-                            event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-                        except ValueError:
-                            print("Invalid end time format. Please use YYYY-MM-DD HH:MM:SS.")
+def _interactive_date_confirmation_with_choice(args, event, confirmation, content_text, reference_date_time, post_identifier, subject_for_print):
+    """Handle specific user choice for date confirmation."""
+    if not args.interactive:
+        return event, False
 
-            event = adjust_event_times(event)
+    # Get current start and end times
+    current_start_str = safe_get(event, ["start", "dateTime"])
+    current_end_str = safe_get(event, ["end", "dateTime"])
 
-            # Update and print new times
-            start_time = safe_get(event, ["start", "dateTime"])
-            end_time = safe_get(event, ["end", "dateTime"])
-            print("--- Updated Event Times ---")
-            print(f"Start: {start_time}")
-            print(f"End: {end_time}")
-            print("---------------------------")
-    return event
+    # Parse current times if they exist
+    if current_start_str:
+        try:
+            current_start = datetime.datetime.fromisoformat(current_start_str.replace('Z', '+00:00'))
+        except ValueError:
+            # Handle cases where the format isn't ISO
+            try:
+                current_start = datetime.datetime.strptime(current_start_str, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                current_start = None
+                print("Could not parse start time, using empty value")
+    else:
+        current_start = None
+
+    if current_end_str:
+        try:
+            current_end = datetime.datetime.fromisoformat(current_end_str.replace('Z', '+00:00'))
+        except ValueError:
+            # Handle cases where the format isn't ISO
+            try:
+                current_end = datetime.datetime.strptime(current_end_str, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                current_end = None
+                print("Could not parse end time, using empty value")
+    else:
+        current_end = None
+
+    print(f"\nCurrent start time: {current_start}")
+    print(f"Current end time: {current_end}")
+
+    # Process the specific confirmation choice
+    if confirmation in ["n", "m", "d", "h", "f", "y", "i"]:  # Process all options
+        if confirmation == "f":
+            # Full date/time modification
+            new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+            if new_start_str:
+                event.setdefault("start", {})["dateTime"] = new_start_str
+                try:
+                    start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                    end_dt = start_dt + timedelta(minutes=45)
+                    new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                    modify_end_time = input(
+                        f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
+                    ).lower()
+                    if modify_end_time == "y":
+                        new_end_str = input(
+                            "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
+                        )
+                    else:
+                        new_end_str = new_end_str_default
+                except ValueError:
+                    print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
+                    new_end_str = ""
+            else:
+                new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+
+            if new_end_str:
+                event.setdefault("end", {})["dateTime"] = new_end_str
+
+        elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
+            # Determine which component to modify
+            component_map = {
+                'y': 'year',
+                'm': 'month',
+                'd': 'day',
+                'h': 'hour',
+                'i': 'minute'
+            }
+            component = component_map.get(confirmation)
+
+            # Modify the selected component for both start and end times
+            if current_start and component:
+                new_start = _modify_single_component(current_start, component, "start")
+                event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+
+            if current_end and component:
+                new_end = _modify_single_component(current_end, component, "end")
+                event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+
+        elif confirmation == "n":  # Modify all components individually
+            # Modify individual components
+            if current_start:
+                new_start = _modify_datetime_components(current_start, "start")
+                event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+            else:
+                new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS): ")
+                if new_start_str:
+                    try:
+                        new_start = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                        event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+                    except ValueError:
+                        print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
+
+            if current_end:
+                new_end = _modify_datetime_components(current_end, "end")
+                event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+            else:
+                new_end_str_input = input("Enter new end time (YYYY-MM-DD HH:MM:SS): ")
+                if new_end_str_input:
+                    try:
+                        new_end = datetime.datetime.strptime(new_end_str_input, "%Y-%m-%d %H:%M:%S")
+                        event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+                    except ValueError:
+                        print("Invalid end time format. Please use YYYY-MM-DD HH:MM:SS.")
+
+        # Process the event after modifications
+        event = adjust_event_times(event)
+
+        # Update and print new times
+        start_time = safe_get(event, ["start", "dateTime"])
+        end_time = safe_get(event, ["end", "dateTime"])
+        print("--- Updated Event Times ---")
+        print(f"Start: {start_time}")
+        print(f"End: {end_time}")
+        print("---------------------------")
+
+    # Return the event and flag indicating no retry needed
+    return event, False
 
 
 def _modify_single_component(dt, component, time_label):
@@ -801,231 +892,41 @@ def _modify_datetime_components(dt, time_label):
         return dt
 
 
-def _process_event_with_llm_and_calendar(
-    args,
-    model,
-    content_text,
-    reference_date_time,
-    post_identifier,
-    subject_for_print,
-):
+def _process_and_display_event(event, content_text, subject_for_print, elapsed_time=None):
     """
-    Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
+    Process event data, adjust times, and display information consistently.
+
+    Args:
+        event: Event dictionary to process
+        content_text: Content text for processing
+        subject_for_print: Subject/title to display
+        elapsed_time: Optional time taken for AI processing
+
+    Returns:
+        Processed and adjusted event
     """
-    # Create initial event dict for helper
-
-    event = create_event_dict()
-    prompt = _create_llm_prompt(event, content_text, reference_date_time)
-    if args.verbose:
-        print(f"Prompt:\n{prompt}")
-        print("\nEnd Prompt:")
-
-    # Get AI reply
-    event = None
-    while not event:
-        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
-
-        # Handle memory error specifically
-        if vcal_json == "MemoryError":
-            print("Switching to a different LLM due to memory constraints...")
-            if args.interactive:
-                # Ask user to select a different model
-                new_args = Args(
-                    interactive=True,
-                    delete=args.delete,
-                    source=None,
-                    verbose=args.verbose,
-                    destination=args.destination,
-                    text=args.text,
-                )
-                new_model = select_llm(new_args)
-
-                if new_model:
-                    model = new_model
-                    print(f"Selected new AI model: {model.__class__.__name__}")
-                    # Retry with the new model
-                    event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
-                else:
-                    print("No alternative model selected. Skipping event processing.")
-                    return None, None
-            else:
-                # In non-interactive mode, try to switch to a lighter model automatically
-                print("Trying to switch to a lighter model automatically...")
-                new_args = Args(
-                    interactive=False,
-                    delete=args.delete,
-                    source="gemini",  # Default to gemini which is typically lighter than large ollama models
-                    verbose=args.verbose,
-                    destination=args.destination,
-                    text=args.text,
-                )
-                new_model = select_llm(new_args)
-
-                if new_model:
-                    model = new_model
-                    print(f"Switched to lighter AI model: {model.__class__.__name__}")
-                    # Retry with the new model
-                    event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
-                else:
-                    print("Could not switch to a lighter model. Skipping event processing.")
-                    return None, None
-        elif not event and vcal_json != "MemoryError":
-            # Other types of failures - continue with existing logic
-            continue
     process_event_data(event, content_text)
-    adjust_event_times(event)
-
-    if not event:
-        return None, None  # Indicate failure
-
-    write_file(f"{post_identifier}.vcal", vcal_json)  # Save vCal data
-
-    api_dst_type = "gcalendar"
-    api_dst = select_api_source(args, api_dst_type)
-
-    # --- LLM Response Validation/Retry Loop ---
-    retries = 0
-    max_retries = 3  # Limit AI retries
-    data_complete = False
-
-    while not data_complete and retries <= max_retries:
-        summary = event.get("summary")
-        start_datetime = event.get("start", {}).get("dateTime")
-
-        if not summary:
-            print("- Summary")
-            summary = subject_for_print
-            if summary:
-                event["summary"] = summary
-
-        if summary and start_datetime:
-            data_complete = True
-            break
-
-        if args.interactive:
-            print("Missing event information:")
-            if not summary:
-                print("- Summary")
-            if not start_datetime:
-                print("- Start Date/Time")
-
-            choice = input(
-                "Options: (m)anual input, (a)nother AI, (s)kip item: "
-            ).lower()  # Generalized message
-
-            if choice == "m":
-                if not summary:
-                    new_summary = input("Enter Summary: ")
-                    if new_summary:
-                        event["summary"] = new_summary
-                if not start_datetime:
-                    new_start_datetime_str = input("Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): ")
-                    if new_start_datetime_str:
-                        try:
-                            new_start_datetime = datetime.datetime.strptime(
-                                new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
-                            )
-                            event.setdefault("start", {})["dateTime"] = (
-                                new_start_datetime.isoformat()
-                            )
-                            # Removed event['start'].setdefault('timeZone', 'Europe/Madrid') as adjust_event_times handles it
-                        except ValueError:
-                            print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
-                            continue
-                data_complete = True
-            elif choice == "a":
-                retries += 1
-                if retries > max_retries:
-                    print("Max AI retries reached. Skipping item.")  # Generalized message
-                    break
-
-                print("Selecting another AI model...")
-                _ = model
-                _ = args.source
-
-                new_args = Args(
-                    interactive=True,
-                    delete=args.delete,
-                    source=None,
-                    verbose=args.verbose,
-                    destination=args.destination,
-                    text=args.text,
-                )
-                new_model = select_llm(new_args)
-
-                if new_model:
-                    model = new_model
-                    print(f"Trying with new AI model: {model.__class__.__name__}")
-                    new_event, new_vcal_json, elapsed_time = get_event_from_llm(
-                        model, prompt, args.verbose
-                    )
-                    if new_event:
-                        event = new_event
-                        vcal_json = new_vcal_json
-                    elif new_vcal_json == "MemoryError":
-                        print("New AI model also failed due to memory constraints.")
-                        # Ask user to select yet another model
-                        retry_args = Args(
-                            interactive=True,
-                            delete=args.delete,
-                            source=None,
-                            verbose=args.verbose,
-                            destination=args.destination,
-                            text=args.text,
-                        )
-                        retry_model = select_llm(retry_args)
-
-                        if retry_model:
-                            model = retry_model
-                            print(f"Selected another AI model: {model.__class__.__name__}")
-                            new_event, new_vcal_json, elapsed_time = get_event_from_llm(
-                                model, prompt, args.verbose
-                            )
-                            if new_event:
-                                event = new_event
-                                vcal_json = new_vcal_json
-                            else:
-                                print("Another AI model failed to generate a response.")
-                        else:
-                            print("No alternative model selected.")
-                    else:
-                        print("New AI model failed to generate a response.")
-                else:
-                    print(
-                        "No new AI model selected or available. Skipping item."
-                    )  # Generalized message
-                    break
-            elif choice == "s":
-                break
-            else:
-                print("Invalid choice. Please try again.")
-                retries += 1
-                continue
-        else:  # Non-interactive mode
-            if not summary or not start_datetime:
-                logging.warning(
-                    f"Missing summary or start_datetime for {post_identifier}. Skipping."
-                )
-                break
-            else:
-                data_complete = True
-
-    if not data_complete:
-        return None, None  # Indicate failure
-
-    # --- Event Adjustment ---
     event = adjust_event_times(event)
-    write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
-    write_file(
-        f"{post_identifier}_times.json", json.dumps(event)
-    )  # Save event JSON (redundant, but existing)
+    _display_event_info(event, subject_for_print, elapsed_time)
+    return event
 
+
+def _display_event_info(event, subject_for_print, elapsed_time=None):
+    """
+    Display event information consistently across the application.
+
+    Args:
+        event: Event dictionary containing start and end times
+        subject_for_print: Subject/title to display
+        elapsed_time: Optional time taken for AI processing
+
+    Returns:
+        Tuple of (start_time_local, end_time_local) for potential reuse
+    """
     start_time = safe_get(event, ["start", "dateTime"])
     end_time = safe_get(event, ["end", "dateTime"])
-    if args.interactive:
-        print(f"Start time: {start_time}")
-        print(f"End time: {end_time}")
 
+    # Convert to local timezone for display
     try:
         start_time_local = (
             datetime.datetime.fromisoformat(start_time).astimezone() if start_time else "N/A"
@@ -1038,13 +939,272 @@ def _process_event_with_llm_and_calendar(
         end_time_local = end_time
 
     print("=====================================")
-    print(f"Subject: {subject_for_print}")  # Use dynamic subject
+    print(f"Subject: {subject_for_print}")
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
-    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+
+    if elapsed_time is not None:
+        print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+
     print("=====================================")
 
-    event = _interactive_date_confirmation(args, event, model, content_text, reference_date_time, post_identifier, subject_for_print)
+    return start_time_local, end_time_local
+
+
+def _process_event_with_llm_and_calendar(
+    args,
+    model,
+    content_text,
+    reference_date_time,
+    post_identifier,
+    subject_for_print,
+):
+    """
+    Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
+    """
+    # Outer loop to handle retries from the beginning when user selects 'r'
+    while True:
+        # Create initial event dict for helper
+
+        event = create_event_dict()
+        prompt = _create_llm_prompt(event, content_text, reference_date_time)
+        if args.verbose:
+            print(f"Prompt:\n{prompt}")
+            print("\nEnd Prompt:")
+
+        # Get AI reply
+        event = None
+        while not event:
+            event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+
+            # Handle memory error specifically
+            if vcal_json == "MemoryError":
+                print("Switching to a different LLM due to memory constraints...")
+                if args.interactive:
+                    # Ask user to select a different model
+                    new_args = Args(
+                        interactive=True,
+                        delete=args.delete,
+                        source=None,
+                        verbose=args.verbose,
+                        destination=args.destination,
+                        text=args.text,
+                    )
+                    new_model = select_llm(new_args)
+
+                    if new_model:
+                        model = new_model
+                        print(f"Selected new AI model: {model.__class__.__name__}")
+                        # Retry with the new model
+                        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+                    else:
+                        print("No alternative model selected. Skipping event processing.")
+                        return None, None
+                else:
+                    # In non-interactive mode, try to switch to a lighter model automatically
+                    print("Trying to switch to a lighter model automatically...")
+                    new_args = Args(
+                        interactive=False,
+                        delete=args.delete,
+                        source="gemini",  # Default to gemini which is typically lighter than large ollama models
+                        verbose=args.verbose,
+                        destination=args.destination,
+                        text=args.text,
+                    )
+                    new_model = select_llm(new_args)
+
+                    if new_model:
+                        model = new_model
+                        print(f"Switched to lighter AI model: {model.__class__.__name__}")
+                        # Retry with the new model
+                        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+                    else:
+                        print("Could not switch to a lighter model. Skipping event processing.")
+                        return None, None
+            elif not event and vcal_json != "MemoryError":
+                # Other types of failures - continue with existing logic
+                continue
+        process_event_data(event, content_text)
+        adjust_event_times(event)
+
+        if not event:
+            return None, None  # Indicate failure
+
+        write_file(f"{post_identifier}.vcal", vcal_json)  # Save vCal data
+
+        api_dst_type = "gcalendar"
+        api_dst = select_api_source(args, api_dst_type)
+
+        # --- LLM Response Validation/Retry Loop ---
+        retries = 0
+        max_retries = 3  # Limit AI retries
+        data_complete = False
+
+        while not data_complete and retries <= max_retries:
+            summary = event.get("summary")
+            start_datetime = event.get("start", {}).get("dateTime")
+
+            if not summary:
+                print("- Summary")
+                summary = subject_for_print
+                if summary:
+                    event["summary"] = summary
+
+            if summary and start_datetime:
+                data_complete = True
+                break
+
+            if args.interactive:
+                print("Missing event information:")
+                if not summary:
+                    print("- Summary")
+                if not start_datetime:
+                    print("- Start Date/Time")
+
+                choice = input(
+                    "Options: (m)anual input, (a)nother AI, (s)kip item: "
+                ).lower()  # Generalized message
+
+                if choice == "m":
+                    if not summary:
+                        new_summary = input("Enter Summary: ")
+                        if new_summary:
+                            event["summary"] = new_summary
+                    if not start_datetime:
+                        new_start_datetime_str = input("Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): ")
+                        if new_start_datetime_str:
+                            try:
+                                new_start_datetime = datetime.datetime.strptime(
+                                    new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
+                                )
+                                event.setdefault("start", {})["dateTime"] = (
+                                    new_start_datetime.isoformat()
+                                )
+                                # Removed event['start'].setdefault('timeZone', 'Europe/Madrid') as adjust_event_times handles it
+                            except ValueError:
+                                print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
+                                continue
+                    data_complete = True
+                elif choice == "a":
+                    retries += 1
+                    if retries > max_retries:
+                        print("Max AI retries reached. Skipping item.")  # Generalized message
+                        break
+
+                    print("Selecting another AI model...")
+                    _ = model
+                    _ = args.source
+
+                    new_args = Args(
+                        interactive=True,
+                        delete=args.delete,
+                        source=None,
+                        verbose=args.verbose,
+                        destination=args.destination,
+                        text=args.text,
+                    )
+                    new_model = select_llm(new_args)
+
+                    if new_model:
+                        model = new_model
+                        print(f"Trying with new AI model: {model.__class__.__name__}")
+                        new_event, new_vcal_json, elapsed_time = get_event_from_llm(
+                            model, prompt, args.verbose
+                        )
+                        if new_event:
+                            event = new_event
+                            vcal_json = new_vcal_json
+                        elif new_vcal_json == "MemoryError":
+                            print("New AI model also failed due to memory constraints.")
+                            # Ask user to select yet another model
+                            retry_args = Args(
+                                interactive=True,
+                                delete=args.delete,
+                                source=None,
+                                verbose=args.verbose,
+                                destination=args.destination,
+                                text=args.text,
+                            )
+                            retry_model = select_llm(retry_args)
+
+                            if retry_model:
+                                model = retry_model
+                                print(f"Selected another AI model: {model.__class__.__name__}")
+                                new_event, new_vcal_json, elapsed_time = get_event_from_llm(
+                                    model, prompt, args.verbose
+                                )
+                                if new_event:
+                                    event = new_event
+                                    vcal_json = new_vcal_json
+                                else:
+                                    print("Another AI model failed to generate a response.")
+                            else:
+                                print("No alternative model selected.")
+                        else:
+                            print("New AI model failed to generate a response.")
+                    else:
+                        print(
+                            "No new AI model selected or available. Skipping item."
+                        )  # Generalized message
+                        break
+                elif choice == "s":
+                    break
+                else:
+                    print("Invalid choice. Please try again.")
+                    retries += 1
+                    continue
+            else:  # Non-interactive mode
+                if not summary or not start_datetime:
+                    logging.warning(
+                        f"Missing summary or start_datetime for {post_identifier}. Skipping."
+                    )
+                    break
+                else:
+                    data_complete = True
+
+        if not data_complete:
+            return None, None  # Indicate failure
+
+        # --- Event Adjustment ---
+        event = adjust_event_times(event)
+        write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
+        write_file(
+            f"{post_identifier}_times.json", json.dumps(event)
+        )  # Save event JSON (redundant, but existing)
+
+        if args.interactive:
+            start_time = safe_get(event, ["start", "dateTime"])
+            end_time = safe_get(event, ["end", "dateTime"])
+            print(f"Start time: {start_time}")
+            print(f"End time: {end_time}")
+
+        _display_event_info(event, subject_for_print, elapsed_time)
+
+        # Check if user wants to retry with LLM from the beginning
+        if args.interactive:
+            # Show the same prompt as before but include the 'r' option here
+            prompt_msg = (
+                "Are the dates correct? "
+                "(y)es, (n)o, (r)etry with LLM, "
+                "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
+            )
+            confirmation = input(prompt_msg).lower()
+
+            if confirmation == "r" and model and content_text and reference_date_time:
+                # User wants to retry with LLM from the beginning
+                # Continue the outer loop to restart the process
+                continue  # This will continue the outer loop
+            elif confirmation in ["n", "m", "d", "h", "f", "y", "i"]:
+                # Process the event normally based on the user's choice
+                # Call the function with the specific choice
+                event, _ = _interactive_date_confirmation_with_choice(args, event, confirmation, content_text, reference_date_time, post_identifier, subject_for_print)
+            # If 'y', dates are correct, continue with the normal flow
+        else:
+            # Non-interactive: just run the normal date confirmation
+            event, _ = _interactive_date_confirmation(args, event, model, content_text, reference_date_time, post_identifier, subject_for_print)
+
+        # If we reach here, break out of the outer loop to continue with calendar creation
+        break
 
     selected_calendar = select_calendar(api_dst)
     if not selected_calendar:
