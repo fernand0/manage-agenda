@@ -537,11 +537,55 @@ def _create_llm_prompt(event, content_text, reference_date_time):
     return prompt_template.format(event=event, content_text=content_text)
 
 
-def _interactive_date_confirmation(args, event):
+def _interactive_date_confirmation(args, event, model=None, content_text=None, reference_date_time=None, post_identifier=None, subject_for_print=None):
     """Interactively confirms and corrects event dates."""
     if args.interactive:
-        confirmation = input("Are the dates correct? (y/n): ").lower()
-        if confirmation != "y":
+        confirmation = input("Are the dates correct? (y/n/r): ").lower()
+        if confirmation == "r" and model and content_text and reference_date_time:
+            # Retry with LLM
+            print("Retrying with LLM...")
+            # Recreate the prompt and call the LLM again
+            event = create_event_dict()
+            prompt = _create_llm_prompt(event, content_text, reference_date_time)
+            if args.verbose:
+                print(f"Prompt:\n{prompt}")
+                print("\nEnd Prompt:")
+
+            # Get AI reply
+            event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+
+            if event:
+                process_event_data(event, content_text)
+                adjust_event_times(event)
+
+                # Print the new results
+                start_time = safe_get(event, ["start", "dateTime"])
+                end_time = safe_get(event, ["end", "dateTime"])
+                try:
+                    start_time_local = (
+                        datetime.datetime.fromisoformat(start_time).astimezone() if start_time else "N/A"
+                    )
+                    end_time_local = (
+                        datetime.datetime.fromisoformat(end_time).astimezone() if end_time else "N/A"
+                    )
+                except ValueError:
+                    start_time_local = start_time
+                    end_time_local = end_time
+
+                print("=====================================")
+                print(f"Subject: {subject_for_print}")  # Use dynamic subject
+                print(f"Start: {start_time_local}")
+                print(f"End: {end_time_local}")
+                print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+                print("=====================================")
+
+                # Recursive call to confirm the new dates
+                return _interactive_date_confirmation(args, event, model, content_text, reference_date_time, post_identifier, subject_for_print)
+            else:
+                print("LLM failed to generate a response. Proceeding with manual correction.")
+                # Continue with manual correction below
+
+        elif confirmation != "y":
             new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
             if new_start_str:
                 event.setdefault("start", {})["dateTime"] = new_start_str
@@ -823,7 +867,7 @@ def _process_event_with_llm_and_calendar(
     print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
     print("=====================================")
 
-    event = _interactive_date_confirmation(args, event)
+    event = _interactive_date_confirmation(args, event, model, content_text, reference_date_time, post_identifier, subject_for_print)
 
     selected_calendar = select_calendar(api_dst)
     if not selected_calendar:
