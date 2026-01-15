@@ -954,7 +954,12 @@ def process_email_cli(args, model, source_name=None):
 
     if posts:
         def metadata_extractor(post, i):
-            return api_src.getPostId(post), api_src.getPostTitle(post), api_src.getPostDate(post)
+            # Use meaningful ID if available, otherwise fall back to numeric ID
+            if hasattr(api_src, 'getPostIdM'):
+                post_id = api_src.getPostIdM(post)
+            else:
+                post_id = api_src.getPostId(post)
+            return post_id, api_src.getPostTitle(post), api_src.getPostDate(post)
 
         def content_extractor(post, i, post_date_time, post_title):
             full_email_content = api_src.getPostBody(post)
@@ -966,8 +971,11 @@ def process_email_cli(args, model, source_name=None):
             )
 
         def item_cleaner(post, i, post_id):
+            # For deletion, we need to use the numeric position for IMAP
+            # Get the original numeric ID for deletion operations
             if "imap" in api_src.service.lower():
-                post_pos = i + 1
+                original_post_id = api_src.getPostId(post)
+                post_pos = original_post_id
             else:
                 post_pos = post_id
             _delete_email(args, api_src, post_pos, source_name)
@@ -1005,7 +1013,12 @@ def process_web_cli(args, model, urls=None):
             title = api_src.getPostTitle(post)
             if not title:
                 title = urls[i]
-            return api_src.getPostId(post), title, datetime.datetime.now()
+            # Use meaningful ID if available for web content too
+            if hasattr(api_src, 'getPostIdM'):
+                post_id = api_src.getPostIdM(post)
+            else:
+                post_id = api_src.getPostId(post)
+            return post_id, title, datetime.datetime.now()
 
         def content_extractor(post, i, post_date_time, post_title):
             web_content_reduced = reduce_html(urls[i], post)
