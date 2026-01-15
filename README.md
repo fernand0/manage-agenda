@@ -16,6 +16,9 @@ A tool for adding entries to your Google Calendar from email messages and web pa
 - **Google Calendar Sync**: Seamlessly add events to your Google Calendar
 - **Flexible Configuration**: Support for multiple email and calendar accounts
 - **Calendar Management**: Clean and update calendar events with new utility commands
+- **Cache Bypass Option**: Force refresh web content to bypass cache with `--force-refresh` flag
+- **Retry Option**: Retry LLM processing during date confirmation with 'r' option
+- **Meaningful Identifiers**: Use meaningful IDs for filenames when available instead of numeric identifiers
 - **Version 0.2**: Includes new 'clean' and 'update-status' commands for enhanced calendar management
 
 ## Installation
@@ -72,7 +75,11 @@ When running in interactive mode (`-i True`):
 5. Extracts content and sends to selected AI for event parsing
 6. Select a Google Calendar account
 7. Review and confirm event details
-8. Optionally remove the tag from processed emails
+8. When confirming dates, you can now choose:
+   - `y`: Dates are correct
+   - `n`: Manually enter new dates
+   - `r`: Retry - ask the LLM again with the same prompt
+9. Optionally remove the tag from processed emails
 
 ### Web Page Processing
 The `add web` command allows you to add events from URLs:
@@ -80,16 +87,27 @@ The `add web` command allows you to add events from URLs:
 uv run manage-agenda add web -u https://example.com/event-page
 ```
 
+To bypass the cache and reprocess web content for better AI results, use the `--force-refresh` flag:
+```bash
+uv run manage-agenda add --force-refresh
+```
+This forces the system to fetch fresh content instead of returning only new/different content compared to the cached version.
+
 ## Commands
 
 ### `add` - Add Events
 Group command for adding entries to your calendar.
 
+#### Options
+- `-i, --interactive`: Running in interactive mode
+- `-s, --source`: Select LLM (default: gemini)
+- `-f, --force-refresh`: Force refresh web content to bypass cache
+
 #### `add mail`
-Add events from email messages. Reads messages tagged with `zAgenda` and extracts event information using LLMs.
+Add events from email messages. Reads messages tagged with `zAgenda` and extracts event information using LLMs. When available, uses meaningful identifiers for filenames instead of numeric identifiers for better organization.
 
 #### `add web`
-Add events from web pages. Fetches content from a URL, processes HTML to extract text, and uses LLMs to extract event details.
+Add events from web pages. Fetches content from a URL, processes HTML to extract text, and uses LLMs to extract event details. Includes `--force-refresh` option to bypass cache and reprocess content for better AI results.
 
 ### `clean` - Clean Calendar Entries
 Combined command that allows users to select between copy or delete operations in a single workflow. This command provides an interactive menu to choose between copying events to another calendar or deleting them, with filtering capabilities.
@@ -140,10 +158,22 @@ Each provider requires specific configuration and API keys (for cloud services).
 - Allows prompt customization without code changes
 - Maintains prompt versioning alongside code
 
+### Cache Management
+- **Force Refresh Option**: The `--force-refresh` flag bypasses cache comparison and returns full content for reprocessing
+- **Improved Web Processing**: Allows reprocessing of web pages for better AI results when cached content would return zero content
+
+### Interactive Features
+- **Retry Option**: Users can now retry LLM processing during date confirmation with the 'r' option
+- **Enhanced User Experience**: More flexible options during interactive date confirmation
+
 ### Calendar Management Utilities
 - **Combined Operations**: The `clean` command provides both copy and delete functionality in a single workflow
 - **Status Updates**: The `update-status` command allows changing event visibility from busy to available
 - **Interactive Filtering**: Both new commands support text-based filtering and selective processing
+
+### File Management
+- **Meaningful Identifiers**: Uses meaningful IDs for filenames when available instead of numeric identifiers
+- **Better Organization**: More descriptive filenames for cached content and processed events
 
 ## Dependencies
 
