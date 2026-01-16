@@ -349,12 +349,14 @@ def get_event_from_llm(model, prompt, verbose=False):
     elapsed_time = end_time - start_time
     print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
 
+    memory_error_occurred = False
+
     if not llm_response:
         print("Failed to get response from LLM.")
     elif 'Memory' in llm_response:
         print("LLM failed due to insufficient memory. Model requires more system memory than available.")
-        # Return a special indicator that memory error occurred
-        return None, "MemoryError", elapsed_time
+        # Set a flag to indicate memory error occurred
+        memory_error_occurred = True
     else:
         if verbose:
             print(f"Reply:\n{llm_response}")
@@ -377,6 +379,64 @@ def get_event_from_llm(model, prompt, verbose=False):
         except SyntaxError as e:
             logging.error(f"Syntax error: {vcal_json}")
             logging.error(f"Error: {e}")
+
+    # Return appropriate values based on whether memory error occurred
+    if memory_error_occurred:
+        return None, "MemoryError", elapsed_time
+    else:
+        return event, vcal_json, elapsed_time
+
+
+def get_event_from_llm_with_retry(model, prompt, args, verbose=False):
+    """Wrapper for get_event_from_llm with consistent retry and error handling logic."""
+    event = None
+    vcal_json = None
+    elapsed_time = 0
+    memory_error_occurred = False
+
+    while not event and not memory_error_occurred:
+        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, verbose)
+
+        # Handle memory error specifically
+        if vcal_json == "MemoryError":
+            print("Switching to a different LLM due to memory constraints...")
+
+            # Determine source based on interactive mode
+            source = None if args.interactive else "gemini"
+            if not args.interactive:
+                # In non-interactive mode, try to switch to a lighter model automatically
+                print("Trying to switch to a lighter model automatically...")
+
+            new_args = Args(
+                interactive=args.interactive,
+                delete=args.delete,
+                source=source,
+                verbose=args.verbose,
+                destination=args.destination,
+                text=args.text,
+            )
+
+            # Select a new model based on the args
+            new_model = select_llm(new_args)
+
+            if new_model:
+                model = new_model
+                if args.interactive:
+                    print(f"Selected new AI model: {model.__class__.__name__}")
+                else:
+                    print(f"Switched to lighter AI model: {model.__class__.__name__}")
+
+                # Retry with the new model
+                event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, verbose)
+            else:
+                if args.interactive:
+                    print("No alternative model selected. Skipping event processing.")
+                else:
+                    print("Could not switch to a lighter model. Skipping event processing.")
+                memory_error_occurred = True
+        elif not event and vcal_json != "MemoryError":
+            # Other types of failures - continue with existing logic
+            continue
 
     return event, vcal_json, elapsed_time
 
@@ -932,60 +992,13 @@ def _process_event_with_llm_and_calendar(
             print(f"Prompt:\n{prompt}")
             print("\nEnd Prompt:")
 
-        # Get AI reply
-        event = None
-        while not event:
-            event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+        # Get AI reply with retry logic
+        event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args, args.verbose)
 
-            # Handle memory error specifically
-            if vcal_json == "MemoryError":
-                print("Switching to a different LLM due to memory constraints...")
-                if args.interactive:
-                    # Ask user to select a different model
-                    new_args = Args(
-                        interactive=True,
-                        delete=args.delete,
-                        source=None,
-                        verbose=args.verbose,
-                        destination=args.destination,
-                        text=args.text,
-                    )
-                    new_model = select_llm(new_args)
-
-                    if new_model:
-                        model = new_model
-                        print(f"Selected new AI model: {model.__class__.__name__}")
-                        # Retry with the new model
-                        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
-                    else:
-                        print("No alternative model selected. Skipping event processing.")
-                        return None, None
-                else:
-                    # In non-interactive mode, try to switch to a lighter model automatically
-                    print("Trying to switch to a lighter model automatically...")
-                    new_args = Args(
-                        interactive=False,
-                        delete=args.delete,
-                        source="gemini",  # Default to gemini which is typically lighter than large ollama models
-                        verbose=args.verbose,
-                        destination=args.destination,
-                        text=args.text,
-                    )
-                    new_model = select_llm(new_args)
-
-                    if new_model:
-                        model = new_model
-                        print(f"Switched to lighter AI model: {model.__class__.__name__}")
-                        # Retry with the new model
-                        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
-                    else:
-                        print("Could not switch to a lighter model. Skipping event processing.")
-                        return None, None
-            elif not event and vcal_json != "MemoryError":
-                # Other types of failures - continue with existing logic
-                continue
-        process_event_data(event, content_text)
-        adjust_event_times(event)
+        if event is None and vcal_json == "MemoryError":
+            return None, None  # Indicate failure due to memory error
+        event = process_event_data(event, content_text)
+        event = adjust_event_times(event)
 
         if not event:
             return None, None  # Indicate failure
@@ -1066,8 +1079,8 @@ def _process_event_with_llm_and_calendar(
                     if new_model:
                         model = new_model
                         print(f"Trying with new AI model: {model.__class__.__name__}")
-                        new_event, new_vcal_json, elapsed_time = get_event_from_llm(
-                            model, prompt, args.verbose
+                        new_event, new_vcal_json, elapsed_time = get_event_from_llm_with_retry(
+                            model, prompt, args, args.verbose
                         )
                         if new_event:
                             event = new_event
@@ -1088,8 +1101,8 @@ def _process_event_with_llm_and_calendar(
                             if retry_model:
                                 model = retry_model
                                 print(f"Selected another AI model: {model.__class__.__name__}")
-                                new_event, new_vcal_json, elapsed_time = get_event_from_llm(
-                                    model, prompt, args.verbose
+                                new_event, new_vcal_json, elapsed_time = get_event_from_llm_with_retry(
+                                    model, prompt, args, args.verbose
                                 )
                                 if new_event:
                                     event = new_event
