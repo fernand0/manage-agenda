@@ -19,6 +19,19 @@ from manage_agenda.exceptions import (
     CalendarError,
 )
 
+# Constant for date confirmation prompt to avoid duplication
+DATE_CONFIRMATION_PROMPT_NO_RETRY = (
+    "Are the dates correct? "
+    "(y)es, "
+    "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
+)
+
+DATE_CONFIRMATION_PROMPT_WITH_R_OPTION = (
+    "Are the dates correct? "
+    "(y)es, (r)etry with LLM, "
+    "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
+)
+
 # Define the default timezone from config
 try:
     DEFAULT_NAIVE_TIMEZONE = pytz.timezone(config.DEFAULT_TIMEZONE)
@@ -576,18 +589,17 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
     print(f"\nCurrent start time: {current_start}")
     print(f"Current end time: {current_end}")
 
-    # Extended prompt with options for individual components (removed 'r' option)
-    prompt_msg = (
-        "Are the dates correct? "
-        "(y)es, (n)o, "
-        "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
-    )
-    confirmation = input(prompt_msg).lower()
+    # Extended prompt with options for individual components (includes 'r' option for retry)
+    confirmation = input(DATE_CONFIRMATION_PROMPT_WITH_R_OPTION).lower()
+
+    # Check if user wants to retry with LLM
+    if confirmation == "r":
+        return event, True  # Return event and True to indicate retry is needed
 
     if confirmation == "y":
         # Yes, dates are correct
         return event, False  # No retry needed
-    elif confirmation in ["n", "m", "d", "h", "f", "y", "i"]:  # Process all options
+    elif confirmation in ["m", "d", "h", "f", "i"]:  # Process all options
         if confirmation == "f":
             # Full date/time modification
             new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
@@ -635,32 +647,6 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
             if current_end and component:
                 new_end = _modify_single_component(current_end, component, "end")
                 event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-
-        elif confirmation == "n":  # Modify all components individually
-            # Modify individual components
-            if current_start:
-                new_start = _modify_datetime_components(current_start, "start")
-                event.setdefault("start", {})["dateTime"] = new_start.isoformat()
-            else:
-                new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS): ")
-                if new_start_str:
-                    try:
-                        new_start = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
-                        event.setdefault("start", {})["dateTime"] = new_start.isoformat()
-                    except ValueError:
-                        print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
-
-            if current_end:
-                new_end = _modify_datetime_components(current_end, "end")
-                event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-            else:
-                new_end_str_input = input("Enter new end time (YYYY-MM-DD HH:MM:SS): ")
-                if new_end_str_input:
-                    try:
-                        new_end = datetime.datetime.strptime(new_end_str_input, "%Y-%m-%d %H:%M:%S")
-                        event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-                    except ValueError:
-                        print("Invalid end time format. Please use YYYY-MM-DD HH:MM:SS.")
 
         # Process the event after modifications
         event = adjust_event_times(event)
@@ -717,7 +703,7 @@ def _interactive_date_confirmation_with_choice(args, event, confirmation, conten
     print(f"Current end time: {current_end}")
 
     # Process the specific confirmation choice
-    if confirmation in ["n", "m", "d", "h", "f", "y", "i"]:  # Process all options
+    if confirmation in ["m", "d", "h", "f", "y", "i"]:  # Process all options
         if confirmation == "f":
             # Full date/time modification
             new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
@@ -765,32 +751,6 @@ def _interactive_date_confirmation_with_choice(args, event, confirmation, conten
             if current_end and component:
                 new_end = _modify_single_component(current_end, component, "end")
                 event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-
-        elif confirmation == "n":  # Modify all components individually
-            # Modify individual components
-            if current_start:
-                new_start = _modify_datetime_components(current_start, "start")
-                event.setdefault("start", {})["dateTime"] = new_start.isoformat()
-            else:
-                new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS): ")
-                if new_start_str:
-                    try:
-                        new_start = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
-                        event.setdefault("start", {})["dateTime"] = new_start.isoformat()
-                    except ValueError:
-                        print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
-
-            if current_end:
-                new_end = _modify_datetime_components(current_end, "end")
-                event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-            else:
-                new_end_str_input = input("Enter new end time (YYYY-MM-DD HH:MM:SS): ")
-                if new_end_str_input:
-                    try:
-                        new_end = datetime.datetime.strptime(new_end_str_input, "%Y-%m-%d %H:%M:%S")
-                        event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-                    except ValueError:
-                        print("Invalid end time format. Please use YYYY-MM-DD HH:MM:SS.")
 
         # Process the event after modifications
         event = adjust_event_times(event)
@@ -1092,8 +1052,6 @@ def _process_event_with_llm_and_calendar(
                         break
 
                     print("Selecting another AI model...")
-                    _ = model
-                    _ = args.source
 
                     new_args = Args(
                         interactive=True,
@@ -1180,28 +1138,21 @@ def _process_event_with_llm_and_calendar(
 
         _display_event_info(event, subject_for_print, elapsed_time)
 
-        # Check if user wants to retry with LLM from the beginning
-        if args.interactive:
-            # Show the same prompt as before but include the 'r' option here
-            prompt_msg = (
-                "Are the dates correct? "
-                "(y)es, (n)o, (r)etry with LLM, "
-                "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
-            )
-            confirmation = input(prompt_msg).lower()
+        # Check if user wants to retry with LLM from the beginning or make date
+        # corrections Always call _interactive_date_confirmation, which handles
+        # both interactive and non-interactive modes
+        event, retry_needed = _interactive_date_confirmation(args, event,
+                                                             model,
+                                                             content_text,
+                                                             reference_date_time,
+                                                             post_identifier,
+                                                             subject_for_print)
 
-            if confirmation == "r" and model and content_text and reference_date_time:
-                # User wants to retry with LLM from the beginning
-                # Continue the outer loop to restart the process
-                continue  # This will continue the outer loop
-            elif confirmation in ["n", "m", "d", "h", "f", "y", "i"]:
-                # Process the event normally based on the user's choice
-                # Call the function with the specific choice
-                event, _ = _interactive_date_confirmation_with_choice(args, event, confirmation, content_text, reference_date_time, post_identifier, subject_for_print)
-            # If 'y', dates are correct, continue with the normal flow
-        else:
-            # Non-interactive: just run the normal date confirmation
-            event, _ = _interactive_date_confirmation(args, event, model, content_text, reference_date_time, post_identifier, subject_for_print)
+        if retry_needed and model and content_text and reference_date_time:
+            # User wants to retry with LLM from the beginning
+            # Continue the outer loop to restart the process
+            continue  # This will continue the outer loop
+        # Otherwise, continue with the normal flow
 
         # If we reach here, break out of the outer loop to continue with calendar creation
         break
