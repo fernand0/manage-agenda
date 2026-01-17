@@ -387,7 +387,7 @@ def get_event_from_llm(model, prompt, verbose=False):
         return event, vcal_json, elapsed_time
 
 
-def get_event_from_llm_with_retry(model, prompt, args, verbose=False):
+def get_event_from_llm_with_retry(model, prompt, args):
     """Wrapper for get_event_from_llm with consistent retry and error handling logic."""
     event = None
     vcal_json = None
@@ -395,7 +395,9 @@ def get_event_from_llm_with_retry(model, prompt, args, verbose=False):
     memory_error_occurred = False
 
     while not event and not memory_error_occurred:
-        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, verbose)
+        event, vcal_json, elapsed_time = get_event_from_llm(model, 
+                                                            prompt, 
+                                                            args.verbose)
 
         # Handle memory error specifically
         if vcal_json == "MemoryError":
@@ -426,8 +428,10 @@ def get_event_from_llm_with_retry(model, prompt, args, verbose=False):
                 else:
                     print(f"Switched to lighter AI model: {model.__class__.__name__}")
 
-                # Retry with the new model
-                event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, verbose)
+                # Instead of calling get_event_from_llm directly, let the loop continue to make the call
+                # Reset event to None to continue the loop
+                event = None
+                vcal_json = None
             else:
                 if args.interactive:
                     print("No alternative model selected. Skipping event processing.")
@@ -574,12 +578,15 @@ def list_emails_folder(args, rules=None):
             print(f"{i}) {post_title}")
 
 
-def _create_llm_prompt(event, content_text, reference_date_time):
+def _create_llm_prompt(content_text, reference_date_time):
     """Constructs the LLM prompt for event extraction."""
     import os
     from pathlib import Path
 
     content_text = content_text.replace("\r", "")
+
+    # Create the event template for the LLM to fill in
+    event = create_event_dict()
 
     # Get the path to the prompt template
     prompt_dir = Path(__file__).parent / "prompts"
@@ -931,6 +938,173 @@ def _process_and_display_event(event, content_text, subject_for_print, elapsed_t
     return event
 
 
+def _extract_event_with_llm_retry(args, model, content_text, reference_date_time, post_identifier, subject_for_print):
+    """
+    Extract event information using LLM with retry logic.
+
+    Args:
+        args: Arguments object
+        model: LLM model to use
+        content_text: Content text to extract event from
+        reference_date_time: Reference date/time for relative dates
+        post_identifier: Identifier for the post
+        subject_for_print: Subject/title to display
+
+    Returns:
+        tuple: (event, vcal_json, elapsed_time, success_flag, need_restart, need_another_ai) where success_flag indicates if extraction was successful and need_restart indicates if the whole process should restart
+    """
+    # Create initial event dict for helper
+    prompt = _create_llm_prompt(content_text, reference_date_time)
+    if args.verbose:
+        print(f"Prompt:\n{prompt}")
+        print("\nEnd Prompt:")
+
+    # Get AI reply with retry logic
+    event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args)
+
+    # Check for memory error
+    memory_error = (event is None and vcal_json == "MemoryError")
+
+    if memory_error:
+        return event, vcal_json, elapsed_time, False, False, False  # Not successful, don't restart, don't need another AI
+
+    # Process event data
+    event = process_event_data(event, content_text)
+    event = adjust_event_times(event)
+
+    # Check if event processing was successful
+    processing_failed = not event
+
+    # Save vCal data
+    write_file(f"{post_identifier}.vcal", vcal_json)  # Save vCal data
+
+    # If basic processing failed, return with failure
+    if processing_failed:
+        return event, vcal_json, elapsed_time, False, False, False
+
+    # Now validate the event and handle interactive completion if needed
+    validated_event, validated_vcal_json, need_restart, need_another_ai = _validate_and_complete_event_interactively(
+        args, event, vcal_json, elapsed_time, post_identifier, subject_for_print,
+        model, content_text, reference_date_time
+    )
+
+    # If validation failed completely
+    if validated_event is None:
+        return validated_event, validated_vcal_json, elapsed_time, False, need_restart, need_another_ai
+
+    # Success - return validated event
+    return validated_event, validated_vcal_json, elapsed_time, True, need_restart, need_another_ai
+
+
+def _validate_and_complete_event_interactively(args, event, vcal_json, elapsed_time, post_identifier, subject_for_print, model, content_text, reference_date_time):
+    """
+    Validate the event and handle interactive completion if needed.
+
+    Args:
+        args: Arguments object
+        event: Event dictionary to validate
+        vcal_json: vCal JSON data
+        elapsed_time: Time taken for AI processing
+        post_identifier: Identifier for the post
+        subject_for_print: Subject/title to display
+        model: Current LLM model
+        content_text: Content text
+        reference_date_time: Reference date/time
+
+    Returns:
+        tuple: (event, vcal_json, need_restart, need_another_ai) where need_restart indicates if the whole process should restart
+               and need_another_ai indicates if another AI call is needed
+    """
+    # --- LLM Response Validation/Retry Loop ---
+    retries = 0
+    max_retries = 3  # Limit AI retries
+    data_complete = False
+    should_skip = False
+    need_restart = False
+    need_another_ai = False
+
+    # Process until completion or termination condition
+    while not data_complete and retries <= max_retries and not should_skip and not need_restart and not need_another_ai:
+        summary = event.get("summary")
+        start_datetime = event.get("start", {}).get("dateTime")
+
+        if not summary:
+            print("- Summary")
+            summary = subject_for_print
+            if summary:
+                event["summary"] = summary
+
+        if summary and start_datetime:
+            data_complete = True
+        else:
+            if args.interactive:
+                print("Missing event information:")
+                if not summary:
+                    print("- Summary")
+                if not start_datetime:
+                    print("- Start Date/Time")
+
+                choice = input(
+                    "Options: (m)anual input, (a)nother AI, (s)kip item: "
+                ).lower()  # Generalized message
+
+                if choice == "m":
+                    if not summary:
+                        new_summary = input("Enter Summary: ")
+                        if new_summary:
+                            event["summary"] = new_summary
+                    if not start_datetime:
+                        new_start_datetime_str = input("Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): ")
+                        if new_start_datetime_str:
+                            try:
+                                new_start_datetime = datetime.datetime.strptime(
+                                    new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
+                                )
+                                event.setdefault("start", {})["dateTime"] = (
+                                    new_start_datetime.isoformat()
+                                )
+                                # Removed event['start'].setdefault('timeZone', 'Europe/Madrid') as adjust_event_times handles it
+                            except ValueError:
+                                print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
+                                # Just continue with the loop, but don't mark as complete
+                                # We'll continue to the next iteration by not setting data_complete = True
+                    data_complete = True
+                elif choice == "a":
+                    retries += 1
+                    if retries > max_retries:
+                        print("Max AI retries reached. Skipping item.")  # Generalized message
+                        should_skip = True
+                    else:
+                        need_another_ai = True  # Signal that another AI call is needed
+                        # Instead of break, we'll set a flag to indicate we should exit the loop
+                        # The loop will naturally terminate on the next iteration due to the condition
+                        # But we need to make sure the loop condition will be false next time
+                        # We'll set data_complete to True to exit the loop
+                        data_complete = True  # This will cause the loop to exit on next evaluation
+                elif choice == "s":
+                    should_skip = True
+                elif choice == "r":  # User wants to restart from the beginning
+                    need_restart = True
+                else:
+                    print("Invalid choice. Please try again.")
+                    retries += 1
+                    # Just continue with the loop
+            else:  # Non-interactive mode
+                if not summary or not start_datetime:
+                    logging.warning(
+                        f"Missing summary or start_datetime for {post_identifier}. Skipping."
+                    )
+                    should_skip = True
+                else:
+                    data_complete = True
+
+    # Determine return values based on flags
+    if should_skip or not data_complete:
+        return None, None, need_restart, need_another_ai  # Return flags
+    else:
+        return event, vcal_json, need_restart, need_another_ai  # Return validated event and flags
+
+
 def _display_event_info(event, subject_for_print, elapsed_time=None):
     """
     Display event information consistently across the application.
@@ -982,207 +1156,87 @@ def _process_event_with_llm_and_calendar(
     """
     Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
     """
-    # Outer loop to handle retries from the beginning when user selects 'r'
-    while True:
-        # Create initial event dict for helper
+    # Initialize result variables
+    event = None
+    calendar_result = None
+    success = False
+    should_process = True
 
-        event = create_event_dict()
-        prompt = _create_llm_prompt(event, content_text, reference_date_time)
-        if args.verbose:
-            print(f"Prompt:\n{prompt}")
-            print("\nEnd Prompt:")
-
-        # Get AI reply with retry logic
-        event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args, args.verbose)
-
-        if event is None and vcal_json == "MemoryError":
-            return None, None  # Indicate failure due to memory error
-        event = process_event_data(event, content_text)
-        event = adjust_event_times(event)
-
-        if not event:
-            return None, None  # Indicate failure
-
-        write_file(f"{post_identifier}.vcal", vcal_json)  # Save vCal data
-
-        api_dst_type = "gcalendar"
-        api_dst = select_api_source(args, api_dst_type)
-
-        # --- LLM Response Validation/Retry Loop ---
-        retries = 0
-        max_retries = 3  # Limit AI retries
-        data_complete = False
-
-        while not data_complete and retries <= max_retries:
-            summary = event.get("summary")
-            start_datetime = event.get("start", {}).get("dateTime")
-
-            if not summary:
-                print("- Summary")
-                summary = subject_for_print
-                if summary:
-                    event["summary"] = summary
-
-            if summary and start_datetime:
-                data_complete = True
-                break
-
-            if args.interactive:
-                print("Missing event information:")
-                if not summary:
-                    print("- Summary")
-                if not start_datetime:
-                    print("- Start Date/Time")
-
-                choice = input(
-                    "Options: (m)anual input, (a)nother AI, (s)kip item: "
-                ).lower()  # Generalized message
-
-                if choice == "m":
-                    if not summary:
-                        new_summary = input("Enter Summary: ")
-                        if new_summary:
-                            event["summary"] = new_summary
-                    if not start_datetime:
-                        new_start_datetime_str = input("Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): ")
-                        if new_start_datetime_str:
-                            try:
-                                new_start_datetime = datetime.datetime.strptime(
-                                    new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
-                                )
-                                event.setdefault("start", {})["dateTime"] = (
-                                    new_start_datetime.isoformat()
-                                )
-                                # Removed event['start'].setdefault('timeZone', 'Europe/Madrid') as adjust_event_times handles it
-                            except ValueError:
-                                print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
-                                continue
-                    data_complete = True
-                elif choice == "a":
-                    retries += 1
-                    if retries > max_retries:
-                        print("Max AI retries reached. Skipping item.")  # Generalized message
-                        break
-
-                    print("Selecting another AI model...")
-
-                    new_args = Args(
-                        interactive=True,
-                        delete=args.delete,
-                        source=None,
-                        verbose=args.verbose,
-                        destination=args.destination,
-                        text=args.text,
-                    )
-                    new_model = select_llm(new_args)
-
-                    if new_model:
-                        model = new_model
-                        print(f"Trying with new AI model: {model.__class__.__name__}")
-                        new_event, new_vcal_json, elapsed_time = get_event_from_llm_with_retry(
-                            model, prompt, args, args.verbose
-                        )
-                        if new_event:
-                            event = new_event
-                            vcal_json = new_vcal_json
-                        elif new_vcal_json == "MemoryError":
-                            print("New AI model also failed due to memory constraints.")
-                            # Ask user to select yet another model
-                            retry_args = Args(
-                                interactive=True,
-                                delete=args.delete,
-                                source=None,
-                                verbose=args.verbose,
-                                destination=args.destination,
-                                text=args.text,
-                            )
-                            retry_model = select_llm(retry_args)
-
-                            if retry_model:
-                                model = retry_model
-                                print(f"Selected another AI model: {model.__class__.__name__}")
-                                new_event, new_vcal_json, elapsed_time = get_event_from_llm_with_retry(
-                                    model, prompt, args, args.verbose
-                                )
-                                if new_event:
-                                    event = new_event
-                                    vcal_json = new_vcal_json
-                                else:
-                                    print("Another AI model failed to generate a response.")
-                            else:
-                                print("No alternative model selected.")
-                        else:
-                            print("New AI model failed to generate a response.")
-                    else:
-                        print(
-                            "No new AI model selected or available. Skipping item."
-                        )  # Generalized message
-                        break
-                elif choice == "s":
-                    break
-                else:
-                    print("Invalid choice. Please try again.")
-                    retries += 1
-                    continue
-            else:  # Non-interactive mode
-                if not summary or not start_datetime:
-                    logging.warning(
-                        f"Missing summary or start_datetime for {post_identifier}. Skipping."
-                    )
-                    break
-                else:
-                    data_complete = True
-
-        if not data_complete:
-            return None, None  # Indicate failure
-
-        # --- Event Adjustment ---
-        event = adjust_event_times(event)
-        write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
-        write_file(
-            f"{post_identifier}_times.json", json.dumps(event)
-        )  # Save event JSON (redundant, but existing)
-
-        if args.interactive:
-            start_time = safe_get(event, ["start", "dateTime"])
-            end_time = safe_get(event, ["end", "dateTime"])
-            print(f"Start time: {start_time}")
-            print(f"End time: {end_time}")
-
-        _display_event_info(event, subject_for_print, elapsed_time)
-
-        # Check if user wants to retry with LLM from the beginning or make date
-        # corrections Always call _interactive_date_confirmation, which handles
-        # both interactive and non-interactive modes
-        event, retry_needed = _interactive_date_confirmation(args, event,
-                                                             model,
-                                                             content_text,
-                                                             reference_date_time,
-                                                             post_identifier,
-                                                             subject_for_print)
-
-        if retry_needed and model and content_text and reference_date_time:
-            # User wants to retry with LLM from the beginning
-            # Continue the outer loop to restart the process
-            continue  # This will continue the outer loop
-        # Otherwise, continue with the normal flow
-
-        # If we reach here, break out of the outer loop to continue with calendar creation
-        break
-
-    selected_calendar = select_calendar(api_dst)
-    if not selected_calendar:
-        print("No calendar selected, skipping event creation.")
-        return None, None
-
-    try:
-        calendar_result = api_dst.publishPost(
-            post={"event": event, "idCal": selected_calendar}, api=api_dst
+    # Process until success or definitive failure
+    while should_process and not success:
+        # Extract event with LLM and validate it
+        event, vcal_json, elapsed_time, extraction_success, need_restart, need_another_ai = _extract_event_with_llm_retry(
+            args, model, content_text, reference_date_time, post_identifier, subject_for_print
         )
-        print("Calendar event created")
+
+        # Handle restart case first
+        if need_restart:
+            # Loop will continue to restart the process
+            pass  # Intentionally do nothing, just let the loop continue
+        elif need_another_ai:
+            # Need to get another AI response and try again
+            # This means we need to repeat the process with a new AI call
+            # We'll just continue the loop to repeat the process
+            pass  # Intentionally do nothing, just let the loop continue
+        else:
+            # Check if extraction was unsuccessful
+            if not extraction_success:
+                should_process = False  # Indicate failure due to memory error or other issues
+            else:
+                api_dst_type = "gcalendar"
+                api_dst = select_api_source(args, api_dst_type)
+
+                if event is None:
+                    should_process = False  # Indicate failure
+                else:
+                    # --- Event Adjustment ---
+                    event = adjust_event_times(event)
+                    write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
+                    write_file(
+                        f"{post_identifier}_times.json", json.dumps(event)
+                    )  # Save event JSON (redundant, but existing)
+
+                    if args.interactive:
+                        start_time = safe_get(event, ["start", "dateTime"])
+                        end_time = safe_get(event, ["end", "dateTime"])
+                        print(f"Start time: {start_time}")
+                        print(f"End time: {end_time}")
+
+                    _display_event_info(event, subject_for_print, elapsed_time)
+
+                    # Check if user wants to retry with LLM from the beginning or make date
+                    # corrections Always call _interactive_date_confirmation, which handles
+                    # both interactive and non-interactive modes
+                    event, retry_needed = _interactive_date_confirmation(args, event,
+                                                                         model,
+                                                                         content_text,
+                                                                         reference_date_time,
+                                                                         post_identifier,
+                                                                         subject_for_print)
+
+                    if not (retry_needed and model and content_text and reference_date_time):
+                        # Successful completion of main processing, proceed to calendar creation
+                        should_process = False
+
+                        # If we have an event, proceed with calendar creation
+                        if event is not None:
+                            selected_calendar = select_calendar(api_dst)
+                            if selected_calendar:
+                                try:
+                                    calendar_result = api_dst.publishPost(
+                                        post={"event": event, "idCal": selected_calendar}, api=api_dst
+                                    )
+                                    print("Calendar event created")
+                                    success = True  # Indicate successful completion
+                                except googleapiclient.errors.HttpError as e:
+                                    logging.error(f"Error creating calendar event: {e}")
+                            else:
+                                print("No calendar selected, skipping event creation.")
+
+    # Return appropriate values based on success
+    if success:
         return event, calendar_result  # Return event and result for further processing
-    except googleapiclient.errors.HttpError as e:
-        logging.error(f"Error creating calendar event: {e}")
+    else:
         return None, None
 
 

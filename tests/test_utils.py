@@ -817,11 +817,10 @@ more text"""
         """Test _create_llm_prompt generates correct prompt."""
         from manage_agenda.utils import _create_llm_prompt
 
-        event = create_event_dict()
         content = "Meeting about project X on Monday at 3pm"
         ref_date = datetime.datetime(2024, 1, 15, 10, 0, 0)
 
-        prompt = _create_llm_prompt(event, content, ref_date)
+        prompt = _create_llm_prompt(content, ref_date)
 
         self.assertIn("Meeting about project X", prompt)
         self.assertIn("JSON", prompt)
