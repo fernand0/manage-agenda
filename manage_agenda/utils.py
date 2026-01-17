@@ -354,7 +354,8 @@ def get_event_from_llm(model, prompt, verbose=False):
     if not llm_response:
         print("Failed to get response from LLM.")
     elif 'Memory' in llm_response:
-        print("LLM failed due to insufficient memory. Model requires more system memory than available.")
+        print("LLM failed due to insufficient memory. Model requires more"
+              "system memory than available.")
         # Set a flag to indicate memory error occurred
         memory_error_occurred = True
     else:
@@ -371,8 +372,6 @@ def get_event_from_llm(model, prompt, verbose=False):
             if verbose:
                 print(f"Json:\n{vcal_json}")
             event = vcal_json
-
-            # event = json.loads(vcal_json)
         except json.JSONDecodeError as e:
             logging.error(f"Invalid JSON in vCal data: {vcal_json}")
             logging.error(f"Error: {e}")
@@ -382,9 +381,9 @@ def get_event_from_llm(model, prompt, verbose=False):
 
     # Return appropriate values based on whether memory error occurred
     if memory_error_occurred:
-        return None, "MemoryError", elapsed_time
-    else:
-        return event, vcal_json, elapsed_time
+        event = None
+        vcal_json = "MemoryError"
+    return event, vcal_json, elapsed_time
 
 
 def get_event_from_llm_with_retry(model, prompt, args):
@@ -395,8 +394,8 @@ def get_event_from_llm_with_retry(model, prompt, args):
     memory_error_occurred = False
 
     while not event and not memory_error_occurred:
-        event, vcal_json, elapsed_time = get_event_from_llm(model, 
-                                                            prompt, 
+        event, vcal_json, elapsed_time = get_event_from_llm(model,
+                                                            prompt,
                                                             args.verbose)
 
         # Handle memory error specifically
@@ -424,12 +423,15 @@ def get_event_from_llm_with_retry(model, prompt, args):
             if new_model:
                 model = new_model
                 if args.interactive:
-                    print(f"Selected new AI model: {model.__class__.__name__}")
+                    print(f"Selected new AI model: "
+                          f"{model.__class__.__name__}")
                 else:
-                    print(f"Switched to lighter AI model: {model.__class__.__name__}")
+                    print(f"Switched to lighter AI model: "
+                          f"{model.__class__.__name__}")
 
-                # Instead of calling get_event_from_llm directly, let the loop continue to make the call
-                # Reset event to None to continue the loop
+                # Instead of calling get_event_from_llm directly, let the loop
+                # continue to make the call Reset event to None to continue the
+                # loop
                 event = None
                 vcal_json = None
             else:
@@ -438,9 +440,9 @@ def get_event_from_llm_with_retry(model, prompt, args):
                 else:
                     print("Could not switch to a lighter model. Skipping event processing.")
                 memory_error_occurred = True
-        elif not event and vcal_json != "MemoryError":
-            # Other types of failures - continue with existing logic
-            continue
+        # For other types of failures (no event and not memory error), the loop continues naturally
+        # due to the while condition "while not event and not memory_error_occurred"
+        # No explicit action needed here
 
     return event, vcal_json, elapsed_time
 
@@ -938,7 +940,9 @@ def _process_and_display_event(event, content_text, subject_for_print, elapsed_t
     return event
 
 
-def _extract_event_with_llm_retry(args, model, content_text, reference_date_time, post_identifier, subject_for_print):
+def _extract_event_with_llm_retry(args, model, content_text,
+                                  reference_date_time, post_identifier,
+                                  subject_for_print): 
     """
     Extract event information using LLM with retry logic.
 
@@ -951,8 +955,10 @@ def _extract_event_with_llm_retry(args, model, content_text, reference_date_time
         subject_for_print: Subject/title to display
 
     Returns:
-        tuple: (event, vcal_json, elapsed_time, success_flag, need_restart, need_another_ai) where success_flag indicates if extraction was successful and need_restart indicates if the whole process should restart
-    """
+        tuple: (event, vcal_json, elapsed_time, success_flag, need_restart,
+        need_another_ai) where success_flag indicates if extraction was
+        successful and need_restart indicates if the whole process should
+        restart """
     # Create initial event dict for helper
     prompt = _create_llm_prompt(content_text, reference_date_time)
     if args.verbose:
@@ -966,7 +972,8 @@ def _extract_event_with_llm_retry(args, model, content_text, reference_date_time
     memory_error = (event is None and vcal_json == "MemoryError")
 
     if memory_error:
-        return event, vcal_json, elapsed_time, False, False, False  # Not successful, don't restart, don't need another AI
+        return event, vcal_json, elapsed_time, False, False, False  
+        # Not successful, don't restart, don't need another AI
 
     # Process event data
     event = process_event_data(event, content_text)
