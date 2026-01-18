@@ -1605,8 +1605,7 @@ def copy_action(api_cal, event, my_calendar, my_calendar_dst):
 
 def copy_events_cli(args):
     """Copies events from a source calendar to a destination calendar."""
-    api_cal, my_calendar = get_source_calendar(args, "gcalendar")
-    process_calendar_events(args, api_cal, my_calendar, "copy", copy_action, destination_needed=True)
+    process_calendar_events(args, "copy", copy_action, destination_needed=True)
 
 
 def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
@@ -1666,17 +1665,21 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
     return selected_events
 
 
-def get_source_calendar(args, api_src_type="gcalendar"):
+def process_calendar_events(args, action_verb, action_func, destination_needed=False, api_src_type="gcalendar"):
     """
-    Generic function to get the source calendar based on args.
+    Generic function to handle complete calendar event processing from initialization to action.
 
     Args:
         args: Arguments object
+        action_verb: String describing the action (e.g., 'copy', 'delete', 'move')
+        action_func: Function to perform the specific action on selected events
+        destination_needed: Boolean indicating if destination calendar is needed
         api_src_type: Type of API source (default: "gcalendar")
 
     Returns:
-        Tuple of (api_cal, my_calendar)
+        None
     """
+    # Initialize API and calendar
     api_cal = select_api_source(args, api_src_type)
 
     if args.source:
@@ -1684,24 +1687,7 @@ def get_source_calendar(args, api_src_type="gcalendar"):
     else:
         my_calendar = select_calendar(api_cal)
 
-    return api_cal, my_calendar
-
-
-def process_calendar_events(args, api_cal, my_calendar, action_verb, action_func, destination_needed=False):
-    """
-    Generic function to handle common calendar event processing patterns.
-
-    Args:
-        args: Arguments object
-        api_cal: Calendar API object
-        my_calendar: Source calendar ID
-        action_verb: String describing the action (e.g., 'copy', 'delete', 'move')
-        action_func: Function to perform the specific action on selected events
-        destination_needed: Boolean indicating if destination calendar is needed
-
-    Returns:
-        None
-    """
+    # Fetch events from calendar
     today = datetime.datetime.now()
     the_date = today.isoformat(timespec="seconds") + "Z"
 
@@ -1756,8 +1742,7 @@ def delete_action(api_cal, event, my_calendar, my_calendar_dst):
 
 def delete_events_cli(args):
     """Deletes events from a calendar."""
-    api_cal, my_calendar = get_source_calendar(args, "gcalendar")
-    process_calendar_events(args, api_cal, my_calendar, "delete", delete_action)
+    process_calendar_events(args, "delete", delete_action)
 
 
 def move_action(api_cal, event, my_calendar, my_calendar_dst):
@@ -1779,8 +1764,7 @@ def move_action(api_cal, event, my_calendar, my_calendar_dst):
 
 def move_events_cli(args):
     """Moves events from a source calendar to a destination calendar."""
-    api_cal, my_calendar = get_source_calendar(args, "gcalendar")
-    process_calendar_events(args, api_cal, my_calendar, "move", move_action, destination_needed=True)
+    process_calendar_events(args, "move", move_action, destination_needed=True)
 
 
 def update_event_status_cli(args):
