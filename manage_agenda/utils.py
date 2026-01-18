@@ -1687,25 +1687,24 @@ def process_calendar_events(args, action_verb, action_func, destination_needed=F
     else:
         my_calendar = select_calendar(api_cal)
 
-    # Fetch events from calendar
-    today = datetime.datetime.now()
-    the_date = today.isoformat(timespec="seconds") + "Z"
+    # Set the active calendar using socialModules method
+    api_cal.setActive(my_calendar)
 
-    res = (
-        api_cal.getClient()
-        .events()
-        .list(
-            calendarId=my_calendar,
-            timeMin=the_date,
-            singleEvents=True,
-            eventTypes="default",
-            orderBy="startTime",
-        )
-        .execute()
-    )
+    # Fetch events from calendar using socialModules methods
+    api_cal.setPostsType("posts")
+    api_cal.setPosts()
+    all_posts = api_cal.getPosts()
+
+    # Filter out past events - get only future events
+    today = datetime.datetime.now()
+    future_events = []
+    for post in all_posts:
+        post_date = api_cal.getPostDate(post)
+        if post_date and post_date >= today:
+            future_events.append(post)
 
     print("Upcoming events (up to 20):")
-    for event in res["items"][:20]:
+    for event in future_events[:20]:
         print(f"- {api_cal.getPostTitle(event)}")
 
     text_filter = args.text
@@ -1713,7 +1712,7 @@ def process_calendar_events(args, action_verb, action_func, destination_needed=F
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
     # Use the helper function to filter events by title
-    filtered_events = filter_events_by_title(api_cal, res["items"], text_filter)
+    filtered_events = filter_events_by_title(api_cal, future_events, text_filter)
 
     if not filtered_events:
         print("No events found matching the criteria.")
