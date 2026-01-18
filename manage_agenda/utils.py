@@ -1588,6 +1588,21 @@ def select_llm(args):
         return None
 
 
+def copy_action(api_cal, event, my_calendar, my_calendar_dst):
+    """Action function to copy an event."""
+    my_event = {
+        "summary": event["summary"],
+        "description": event["description"],
+        "start": event["start"],
+        "end": event["end"],
+    }
+    if "location" in event:
+        my_event["location"] = event["location"]
+
+    api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
+    print(f"Copied event: {my_event['summary']}")
+
+
 def copy_events_cli(args):
     """Copies events from a source calendar to a destination calendar."""
     api_cal = select_api_source(args, "gcalendar")
@@ -1597,56 +1612,7 @@ def copy_events_cli(args):
     else:
         my_calendar = select_calendar(api_cal)
 
-    today = datetime.datetime.now()
-    the_date = today.isoformat(timespec="seconds") + "Z"
-
-    res = (
-        api_cal.getClient()
-        .events()
-        .list(
-            calendarId=my_calendar,
-            timeMin=the_date,
-            singleEvents=True,
-            eventTypes="default",
-            orderBy="startTime",
-        )
-        .execute()
-    )
-
-    print("Upcoming events (up to 20):")
-    for event in res["items"][:20]:
-        print(f"- {api_cal.getPostTitle(event)}")
-
-    text_filter = args.text
-    if args.interactive and not text_filter:
-        text_filter = input("Text to filter by (leave empty for no filter): ")
-
-    # Use the helper function to filter events by title
-    events_to_copy = filter_events_by_title(api_cal, res["items"], text_filter)
-
-    if not events_to_copy:
-        print("No events found matching the criteria.")
-        return
-
-    selected_events = select_events_by_user_input(api_cal, events_to_copy, "copy")
-
-    if args.destination:
-        my_calendar_dst = args.destination
-    else:
-        my_calendar_dst = select_calendar(api_cal)
-
-    for event in selected_events:
-        my_event = {
-            "summary": event["summary"],
-            "description": event["description"],
-            "start": event["start"],
-            "end": event["end"],
-        }
-        if "location" in event:
-            my_event["location"] = event["location"]
-
-        api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
-        print(f"Copied event: {my_event['summary']}")
+    process_calendar_events(args, api_cal, my_calendar, "copy", copy_action, destination_needed=True)
 
 
 def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
@@ -1706,15 +1672,21 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
     return selected_events
 
 
-def delete_events_cli(args):
-    """Deletes events from a calendar."""
-    api_cal = select_api_source(args, "gcalendar")
+def process_calendar_events(args, api_cal, my_calendar, action_verb, action_func, destination_needed=False):
+    """
+    Generic function to handle common calendar event processing patterns.
 
-    if args.source:
-        my_calendar = args.source
-    else:
-        my_calendar = select_calendar(api_cal)
+    Args:
+        args: Arguments object
+        api_cal: Calendar API object
+        my_calendar: Source calendar ID
+        action_verb: String describing the action (e.g., 'copy', 'delete', 'move')
+        action_func: Function to perform the specific action on selected events
+        destination_needed: Boolean indicating if destination calendar is needed
 
+    Returns:
+        None
+    """
     today = datetime.datetime.now()
     the_date = today.isoformat(timespec="seconds") + "Z"
 
@@ -1740,17 +1712,60 @@ def delete_events_cli(args):
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
     # Use the helper function to filter events by title
-    events_to_delete = filter_events_by_title(api_cal, res["items"], text_filter)
+    filtered_events = filter_events_by_title(api_cal, res["items"], text_filter)
 
-    if not events_to_delete:
+    if not filtered_events:
         print("No events found matching the criteria.")
         return
 
-    selected_events = select_events_by_user_input(api_cal, events_to_delete, "delete")
+    selected_events = select_events_by_user_input(api_cal, filtered_events, action_verb)
 
+    # Handle destination calendar if needed
+    my_calendar_dst = None
+    if destination_needed:
+        if args.destination:
+            my_calendar_dst = args.destination
+        else:
+            my_calendar_dst = select_calendar(api_cal)
+
+    # Perform the specific action on selected events
     for event in selected_events:
-        api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
-        print(f"Deleted event: {event['summary']}")
+        action_func(api_cal, event, my_calendar, my_calendar_dst)
+
+
+def delete_action(api_cal, event, my_calendar, my_calendar_dst):
+    """Action function to delete an event."""
+    api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
+    print(f"Deleted event: {event['summary']}")
+
+
+def delete_events_cli(args):
+    """Deletes events from a calendar."""
+    api_cal = select_api_source(args, "gcalendar")
+
+    if args.source:
+        my_calendar = args.source
+    else:
+        my_calendar = select_calendar(api_cal)
+
+    process_calendar_events(args, api_cal, my_calendar, "delete", delete_action)
+
+
+def move_action(api_cal, event, my_calendar, my_calendar_dst):
+    """Action function to move an event (copy then delete)."""
+    my_event = {
+        "summary": event["summary"],
+        "description": event["description"],
+        "start": event["start"],
+        "end": event["end"],
+    }
+    if "location" in event:
+        my_event["location"] = event["location"]
+
+    api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
+    print(f"Copied event: {my_event['summary']}")
+    api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
+    print(f"Deleted event: {event['summary']}")
 
 
 def move_events_cli(args):
@@ -1762,58 +1777,7 @@ def move_events_cli(args):
     else:
         my_calendar = select_calendar(api_cal)
 
-    today = datetime.datetime.now()
-    the_date = today.isoformat(timespec="seconds") + "Z"
-
-    res = (
-        api_cal.getClient()
-        .events()
-        .list(
-            calendarId=my_calendar,
-            timeMin=the_date,
-            singleEvents=True,
-            eventTypes="default",
-            orderBy="startTime",
-        )
-        .execute()
-    )
-
-    print("Upcoming events (up to 20):")
-    for event in res["items"][:20]:
-        print(f"- {api_cal.getPostTitle(event)}")
-
-    text_filter = args.text
-    if args.interactive and not text_filter:
-        text_filter = input("Text to filter by (leave empty for no filter): ")
-
-    # Use the helper function to filter events by title
-    events_to_move = filter_events_by_title(api_cal, res["items"], text_filter)
-
-    if not events_to_move:
-        print("No events found matching the criteria.")
-        return
-
-    selected_events = select_events_by_user_input(api_cal, events_to_move, "move")
-
-    if args.destination:
-        my_calendar_dst = args.destination
-    else:
-        my_calendar_dst = select_calendar(api_cal)
-
-    for event in selected_events:
-        my_event = {
-            "summary": event["summary"],
-            "description": event["description"],
-            "start": event["start"],
-            "end": event["end"],
-        }
-        if "location" in event:
-            my_event["location"] = event["location"]
-
-        api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
-        print(f"Copied event: {my_event['summary']}")
-        api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
-        print(f"Deleted event: {event['summary']}")
+    process_calendar_events(args, api_cal, my_calendar, "move", move_action, destination_needed=True)
 
 
 def update_event_status_cli(args):
@@ -1945,17 +1909,6 @@ def clean_events_cli(args):
 
     for event in selected_events:
         if action_sel == '1':  # Copy
-            my_event = {
-                "summary": event["summary"],
-                "description": event["description"],
-                "start": event["start"],
-                "end": event["end"],
-            }
-            if "location" in event:
-                my_event["location"] = event["location"]
-
-            api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
-            print(f"Copied event: {my_event['summary']}")
+            copy_action(api_cal, event, my_calendar, my_calendar_dst)
         else:  # Delete
-            api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
-            print(f"Deleted event: {event['summary']}")
+            delete_action(api_cal, event, my_calendar, my_calendar_dst)
