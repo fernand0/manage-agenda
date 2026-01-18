@@ -1605,13 +1605,7 @@ def copy_action(api_cal, event, my_calendar, my_calendar_dst):
 
 def copy_events_cli(args):
     """Copies events from a source calendar to a destination calendar."""
-    api_cal = select_api_source(args, "gcalendar")
-
-    if args.source:
-        my_calendar = args.source
-    else:
-        my_calendar = select_calendar(api_cal)
-
+    api_cal, my_calendar = get_source_calendar(args, "gcalendar")
     process_calendar_events(args, api_cal, my_calendar, "copy", copy_action, destination_needed=True)
 
 
@@ -1670,6 +1664,27 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
                         selected_events.append(events_list[i])
 
     return selected_events
+
+
+def get_source_calendar(args, api_src_type="gcalendar"):
+    """
+    Generic function to get the source calendar based on args.
+
+    Args:
+        args: Arguments object
+        api_src_type: Type of API source (default: "gcalendar")
+
+    Returns:
+        Tuple of (api_cal, my_calendar)
+    """
+    api_cal = select_api_source(args, api_src_type)
+
+    if args.source:
+        my_calendar = args.source
+    else:
+        my_calendar = select_calendar(api_cal)
+
+    return api_cal, my_calendar
 
 
 def process_calendar_events(args, api_cal, my_calendar, action_verb, action_func, destination_needed=False):
@@ -1741,13 +1756,7 @@ def delete_action(api_cal, event, my_calendar, my_calendar_dst):
 
 def delete_events_cli(args):
     """Deletes events from a calendar."""
-    api_cal = select_api_source(args, "gcalendar")
-
-    if args.source:
-        my_calendar = args.source
-    else:
-        my_calendar = select_calendar(api_cal)
-
+    api_cal, my_calendar = get_source_calendar(args, "gcalendar")
     process_calendar_events(args, api_cal, my_calendar, "delete", delete_action)
 
 
@@ -1770,13 +1779,7 @@ def move_action(api_cal, event, my_calendar, my_calendar_dst):
 
 def move_events_cli(args):
     """Moves events from a source calendar to a destination calendar."""
-    api_cal = select_api_source(args, "gcalendar")
-
-    if args.source:
-        my_calendar = args.source
-    else:
-        my_calendar = select_calendar(api_cal)
-
+    api_cal, my_calendar = get_source_calendar(args, "gcalendar")
     process_calendar_events(args, api_cal, my_calendar, "move", move_action, destination_needed=True)
 
 
