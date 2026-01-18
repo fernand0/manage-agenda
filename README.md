@@ -16,6 +16,7 @@ A tool for adding entries to your Google Calendar from email messages and web pa
 - **Google Calendar Sync**: Seamlessly add events to your Google Calendar
 - **Flexible Configuration**: Support for multiple email and calendar accounts
 - **Calendar Management**: Clean and update calendar events with new utility commands
+- **Enhanced Event Selection**: Select events by number or by entering text to match event titles
 - **Cache Bypass Option**: Force refresh web content to bypass cache with `--force-refresh` flag
 - **Retry Option**: Retry LLM processing during date confirmation with 'r' option
 - **Meaningful Identifiers**: Use meaningful IDs for filenames when available instead of numeric identifiers
@@ -112,17 +113,42 @@ Add events from web pages. Fetches content from a URL, processes HTML to extract
 ### `clean` - Clean Calendar Entries
 Combined command that allows users to select between copy or delete operations in a single workflow. This command provides an interactive menu to choose between copying events to another calendar or deleting them, with filtering capabilities.
 
+**Event Selection:**
+- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
+- Enter `all` to select all events
+- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
+
 ### `copy` - Copy Events
 Copy events from one calendar to another with filtering capabilities.
+
+**Event Selection:**
+- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
+- Enter `all` to select all events
+- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
 
 ### `delete` - Delete Events
 Delete events from a calendar with text-based filtering.
 
+**Event Selection:**
+- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
+- Enter `all` to select all events
+- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
+
 ### `move` - Move Events
 Move events between calendars (equivalent to copy + delete).
 
+**Event Selection:**
+- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
+- Enter `all` to select all events
+- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
+
 ### `update-status` - Update Event Status
 Change event status from busy to available (free) for selected events. This command allows users to update the transparency of calendar events from "opaque" (busy) to "transparent" (available), making them appear as free time on your calendar.
+
+**Event Selection:**
+- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
+- Enter `all` to select all events
+- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
 
 ### `gcalendar` - List Calendar Events
 Display events from your Google Calendar.
@@ -170,6 +196,7 @@ Each provider requires specific configuration and API keys (for cloud services).
 - **Combined Operations**: The `clean` command provides both copy and delete functionality in a single workflow
 - **Status Updates**: The `update-status` command allows changing event visibility from busy to available
 - **Interactive Filtering**: Both new commands support text-based filtering and selective processing
+- **Enhanced Selection**: All calendar management commands now support selecting events by number or by entering text to match event titles
 
 ### File Management
 - **Meaningful Identifiers**: Uses meaningful IDs for filenames when available instead of numeric identifiers

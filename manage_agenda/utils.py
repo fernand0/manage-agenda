@@ -1628,26 +1628,7 @@ def copy_events_cli(args):
         print("No events found matching the criteria.")
         return
 
-    print("Select events to copy:")
-    for i, event in enumerate(events_to_copy):
-        print(f"{i}) {api_cal.getPostTitle(event)}")
-
-    print(f"{len(events_to_copy)}) All")
-
-    selection = input("Which event(s) to copy? (comma-separated, or 'all') ")
-
-    selected_events = []
-    if selection.lower() == "all" or selection == str(len(events_to_copy)):
-        selected_events = events_to_copy
-    else:
-        try:
-            indices = [int(i.strip()) for i in selection.split(",")]
-            for i in indices:
-                if 0 <= i < len(events_to_copy):
-                    selected_events.append(events_to_copy[i])
-        except ValueError:
-            print("Invalid selection.")
-            return
+    selected_events = select_events_by_user_input(api_cal, events_to_copy, "copy")
 
     if args.destination:
         my_calendar_dst = args.destination
@@ -1666,6 +1647,63 @@ def copy_events_cli(args):
 
         api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
         print(f"Copied event: {my_event['summary']}")
+
+
+def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
+    """
+    Common function to handle user input for selecting events.
+
+    Args:
+        api_cal: Calendar API object
+        events_list: List of events to select from
+        action_verb: String describing the action (e.g., 'copy', 'delete')
+
+    Returns:
+        List of selected events
+    """
+    print(f"Select events to {action_verb}:")
+    for i, event in enumerate(events_list):
+        print(f"{i}) {api_cal.getPostTitle(event)}")
+
+    print(f"{len(events_list)}) All")
+
+    selection = input(f"Which event(s) to {action_verb}? (comma-separated numbers, text to match, or 'all') ")
+
+    selected_events = []
+    if selection.lower() == "all" or selection == str(len(events_list)):
+        selected_events = events_list
+    else:
+        # First, try to parse as numbers (original functionality)
+        try:
+            indices = [int(i.strip()) for i in selection.split(",")]
+            # Check if all indices are valid (within range)
+            all_valid = all(0 <= idx < len(events_list) for idx in indices)
+
+            if all_valid:
+                # All numbers are valid indices, use number-based selection
+                for i in indices:
+                    if 0 <= i < len(events_list):
+                        selected_events.append(events_list[i])
+            else:
+                # At least one number is out of range, treat as text-based selection
+                search_terms = selection.split(',')
+                for term in search_terms:
+                    term = term.strip().lower()
+                    for i, event in enumerate(events_list):
+                        event_title = api_cal.getPostTitle(event).lower()
+                        if term in event_title and events_list[i] not in selected_events:
+                            selected_events.append(events_list[i])
+        except ValueError:
+            # If parsing as integers fails, treat as text-based selection
+            search_terms = selection.split(',')
+            for term in search_terms:
+                term = term.strip().lower()
+                for i, event in enumerate(events_list):
+                    event_title = api_cal.getPostTitle(event).lower()
+                    if term in event_title and events_list[i] not in selected_events:
+                        selected_events.append(events_list[i])
+
+    return selected_events
 
 
 def delete_events_cli(args):
@@ -1708,26 +1746,7 @@ def delete_events_cli(args):
         print("No events found matching the criteria.")
         return
 
-    print("Select events to delete:")
-    for i, event in enumerate(events_to_delete):
-        print(f"{i}) {api_cal.getPostTitle(event)}")
-
-    print(f"{len(events_to_delete)}) All")
-
-    selection = input("Which event(s) to delete? (comma-separated, or 'all') ")
-
-    selected_events = []
-    if selection.lower() == "all" or selection == str(len(events_to_delete)):
-        selected_events = events_to_delete
-    else:
-        try:
-            indices = [int(i.strip()) for i in selection.split(",")]
-            for i in indices:
-                if 0 <= i < len(events_to_delete):
-                    selected_events.append(events_to_delete[i])
-        except ValueError:
-            print("Invalid selection.")
-            return
+    selected_events = select_events_by_user_input(api_cal, events_to_delete, "delete")
 
     for event in selected_events:
         api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
@@ -1774,26 +1793,7 @@ def move_events_cli(args):
         print("No events found matching the criteria.")
         return
 
-    print("Select events to move:")
-    for i, event in enumerate(events_to_move):
-        print(f"{i}) {api_cal.getPostTitle(event)}")
-
-    print(f"{len(events_to_move)}) All")
-
-    selection = input("Which event(s) to move? (comma-separated, or 'all') ")
-
-    selected_events = []
-    if selection.lower() == "all" or selection == str(len(events_to_move)):
-        selected_events = events_to_move
-    else:
-        try:
-            indices = [int(i.strip()) for i in selection.split(",")]
-            for i in indices:
-                if 0 <= i < len(events_to_move):
-                    selected_events.append(events_to_move[i])
-        except ValueError:
-            print("Invalid selection.")
-            return
+    selected_events = select_events_by_user_input(api_cal, events_to_move, "move")
 
     if args.destination:
         my_calendar_dst = args.destination
@@ -1863,27 +1863,7 @@ def update_event_status_cli(args):
         print("No busy events found matching the criteria.")
         return
 
-    print("Select events to update from busy to available:")
-    for i, event in enumerate(events_to_update):
-        title = api_cal.getPostTitle(event) or "No Title"
-        print(f"{i}) {title}")
-
-    print(f"{len(events_to_update)}) All")
-
-    selection = input("Which event(s) to update? (comma-separated, or 'all') ")
-
-    selected_events = []
-    if selection.lower() == "all" or selection == str(len(events_to_update)):
-        selected_events = events_to_update
-    else:
-        try:
-            indices = [int(i.strip()) for i in selection.split(",")]
-            for i in indices:
-                if 0 <= i < len(events_to_update):
-                    selected_events.append(events_to_update[i])
-        except ValueError:
-            print("Invalid selection.")
-            return
+    selected_events = select_events_by_user_input(api_cal, events_to_update, "update")
 
     for event in selected_events:
         # Update the event's transparency to "transparent" (available/free)
@@ -1945,26 +1925,7 @@ def clean_events_cli(args):
         print("No events found matching the criteria.")
         return
 
-    print("Select events to process:")
-    for i, event in enumerate(events_to_process):
-        print(f"{i}) {api_cal.getPostTitle(event)}")
-
-    print(f"{len(events_to_process)}) All")
-
-    selection = input("Which event(s) to process? (comma-separated, or 'all') ")
-
-    selected_events = []
-    if selection.lower() == "all" or selection == str(len(events_to_process)):
-        selected_events = events_to_process
-    else:
-        try:
-            indices = [int(i.strip()) for i in selection.split(",")]
-            for i in indices:
-                if 0 <= i < len(events_to_process):
-                    selected_events.append(events_to_process[i])
-        except ValueError:
-            print("Invalid selection.")
-            return
+    selected_events = select_events_by_user_input(api_cal, events_to_process, "process")
 
     # Ask user whether to copy or delete
     actions = ['Delete', 'Copy']
