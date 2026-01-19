@@ -1412,7 +1412,7 @@ def process_email_cli(args, model, source_name=None, rules=None):
 
     if posts:
         def metadata_extractor(post, i):
-            return api_src.getPostId(post), api_src.getPostTitle(post), api_src.getPostDate(post)
+            return api_src.getPostIdM(post), api_src.getPostTitle(post), api_src.getPostDate(post)
 
         def content_extractor(post, i, post_date_time, post_title):
             full_email_content = api_src.getPostBody(post)
