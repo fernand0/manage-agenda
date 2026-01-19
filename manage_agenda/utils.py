@@ -23,13 +23,13 @@ from manage_agenda.exceptions import (
 DATE_CONFIRMATION_PROMPT_NO_RETRY = (
     "Are the dates correct? "
     "(y)es, "
-    "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
+    "(t) Year, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
 )
 
 DATE_CONFIRMATION_PROMPT_WITH_R_OPTION = (
     "Are the dates correct? "
     "(y)es, (r)etry with LLM, "
-    "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
+    "(t) Year, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
 )
 
 # Define the default timezone from config
@@ -668,7 +668,7 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
     if confirmation == "y":
         # Yes, dates are correct
         return event, False  # No retry needed
-    elif confirmation in ["m", "d", "h", "f", "i"]:  # Process all options
+    elif confirmation in ["m", "d", "h", "f", "t", "i"]:  # Process all options
         if confirmation == "f":
             # Full date/time modification
             new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
@@ -697,10 +697,10 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
             if new_end_str:
                 event.setdefault("end", {})["dateTime"] = new_end_str
 
-        elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
+        elif confirmation in ["m", "d", "h", "t", "i"]:  # Individual component modifications
             # Determine which component to modify
             component_map = {
-                'y': 'year',
+                't': 'year',
                 'm': 'month',
                 'd': 'day',
                 'h': 'hour',
@@ -772,7 +772,7 @@ def _interactive_date_confirmation_with_choice(args, event, confirmation, conten
     print(f"Current end time: {current_end}")
 
     # Process the specific confirmation choice
-    if confirmation in ["m", "d", "h", "f", "y", "i"]:  # Process all options
+    if confirmation in ["m", "d", "h", "f", "t", "i"]:  # Process all options
         if confirmation == "f":
             # Full date/time modification
             new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
@@ -801,10 +801,10 @@ def _interactive_date_confirmation_with_choice(args, event, confirmation, conten
             if new_end_str:
                 event.setdefault("end", {})["dateTime"] = new_end_str
 
-        elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
+        elif confirmation in ["m", "d", "h", "t", "i"]:  # Individual component modifications
             # Determine which component to modify
             component_map = {
-                'y': 'year',
+                't': 'year',
                 'm': 'month',
                 'd': 'day',
                 'h': 'hour',
