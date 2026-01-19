@@ -1262,8 +1262,25 @@ def _add_ai_metadata_to_event(event, model, elapsed_time, confidence_score=None)
     """
     import datetime
 
-    # Get model name
-    model_name = getattr(model, 'name', str(model)) if model else "unknown"
+    # Get model name - try multiple approaches in order of preference
+    model_name = "unknown"
+    if model:
+        # Try get_name() method first (for LLMClient implementations)
+        if hasattr(model, 'get_name') and callable(getattr(model, 'get_name')):
+            try:
+                model_name = model.get_name()
+            except NotImplementedError:
+                # If get_name is not implemented, fall back to other methods
+                pass
+        # Try name attribute
+        elif hasattr(model, 'name'):
+            model_name = getattr(model, 'name', str(model))
+        # Try model_name attribute (common in LLM clients)
+        elif hasattr(model, 'model_name'):
+            model_name = getattr(model, 'model_name', str(model))
+        # Fallback to string representation
+        else:
+            model_name = str(model)
 
     # Add extended properties for programmatic access
     event.setdefault("extendedProperties", {}).setdefault("private", {}).update({
