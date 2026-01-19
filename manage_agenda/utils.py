@@ -1227,6 +1227,9 @@ def _process_event_with_llm_and_calendar(
 
                         # If we have an event, proceed with calendar creation
                         if event is not None:
+                            # Add AI metadata to the event for tracking and transparency
+                            _add_ai_metadata_to_event(event, model, elapsed_time)
+
                             selected_calendar = select_calendar(api_dst)
                             if selected_calendar:
                                 try:
@@ -1245,6 +1248,42 @@ def _process_event_with_llm_and_calendar(
         return event, calendar_result  # Return event and result for further processing
     else:
         return None, None
+
+
+def _add_ai_metadata_to_event(event, model, elapsed_time, confidence_score=None):
+    """
+    Add AI model metadata to the event for tracking and transparency.
+
+    Args:
+        event (dict): The event dictionary
+        model: The AI model used to process the event
+        elapsed_time (float): Time taken for AI processing in seconds
+        confidence_score (float, optional): Confidence score of the AI response
+    """
+    import datetime
+
+    # Get model name
+    model_name = getattr(model, 'name', str(model)) if model else "unknown"
+
+    # Add extended properties for programmatic access
+    event.setdefault("extendedProperties", {}).setdefault("private", {}).update({
+        "ai_model_used": model_name,
+        "processing_timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        "processing_elapsed_time_seconds": f"{elapsed_time:.2f}",
+    })
+
+    if confidence_score is not None:
+        event["extendedProperties"]["private"]["confidence_score"] = f"{confidence_score:.2f}"
+
+    # Add information to description for human visibility
+    ai_metadata_text = f"\n\n---\nAI Processing Info:\n- Model: {model_name}\n- Processing time: {elapsed_time:.2f} seconds"
+
+    if confidence_score is not None:
+        ai_metadata_text += f"\n- Confidence: {confidence_score:.2f}"
+
+    # Append to the description
+    current_description = event.get("description", "")
+    event["description"] = current_description + ai_metadata_text
 
 
 def _get_post_datetime_and_diff(post_date):
