@@ -1265,8 +1265,11 @@ def _add_ai_metadata_to_event(event, model, elapsed_time, confidence_score=None)
     # Get model name - try multiple approaches in order of preference
     model_name = "unknown"
     if model:
-        # Try get_name() method first (for LLMClient implementations)
-        if hasattr(model, 'get_name') and callable(getattr(model, 'get_name')):
+        # Try model_name attribute first (common in LLM clients like OllamaClient, GeminiClient, MistralClient)
+        if hasattr(model, 'model_name') and getattr(model, 'model_name', None) is not None:
+            model_name = getattr(model, 'model_name', str(model))
+        # Try get_name() method (for LLMClient implementations that override it)
+        elif hasattr(model, 'get_name') and callable(getattr(model, 'get_name')):
             try:
                 model_name = model.get_name()
             except NotImplementedError:
@@ -1275,9 +1278,6 @@ def _add_ai_metadata_to_event(event, model, elapsed_time, confidence_score=None)
         # Try name attribute
         elif hasattr(model, 'name'):
             model_name = getattr(model, 'name', str(model))
-        # Try model_name attribute (common in LLM clients)
-        elif hasattr(model, 'model_name'):
-            model_name = getattr(model, 'model_name', str(model))
         # Fallback to string representation
         else:
             model_name = str(model)
