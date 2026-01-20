@@ -1468,7 +1468,12 @@ def process_email_cli(args, model, source_name=None, rules=None):
 
     if posts:
         def metadata_extractor(post, i):
-            return api_src.getPostIdM(post), api_src.getPostTitle(post), api_src.getPostDate(post)
+            # Use getPostIdM if it exists, otherwise use getPostId
+            if hasattr(api_src, 'getPostIdM'):
+                post_id = api_src.getPostIdM(post)
+            else:
+                post_id = api_src.getPostId(post)
+            return post_id, api_src.getPostTitle(post), api_src.getPostDate(post)
 
         def content_extractor(post, i, post_date_time, post_title):
             full_email_content = api_src.getPostBody(post)
