@@ -665,7 +665,7 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
     if confirmation == "r":
         return event, True  # Return event and True to indicate retry is needed
 
-    if confirmation == "s":
+    if (confirmation == "s" or not confirmation):
         # Yes, dates are correct
         return event, False  # No retry needed
     elif confirmation in ["m", "d", "h", "f", "y", "i"]:  # Process all options
