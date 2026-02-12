@@ -825,21 +825,25 @@ def _process_event_with_llm_and_calendar(
 
     event = _interactive_date_confirmation(args, event)
 
-    selected_calendar = select_calendar(api_dst)
-    if not selected_calendar:
-        print("No calendar selected, skipping event creation.")
-        return None, None
+    if api_dst:
+        selected_calendar = select_calendar(api_dst)
+        if not selected_calendar:
+            print("No calendar selected, skipping event creation.")
+            return None, None
 
-    try:
-        calendar_result = api_dst.publishPost(
-            post={"event": event, "idCal": selected_calendar}, api=api_dst
-        )
-        print("Calendar event created")
-        return event, calendar_result  # Return event and result for further processing
-    except googleapiclient.errors.HttpError as e:
-        logging.error(f"Error creating calendar event: {e}")
-        return None, None
+        try:
+            calendar_result = api_dst.publishPost(
+                post={"event": event, "idCal": selected_calendar}, api=api_dst
+            )
+            print("Calendar event created")
+            return event, calendar_result  # Return event and result for further processing
+        except googleapiclient.errors.HttpError as e:
+            logging.error(f"Error creating calendar event: {e}")
+            return None, None
+    else:
+        print("No calendar API configured.")
 
+    return None, None
 
 def _get_post_datetime_and_diff(post_date):
     """
