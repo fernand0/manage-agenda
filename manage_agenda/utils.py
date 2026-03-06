@@ -1,3 +1,4 @@
+import dateparser
 import datetime
 import json
 import logging
@@ -1755,12 +1756,18 @@ def process_calendar_events(args, action_verb, action_func, destination_needed=F
     api_cal.setPostsType("posts")
     api_cal.setPosts()
     all_posts = api_cal.getPosts()
+    print(all_posts)
 
     # Filter out past events - get only future events
     today = datetime.datetime.now()
+    today = pytz.utc.localize(datetime.datetime.utcnow())
     future_events = []
     for post in all_posts:
         post_date = api_cal.getPostDate(post)
+        print(f"DAte: {post_date}")
+        if post_date: 
+            post_date = dateparser.parse(post_date)
+
         if post_date and post_date >= today:
             future_events.append(post)
 
