@@ -711,6 +711,33 @@ def _parse_event_times(event):
     return current_start, current_end
 
 
+def _process_individual_component_modification(event, confirmation, current_start, current_end):
+    """Process individual component modification (year, month, day, hour, minute).
+
+    Args:
+        event: Event dictionary to modify
+        confirmation: User's choice ('m', 'd', 'h', 'y', 'i')
+        current_start: Parsed start datetime object
+        current_end: Parsed end datetime object
+
+    Returns:
+        Modified event dictionary
+    """
+    component_map = {"y": "year", "m": "month", "d": "day", "h": "hour", "i": "minute"}
+    component = component_map.get(confirmation)
+
+    # Modify the selected component for both start and end times
+    for time_key, event_key, current_time in [
+        ("start", "start", current_start),
+        ("end", "end", current_end),
+    ]:
+        if current_time and component:
+            new_time = _modify_single_component(current_time, component, time_key)
+            event.setdefault(event_key, {})["dateTime"] = new_time.isoformat()
+
+    return event
+
+
 def _process_date_modification(event, confirmation, current_start, current_end):
     """
     Process date modification based on user's confirmation choice.
@@ -726,20 +753,10 @@ def _process_date_modification(event, confirmation, current_start, current_end):
     """
     if confirmation == "f":
         event = _process_full_datetime_modification(event)
-
     elif confirmation in ["m", "d", "h", "y", "i"]:
-        # Individual component modifications
-        component_map = {"y": "year", "m": "month", "d": "day", "h": "hour", "i": "minute"}
-        component = component_map.get(confirmation)
-
-        # Modify the selected component for both start and end times
-        for time_key, event_key, current_time in [
-            ("start", "start", current_start),
-            ("end", "end", current_end),
-        ]:
-            if current_time and component:
-                new_time = _modify_single_component(current_time, component, time_key)
-                event.setdefault(event_key, {})["dateTime"] = new_time.isoformat()
+        event = _process_individual_component_modification(
+            event, confirmation, current_start, current_end
+        )
 
     # Process the event after modifications
     event = adjust_event_times(event)
@@ -778,33 +795,9 @@ def _interactive_date_confirmation(
         if confirmation == "s":
             # Yes, dates are correct
             return event, False  # No retry needed
-        elif confirmation == "f":
-            event = _process_full_datetime_modification(event)
 
-        elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
-            # Determine which component to modify
-            component_map = {"y": "year", "m": "month", "d": "day", "h": "hour", "i": "minute"}
-            component = component_map.get(confirmation)
-
-            # Modify the selected component for both start and end times
-            if current_start and component:
-                new_start = _modify_single_component(current_start, component, "start")
-                event.setdefault("start", {})["dateTime"] = new_start.isoformat()
-
-            if current_end and component:
-                new_end = _modify_single_component(current_end, component, "end")
-                event.setdefault("end", {})["dateTime"] = new_end.isoformat()
-
-        # Process the event after modifications (for both 'f' and individual component cases)
-        event = adjust_event_times(event)
-
-        # Update and print new times
-        start_time = safe_get(event, ["start", "dateTime"])
-        end_time = safe_get(event, ["end", "dateTime"])
-        print("--- Updated Event Times ---")
-        print(f"Start: {start_time}")
-        print(f"End: {end_time}")
-        print("---------------------------")
+        # Process date modification (full or individual component)
+        event = _process_date_modification(event, confirmation, current_start, current_end)
 
     # Return the event and flag indicating no retry needed
     return event, False
