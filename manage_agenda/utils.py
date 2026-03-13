@@ -27,6 +27,9 @@ DATE_CONFIRM_PROMPT = (
     "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
 )
 
+# Datetime format string for parsing and formatting
+DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 # Define the default timezone from config
 try:
     DEFAULT_NAIVE_TIMEZONE = pytz.timezone(config.DEFAULT_TIMEZONE)
@@ -633,7 +636,7 @@ def _parse_event_times(event):
             )
         except ValueError:
             try:
-                current_start = datetime.datetime.strptime(current_start_str, "%Y-%m-%d %H:%M:%S")
+                current_start = datetime.datetime.strptime(current_start_str, DATETIME_FORMAT)
             except ValueError:
                 current_start = None
                 print("Could not parse start time, using empty value")
@@ -646,7 +649,7 @@ def _parse_event_times(event):
             current_end = datetime.datetime.fromisoformat(current_end_str.replace("Z", "+00:00"))
         except ValueError:
             try:
-                current_end = datetime.datetime.strptime(current_end_str, "%Y-%m-%d %H:%M:%S")
+                current_end = datetime.datetime.strptime(current_end_str, DATETIME_FORMAT)
             except ValueError:
                 current_end = None
                 print("Could not parse end time, using empty value")
@@ -675,9 +678,9 @@ def _process_date_modification(event, confirmation, current_start, current_end):
         if new_start_str:
             event.setdefault("start", {})["dateTime"] = new_start_str
             try:
-                start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                start_dt = datetime.datetime.strptime(new_start_str, DATETIME_FORMAT)
                 end_dt = start_dt + timedelta(minutes=45)
-                new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+                new_end_str_default = end_dt.strftime(DATETIME_FORMAT)
 
                 modify_end_time = input(
                     f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
@@ -752,9 +755,9 @@ def _interactive_date_confirmation(
             if new_start_str:
                 event.setdefault("start", {})["dateTime"] = new_start_str
                 try:
-                    start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                    start_dt = datetime.datetime.strptime(new_start_str, DATETIME_FORMAT)
                     end_dt = start_dt + timedelta(minutes=45)
-                    new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+                    new_end_str_default = end_dt.strftime(DATETIME_FORMAT)
 
                     modify_end_time = input(
                         f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
@@ -1007,7 +1010,7 @@ def _validate_and_complete_event_interactively(
                         if new_start_datetime_str:
                             try:
                                 new_start_datetime = datetime.datetime.strptime(
-                                    new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
+                                    new_start_datetime_str, DATETIME_FORMAT
                                 )
                                 event.setdefault("start", {})[
                                     "dateTime"
