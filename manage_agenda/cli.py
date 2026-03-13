@@ -133,9 +133,10 @@ def add(ctx, interactive, source, force_refresh):
     )
 
     # Create rules instance once and reuse it
-    from .utils import get_rules
+    from socialModules import moduleRules
 
-    rules = get_rules()
+    rules = moduleRules.moduleRules()
+    rules.checkRules()
 
     model = select_llm(args)
 
