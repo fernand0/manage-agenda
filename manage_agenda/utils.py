@@ -745,59 +745,58 @@ def _interactive_date_confirmation(
         if confirmation == "s":
             # Yes, dates are correct
             return event, False  # No retry needed
-        elif confirmation in ["m", "d", "h", "f", "y", "i"]:  # Process all options
-            if confirmation == "f":
-                # Full date/time modification
-                new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
-                if new_start_str:
-                    event.setdefault("start", {})["dateTime"] = new_start_str
-                    try:
-                        start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
-                        end_dt = start_dt + timedelta(minutes=45)
-                        new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
+        elif confirmation == "f":
+            # Full date/time modification
+            new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+            if new_start_str:
+                event.setdefault("start", {})["dateTime"] = new_start_str
+                try:
+                    start_dt = datetime.datetime.strptime(new_start_str, "%Y-%m-%d %H:%M:%S")
+                    end_dt = start_dt + timedelta(minutes=45)
+                    new_end_str_default = end_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-                        modify_end_time = input(
-                            f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
-                        ).lower()
-                        if modify_end_time == "y":
-                            new_end_str = input(
-                                "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
-                            )
-                        else:
-                            new_end_str = new_end_str_default
-                    except ValueError:
-                        print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
-                        new_end_str = ""
-                else:
-                    new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+                    modify_end_time = input(
+                        f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
+                    ).lower()
+                    if modify_end_time == "y":
+                        new_end_str = input(
+                            "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
+                        )
+                    else:
+                        new_end_str = new_end_str_default
+                except ValueError:
+                    print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
+                    new_end_str = ""
+            else:
+                new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
 
-                if new_end_str:
-                    event.setdefault("end", {})["dateTime"] = new_end_str
+            if new_end_str:
+                event.setdefault("end", {})["dateTime"] = new_end_str
 
-            elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
-                # Determine which component to modify
-                component_map = {"y": "year", "m": "month", "d": "day", "h": "hour", "i": "minute"}
-                component = component_map.get(confirmation)
+        elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
+            # Determine which component to modify
+            component_map = {"y": "year", "m": "month", "d": "day", "h": "hour", "i": "minute"}
+            component = component_map.get(confirmation)
 
-                # Modify the selected component for both start and end times
-                if current_start and component:
-                    new_start = _modify_single_component(current_start, component, "start")
-                    event.setdefault("start", {})["dateTime"] = new_start.isoformat()
+            # Modify the selected component for both start and end times
+            if current_start and component:
+                new_start = _modify_single_component(current_start, component, "start")
+                event.setdefault("start", {})["dateTime"] = new_start.isoformat()
 
-                if current_end and component:
-                    new_end = _modify_single_component(current_end, component, "end")
-                    event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+            if current_end and component:
+                new_end = _modify_single_component(current_end, component, "end")
+                event.setdefault("end", {})["dateTime"] = new_end.isoformat()
 
-            # Process the event after modifications
-            event = adjust_event_times(event)
+        # Process the event after modifications (for both 'f' and individual component cases)
+        event = adjust_event_times(event)
 
-            # Update and print new times
-            start_time = safe_get(event, ["start", "dateTime"])
-            end_time = safe_get(event, ["end", "dateTime"])
-            print("--- Updated Event Times ---")
-            print(f"Start: {start_time}")
-            print(f"End: {end_time}")
-            print("---------------------------")
+        # Update and print new times
+        start_time = safe_get(event, ["start", "dateTime"])
+        end_time = safe_get(event, ["end", "dateTime"])
+        print("--- Updated Event Times ---")
+        print(f"Start: {start_time}")
+        print(f"End: {end_time}")
+        print("---------------------------")
 
     # Return the event and flag indicating no retry needed
     return event, False
