@@ -700,13 +700,14 @@ def _process_date_modification(event, confirmation, current_start, current_end):
         component_map = {"y": "year", "m": "month", "d": "day", "h": "hour", "i": "minute"}
         component = component_map.get(confirmation)
 
-        if current_start and component:
-            new_start = _modify_single_component(current_start, component, "start")
-            event.setdefault("start", {})["dateTime"] = new_start.isoformat()
-
-        if current_end and component:
-            new_end = _modify_single_component(current_end, component, "end")
-            event.setdefault("end", {})["dateTime"] = new_end.isoformat()
+        # Modify the selected component for both start and end times
+        for time_key, event_key, current_time in [
+            ("start", "start", current_start),
+            ("end", "end", current_end),
+        ]:
+            if current_time and component:
+                new_time = _modify_single_component(current_time, component, time_key)
+                event.setdefault(event_key, {})["dateTime"] = new_time.isoformat()
 
     # Process the event after modifications
     event = adjust_event_times(event)
