@@ -735,9 +735,6 @@ def _interactive_date_confirmation(
     if args.interactive:
         current_start, current_end = _parse_event_times(event)
 
-        print(f"\nCurrent start time: {current_start}")
-        print(f"Current end time: {current_end}")
-
         # Extended prompt with options for individual components (includes 'r' option for retry)
         confirmation = input(DATE_CONFIRM_PROMPT).lower()
 
@@ -1173,12 +1170,6 @@ def _process_event_with_llm_and_calendar(
                     write_file(
                         f"{post_identifier}_times.json", json.dumps(event)
                     )  # Save event JSON (redundant, but existing)
-
-                    if args.interactive:
-                        start_time = safe_get(event, ["start", "dateTime"])
-                        end_time = safe_get(event, ["end", "dateTime"])
-                        print(f"Start time: {start_time}")
-                        print(f"End time: {end_time}")
 
                     _display_event_info(event, subject_for_print, elapsed_time)
 
