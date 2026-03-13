@@ -805,65 +805,6 @@ def _modify_single_component(dt, component, time_label):
         return dt
 
 
-def _modify_datetime_components(dt, time_label):
-    """
-    Interactively modify individual components of a datetime object.
-
-    Args:
-        dt: datetime object to modify
-        time_label: label for the time being modified ('start' or 'end')
-
-    Returns:
-        Modified datetime object
-    """
-    print(f"\nModifying {time_label} time components:")
-    print(f"Current: {dt}")
-
-    # Get user input for each component
-    year = input(f"Year ({dt.year}): ").strip()
-    year = int(year) if year else dt.year
-
-    month = input(f"Month ({dt.month}): ").strip()
-    month = int(month) if month else dt.month
-
-    day = input(f"Day ({dt.day}): ").strip()
-    day = int(day) if day else dt.day
-
-    hour = input(f"Hour ({dt.hour}): ").strip()
-    hour = int(hour) if hour else dt.hour
-
-    minute = input(f"Minute ({dt.minute}): ").strip()
-    minute = int(minute) if minute else dt.minute
-
-    # Create new datetime with modified components
-    try:
-        new_dt = dt.replace(year=year, month=month, day=day, hour=hour, minute=minute)
-        print(f"New {time_label} time: {new_dt}")
-        return new_dt
-    except ValueError as e:
-        print(f"Invalid date/time combination: {e}. Keeping original time.")
-        return dt
-
-
-def _process_and_display_event(event, content_text, subject_for_print, elapsed_time=None):
-    """
-    Process event data, adjust times, and display information consistently.
-
-    Args:
-        event: Event dictionary to process
-        content_text: Content text for processing
-        subject_for_print: Subject/title to display
-        elapsed_time: Optional time taken for AI processing
-
-    Returns:
-        Processed and adjusted event
-    """
-    process_event_data(event, content_text)
-    event = adjust_event_times(event)
-    _display_event_info(event, subject_for_print, elapsed_time)
-    return event
-
-
 def _extract_event_with_llm_retry(args, model, content_text,
                                   reference_date_time, post_identifier,
                                   subject_for_print): 
