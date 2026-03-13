@@ -46,6 +46,42 @@ def _get_datetime_input(field_name):
     return input(DATETIME_INPUT_PROMPT.format(field=field_name))
 
 
+def _process_full_datetime_modification(event):
+    """Process full date/time modification (confirmation == 'f').
+
+    Args:
+        event: Event dictionary to modify
+
+    Returns:
+        Modified event dictionary
+    """
+    new_start_str = _get_datetime_input("start")
+    if new_start_str:
+        event.setdefault("start", {})["dateTime"] = new_start_str
+        try:
+            start_dt = datetime.datetime.strptime(new_start_str, DATETIME_FORMAT)
+            end_dt = start_dt + timedelta(minutes=45)
+            new_end_str_default = end_dt.strftime(DATETIME_FORMAT)
+
+            modify_end_time = input(
+                f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
+            ).lower()
+            if modify_end_time == "y":
+                new_end_str = _get_datetime_input("end")
+            else:
+                new_end_str = new_end_str_default
+        except ValueError:
+            print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
+            new_end_str = ""
+    else:
+        new_end_str = _get_datetime_input("end")
+
+    if new_end_str:
+        event.setdefault("end", {})["dateTime"] = new_end_str
+
+    return event
+
+
 # Define the default timezone from config
 try:
     DEFAULT_NAIVE_TIMEZONE = pytz.timezone(config.DEFAULT_TIMEZONE)
@@ -689,30 +725,7 @@ def _process_date_modification(event, confirmation, current_start, current_end):
         Modified event dictionary
     """
     if confirmation == "f":
-        # Full date/time modification
-        new_start_str = _get_datetime_input("start")
-        if new_start_str:
-            event.setdefault("start", {})["dateTime"] = new_start_str
-            try:
-                start_dt = datetime.datetime.strptime(new_start_str, DATETIME_FORMAT)
-                end_dt = start_dt + timedelta(minutes=45)
-                new_end_str_default = end_dt.strftime(DATETIME_FORMAT)
-
-                modify_end_time = input(
-                    f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
-                ).lower()
-                if modify_end_time == "y":
-                    new_end_str = _get_datetime_input("end")
-                else:
-                    new_end_str = new_end_str_default
-            except ValueError:
-                print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
-                new_end_str = ""
-        else:
-            new_end_str = _get_datetime_input("end")
-
-        if new_end_str:
-            event.setdefault("end", {})["dateTime"] = new_end_str
+        event = _process_full_datetime_modification(event)
 
     elif confirmation in ["m", "d", "h", "y", "i"]:
         # Individual component modifications
@@ -766,30 +779,7 @@ def _interactive_date_confirmation(
             # Yes, dates are correct
             return event, False  # No retry needed
         elif confirmation == "f":
-            # Full date/time modification
-            new_start_str = _get_datetime_input("start")
-            if new_start_str:
-                event.setdefault("start", {})["dateTime"] = new_start_str
-                try:
-                    start_dt = datetime.datetime.strptime(new_start_str, DATETIME_FORMAT)
-                    end_dt = start_dt + timedelta(minutes=45)
-                    new_end_str_default = end_dt.strftime(DATETIME_FORMAT)
-
-                    modify_end_time = input(
-                        f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
-                    ).lower()
-                    if modify_end_time == "y":
-                        new_end_str = _get_datetime_input("end")
-                    else:
-                        new_end_str = new_end_str_default
-                except ValueError:
-                    print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
-                    new_end_str = ""
-            else:
-                new_end_str = _get_datetime_input("end")
-
-            if new_end_str:
-                event.setdefault("end", {})["dateTime"] = new_end_str
+            event = _process_full_datetime_modification(event)
 
         elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
             # Determine which component to modify
