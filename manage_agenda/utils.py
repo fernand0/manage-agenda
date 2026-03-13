@@ -30,6 +30,22 @@ DATE_CONFIRM_PROMPT = (
 # Datetime format string for parsing and formatting
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+# Datetime input prompt template
+DATETIME_INPUT_PROMPT = "Enter new {field} time (YYYY-MM-DD HH:MM:SS) or leave empty: "
+
+
+def _get_datetime_input(field_name):
+    """Get datetime input from user with consistent prompt.
+
+    Args:
+        field_name: Name of the field (e.g., 'start', 'end')
+
+    Returns:
+        User input string or empty string if user pressed Enter
+    """
+    return input(DATETIME_INPUT_PROMPT.format(field=field_name))
+
+
 # Define the default timezone from config
 try:
     DEFAULT_NAIVE_TIMEZONE = pytz.timezone(config.DEFAULT_TIMEZONE)
@@ -674,7 +690,7 @@ def _process_date_modification(event, confirmation, current_start, current_end):
     """
     if confirmation == "f":
         # Full date/time modification
-        new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+        new_start_str = _get_datetime_input("start")
         if new_start_str:
             event.setdefault("start", {})["dateTime"] = new_start_str
             try:
@@ -686,14 +702,14 @@ def _process_date_modification(event, confirmation, current_start, current_end):
                     f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
                 ).lower()
                 if modify_end_time == "y":
-                    new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+                    new_end_str = _get_datetime_input("end")
                 else:
                     new_end_str = new_end_str_default
             except ValueError:
                 print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
                 new_end_str = ""
         else:
-            new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+            new_end_str = _get_datetime_input("end")
 
         if new_end_str:
             event.setdefault("end", {})["dateTime"] = new_end_str
@@ -751,7 +767,7 @@ def _interactive_date_confirmation(
             return event, False  # No retry needed
         elif confirmation == "f":
             # Full date/time modification
-            new_start_str = input("Enter new start time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+            new_start_str = _get_datetime_input("start")
             if new_start_str:
                 event.setdefault("start", {})["dateTime"] = new_start_str
                 try:
@@ -763,16 +779,14 @@ def _interactive_date_confirmation(
                         f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
                     ).lower()
                     if modify_end_time == "y":
-                        new_end_str = input(
-                            "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
-                        )
+                        new_end_str = _get_datetime_input("end")
                     else:
                         new_end_str = new_end_str_default
                 except ValueError:
                     print("Invalid start time format. Please use YYYY-MM-DD HH:MM:SS.")
                     new_end_str = ""
             else:
-                new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
+                new_end_str = _get_datetime_input("end")
 
             if new_end_str:
                 event.setdefault("end", {})["dateTime"] = new_end_str
@@ -1004,9 +1018,7 @@ def _validate_and_complete_event_interactively(
                         if new_summary:
                             event["summary"] = new_summary
                     if not start_datetime:
-                        new_start_datetime_str = input(
-                            "Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): "
-                        )
+                        new_start_datetime_str = _get_datetime_input("start")
                         if new_start_datetime_str:
                             try:
                                 new_start_datetime = datetime.datetime.strptime(
