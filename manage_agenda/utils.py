@@ -1063,7 +1063,7 @@ def _format_datetime_for_display(dt_value):
         Formatted datetime string in local timezone (e.g., '2026-03-17 19:00:00 CET'),
         or 'N/A' if input is None/invalid
     """
-    if dt_value is None:
+    if dt_value is None or dt_value == "":
         return "N/A"
 
     # Convert datetime object to string if needed
