@@ -980,16 +980,17 @@ def _validate_and_complete_event_interactively(args, event, vcal_json, elapsed_t
 def _format_datetime_for_display(dt_value):
     """
     Format a datetime value for consistent display in local timezone.
-    
+
     Args:
         dt_value: ISO format datetime string, datetime object, or None
-        
+
     Returns:
-        Formatted datetime string in local timezone, or 'N/A' if input is None/invalid
+        Formatted datetime string in local timezone (e.g., '2026-03-17 19:00:00 CET'),
+        or 'N/A' if input is None/invalid
     """
     if dt_value is None:
         return "N/A"
-    
+
     # Convert datetime object to string if needed
     if isinstance(dt_value, datetime.datetime):
         # Handle naive datetime by assuming it's in local timezone
@@ -998,10 +999,12 @@ def _format_datetime_for_display(dt_value):
         dt_string = dt_value.isoformat()
     else:
         dt_string = dt_value
-    
+
     try:
         dt_local = datetime.datetime.fromisoformat(dt_string).astimezone()
-        return dt_local
+        # Format as readable string: '2026-03-17 19:00:00 CET'
+        tz_name = dt_local.tzname()
+        return dt_local.strftime(f"%Y-%m-%d %H:%M:%S {tz_name}")
     except ValueError:
         return dt_string
 
