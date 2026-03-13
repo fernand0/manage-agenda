@@ -1,4 +1,3 @@
-import dateparser
 import datetime
 import json
 import logging
@@ -7,9 +6,10 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
+import dateparser
 import googleapiclient
 import pytz
-from socialModules import moduleHtml, moduleRules
+from socialModules import moduleHtml
 from socialModules.configMod import (
     safe_get,
     select_from_list,
@@ -41,6 +41,7 @@ from manage_agenda.utils_base import (
 from manage_agenda.utils_llm import GeminiClient, MistralClient, OllamaClient
 from manage_agenda.utils_web import reduce_html
 
+
 @dataclass
 class Args:
     """Arguments container for CLI commands."""
@@ -53,12 +54,11 @@ class Args:
     text: Optional[str] = None
 
 
-
-
 def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     if rules is None:
         from socialModules import moduleRules
+
         rules = moduleRules.moduleRules()
         rules.checkRules()
     email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
@@ -348,9 +348,11 @@ def get_event_from_llm(model, prompt, verbose=False):
 
     if not llm_response:
         print("Failed to get response from LLM.")
-    elif 'Memory' in llm_response:
-        print("LLM failed due to insufficient memory. Model requires more"
-              "system memory than available.")
+    elif "Memory" in llm_response:
+        print(
+            "LLM failed due to insufficient memory. Model requires more"
+            "system memory than available."
+        )
         # Set a flag to indicate memory error occurred
         memory_error_occurred = True
     else:
@@ -389,9 +391,7 @@ def get_event_from_llm_with_retry(model, prompt, args):
     memory_error_occurred = False
 
     while not event and not memory_error_occurred:
-        event, vcal_json, elapsed_time = get_event_from_llm(model,
-                                                            prompt,
-                                                            args.verbose)
+        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
 
         # Handle memory error specifically
         if vcal_json == "MemoryError":
@@ -418,11 +418,9 @@ def get_event_from_llm_with_retry(model, prompt, args):
             if new_model:
                 model = new_model
                 if args.interactive:
-                    print(f"Selected new AI model: "
-                          f"{model.__class__.__name__}")
+                    print(f"Selected new AI model: " f"{model.__class__.__name__}")
                 else:
-                    print(f"Switched to lighter AI model: "
-                          f"{model.__class__.__name__}")
+                    print(f"Switched to lighter AI model: " f"{model.__class__.__name__}")
 
                 # Instead of calling get_event_from_llm directly, let the loop
                 # continue to make the call Reset event to None to continue the
@@ -445,6 +443,7 @@ def get_event_from_llm_with_retry(model, prompt, args):
 def authorize(args, rules=None):
     if rules is None:
         from socialModules import moduleRules
+
         rules = moduleRules.moduleRules()
         rules.checkRules()
     if args.interactive:
@@ -465,7 +464,7 @@ def authorize(args, rules=None):
 
 def _get_sources_by_type(source_type, rules):
     """Helper function to get sources based on type."""
-    if source_type == 'email':
+    if source_type == "email":
         return rules.selectRule("gmail", "") + rules.selectRule("imap", "")
     else:
         # For API sources and others, use the direct approach
@@ -476,13 +475,14 @@ def select_source_by_type(args, source_type, rules=None):
     """Factory function to select sources by type."""
     if rules is None:
         from socialModules import moduleRules
+
         rules = moduleRules.moduleRules()
         rules.checkRules()
 
     sources = _get_sources_by_type(source_type, rules)
 
     if args.interactive:
-        if source_type == 'email':
+        if source_type == "email":
             selected_source, _ = select_from_list(sources)
             return selected_source
         else:
@@ -494,7 +494,7 @@ def select_source_by_type(args, source_type, rules=None):
             logging.warning(f"No {source_type} sources configured.")
             return None
 
-        if source_type == 'email':
+        if source_type == "email":
             # For email sources, return the source name
             return sources[0]
         else:
@@ -529,6 +529,7 @@ def _get_emails_from_folder(args, source_name, rules=None):
     "FIXME: maybe a folder argument?"
     if rules is None:
         from socialModules import moduleRules
+
         rules = moduleRules.moduleRules()
         rules.checkRules()
     source_details = rules.more.get(source_name, {})
@@ -546,7 +547,7 @@ def _get_emails_from_folder(args, source_name, rules=None):
         print(f"There are no posts tagged with label {folder}")
         return api_src, None
 
-    #label_id = safe_get(label[0], ["id"])
+    # label_id = safe_get(label[0], ["id"])
     api_src.setChannel(folder)
     api_src.setPosts()
     posts = api_src.getPosts()
@@ -560,7 +561,7 @@ def _get_emails_from_folder(args, source_name, rules=None):
 
 def select_email_source(args, rules=None):
     """Selects an email source, interactive or not."""
-    return select_source_by_type(args, 'email', rules)
+    return select_source_by_type(args, "email", rules)
 
 
 def list_emails_folder(args, rules=None):
@@ -577,7 +578,6 @@ def list_emails_folder(args, rules=None):
 
 def _create_llm_prompt(content_text, reference_date_time):
     """Constructs the LLM prompt for event extraction."""
-    import os
     from pathlib import Path
 
     content_text = content_text.replace("\r", "")
@@ -591,7 +591,7 @@ def _create_llm_prompt(content_text, reference_date_time):
 
     # Read the prompt template
     if prompt_file.exists():
-        prompt_template = prompt_file.read_text(encoding='utf-8')
+        prompt_template = prompt_file.read_text(encoding="utf-8")
     else:
         # Fallback to the original prompt if file is not found
         prompt_template = (
@@ -616,10 +616,10 @@ def _create_llm_prompt(content_text, reference_date_time):
 
 def _parse_event_times(event):
     """Parse start and end times from an event into datetime objects.
-    
+
     Args:
         event: The event dictionary containing start and end dateTime fields
-        
+
     Returns:
         Tuple of (current_start, current_end) datetime objects, or None if parsing fails
     """
@@ -629,7 +629,9 @@ def _parse_event_times(event):
     # Parse start time
     if current_start_str:
         try:
-            current_start = datetime.datetime.fromisoformat(current_start_str.replace('Z', '+00:00'))
+            current_start = datetime.datetime.fromisoformat(
+                current_start_str.replace("Z", "+00:00")
+            )
         except ValueError:
             try:
                 current_start = datetime.datetime.strptime(current_start_str, "%Y-%m-%d %H:%M:%S")
@@ -642,7 +644,7 @@ def _parse_event_times(event):
     # Parse end time
     if current_end_str:
         try:
-            current_end = datetime.datetime.fromisoformat(current_end_str.replace('Z', '+00:00'))
+            current_end = datetime.datetime.fromisoformat(current_end_str.replace("Z", "+00:00"))
         except ValueError:
             try:
                 current_end = datetime.datetime.strptime(current_end_str, "%Y-%m-%d %H:%M:%S")
@@ -658,13 +660,13 @@ def _parse_event_times(event):
 def _process_date_modification(event, confirmation, current_start, current_end):
     """
     Process date modification based on user's confirmation choice.
-    
+
     Args:
         event: The event dictionary to modify
         confirmation: The user's choice ('f', 'm', 'd', 'h', 'y', 'i')
         current_start: Parsed start datetime object
         current_end: Parsed end datetime object
-        
+
     Returns:
         Modified event dictionary
     """
@@ -682,9 +684,7 @@ def _process_date_modification(event, confirmation, current_start, current_end):
                     f"Default end time will be {new_end_str_default}. Do you want to modify it? (y/n): "
                 ).lower()
                 if modify_end_time == "y":
-                    new_end_str = input(
-                        "Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: "
-                    )
+                    new_end_str = input("Enter new end time (YYYY-MM-DD HH:MM:SS) or leave empty: ")
                 else:
                     new_end_str = new_end_str_default
             except ValueError:
@@ -698,13 +698,7 @@ def _process_date_modification(event, confirmation, current_start, current_end):
 
     elif confirmation in ["m", "d", "h", "y", "i"]:
         # Individual component modifications
-        component_map = {
-            'y': 'year',
-            'm': 'month',
-            'd': 'day',
-            'h': 'hour',
-            'i': 'minute'
-        }
+        component_map = {"y": "year", "m": "month", "d": "day", "h": "hour", "i": "minute"}
         component = component_map.get(confirmation)
 
         if current_start and component:
@@ -729,24 +723,18 @@ def _process_date_modification(event, confirmation, current_start, current_end):
     return event
 
 
-def _interactive_date_confirmation(args, event, model=None, content_text=None, reference_date_time=None, post_identifier=None, subject_for_print=None):
+def _interactive_date_confirmation(
+    args,
+    event,
+    model=None,
+    content_text=None,
+    reference_date_time=None,
+    post_identifier=None,
+    subject_for_print=None,
+):
     """Interactively confirms and corrects event dates."""
-    retry_needed = False
-
     if args.interactive:
         current_start, current_end = _parse_event_times(event)
-
-        # Extended prompt with options for individual components (includes 'r' option for retry)
-        confirmation = input(DATE_CONFIRMATION_PROMPT_WITH_R_OPTION).lower()
-
-        # Check if user wants to retry with LLM
-        if confirmation == "r":
-            retry_needed = True
-        elif confirmation == "s" or not confirmation:
-            # Yes, dates are correct - no action needed
-            pass
-        elif confirmation in ["m", "d", "h", "f", "y", "i"]:
-            event = _process_date_modification(event, confirmation, current_start, current_end)
 
         print(f"\nCurrent start time: {current_start}")
         print(f"Current end time: {current_end}")
@@ -792,13 +780,7 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
 
             elif confirmation in ["m", "d", "h", "y", "i"]:  # Individual component modifications
                 # Determine which component to modify
-                component_map = {
-                    'y': 'year',
-                    'm': 'month',
-                    'd': 'day',
-                    'h': 'hour',
-                    'i': 'minute'
-                }
+                component_map = {"y": "year", "m": "month", "d": "day", "h": "hour", "i": "minute"}
                 component = component_map.get(confirmation)
 
                 # Modify the selected component for both start and end times
@@ -846,15 +828,15 @@ def _modify_single_component(dt, component, time_label):
         try:
             new_value = int(value_str)
             # Create new datetime with modified component
-            if component == 'year':
+            if component == "year":
                 new_dt = dt.replace(year=new_value)
-            elif component == 'month':
+            elif component == "month":
                 new_dt = dt.replace(month=new_value)
-            elif component == 'day':
+            elif component == "day":
                 new_dt = dt.replace(day=new_value)
-            elif component == 'hour':
+            elif component == "hour":
                 new_dt = dt.replace(hour=new_value)
-            elif component == 'minute':
+            elif component == "minute":
                 new_dt = dt.replace(minute=new_value)
             else:
                 print(f"Unknown component: {component}. Keeping original time.")
@@ -870,9 +852,9 @@ def _modify_single_component(dt, component, time_label):
         return dt
 
 
-def _extract_event_with_llm_retry(args, model, content_text,
-                                  reference_date_time, post_identifier,
-                                  subject_for_print): 
+def _extract_event_with_llm_retry(
+    args, model, content_text, reference_date_time, post_identifier, subject_for_print
+):
     """
     Extract event information using LLM with retry logic.
 
@@ -888,7 +870,7 @@ def _extract_event_with_llm_retry(args, model, content_text,
         tuple: (event, vcal_json, elapsed_time, success_flag, need_restart,
         need_another_ai) where success_flag indicates if extraction was
         successful and need_restart indicates if the whole process should
-        restart """
+        restart"""
     # Create initial event dict for helper
     prompt = _create_llm_prompt(content_text, reference_date_time)
     if args.verbose:
@@ -899,10 +881,10 @@ def _extract_event_with_llm_retry(args, model, content_text,
     event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args)
 
     # Check for memory error
-    memory_error = (event is None and vcal_json == "MemoryError")
+    memory_error = event is None and vcal_json == "MemoryError"
 
     if memory_error:
-        return event, vcal_json, elapsed_time, False, False, False  
+        return event, vcal_json, elapsed_time, False, False, False
         # Not successful, don't restart, don't need another AI
 
     # Process event data
@@ -920,20 +902,46 @@ def _extract_event_with_llm_retry(args, model, content_text,
         return event, vcal_json, elapsed_time, False, False, False
 
     # Now validate the event and handle interactive completion if needed
-    validated_event, validated_vcal_json, need_restart, need_another_ai = _validate_and_complete_event_interactively(
-        args, event, vcal_json, elapsed_time, post_identifier, subject_for_print,
-        model, content_text, reference_date_time
+    validated_event, validated_vcal_json, need_restart, need_another_ai = (
+        _validate_and_complete_event_interactively(
+            args,
+            event,
+            vcal_json,
+            elapsed_time,
+            post_identifier,
+            subject_for_print,
+            model,
+            content_text,
+            reference_date_time,
+        )
     )
 
     # If validation failed completely
     if validated_event is None:
-        return validated_event, validated_vcal_json, elapsed_time, False, need_restart, need_another_ai
+        return (
+            validated_event,
+            validated_vcal_json,
+            elapsed_time,
+            False,
+            need_restart,
+            need_another_ai,
+        )
 
     # Success - return validated event
     return validated_event, validated_vcal_json, elapsed_time, True, need_restart, need_another_ai
 
 
-def _validate_and_complete_event_interactively(args, event, vcal_json, elapsed_time, post_identifier, subject_for_print, model, content_text, reference_date_time):
+def _validate_and_complete_event_interactively(
+    args,
+    event,
+    vcal_json,
+    elapsed_time,
+    post_identifier,
+    subject_for_print,
+    model,
+    content_text,
+    reference_date_time,
+):
     """
     Validate the event and handle interactive completion if needed.
 
@@ -961,7 +969,13 @@ def _validate_and_complete_event_interactively(args, event, vcal_json, elapsed_t
     need_another_ai = False
 
     # Process until completion or termination condition
-    while not data_complete and retries <= max_retries and not should_skip and not need_restart and not need_another_ai:
+    while (
+        not data_complete
+        and retries <= max_retries
+        and not should_skip
+        and not need_restart
+        and not need_another_ai
+    ):
         summary = event.get("summary")
         start_datetime = event.get("start", {}).get("dateTime")
 
@@ -991,15 +1005,17 @@ def _validate_and_complete_event_interactively(args, event, vcal_json, elapsed_t
                         if new_summary:
                             event["summary"] = new_summary
                     if not start_datetime:
-                        new_start_datetime_str = input("Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): ")
+                        new_start_datetime_str = input(
+                            "Enter Start Date/Time (YYYY-MM-DD HH:MM:SS): "
+                        )
                         if new_start_datetime_str:
                             try:
                                 new_start_datetime = datetime.datetime.strptime(
                                     new_start_datetime_str, "%Y-%m-%d %H:%M:%S"
                                 )
-                                event.setdefault("start", {})["dateTime"] = (
-                                    new_start_datetime.isoformat()
-                                )
+                                event.setdefault("start", {})[
+                                    "dateTime"
+                                ] = new_start_datetime.isoformat()
                                 # Removed event['start'].setdefault('timeZone', 'Europe/Madrid') as adjust_event_times handles it
                             except ValueError:
                                 print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
@@ -1126,8 +1142,10 @@ def _process_event_with_llm_and_calendar(
     # Process until success or definitive failure
     while should_process and not success:
         # Extract event with LLM and validate it
-        event, vcal_json, elapsed_time, extraction_success, need_restart, need_another_ai = _extract_event_with_llm_retry(
-            args, model, content_text, reference_date_time, post_identifier, subject_for_print
+        event, vcal_json, elapsed_time, extraction_success, need_restart, need_another_ai = (
+            _extract_event_with_llm_retry(
+                args, model, content_text, reference_date_time, post_identifier, subject_for_print
+            )
         )
 
         # Handle restart case first
@@ -1168,12 +1186,15 @@ def _process_event_with_llm_and_calendar(
                     # Check if user wants to retry with LLM from the beginning or make date
                     # corrections Always call _interactive_date_confirmation, which handles
                     # both interactive and non-interactive modes
-                    event, retry_needed = _interactive_date_confirmation(args, event,
-                                                                         model,
-                                                                         content_text,
-                                                                         reference_date_time,
-                                                                         post_identifier,
-                                                                         subject_for_print)
+                    event, retry_needed = _interactive_date_confirmation(
+                        args,
+                        event,
+                        model,
+                        content_text,
+                        reference_date_time,
+                        post_identifier,
+                        subject_for_print,
+                    )
 
                     if not (retry_needed and model and content_text and reference_date_time):
                         # Successful completion of main processing, proceed to calendar creation
@@ -1188,7 +1209,8 @@ def _process_event_with_llm_and_calendar(
                             if selected_calendar:
                                 try:
                                     calendar_result = api_dst.publishPost(
-                                        post={"event": event, "idCal": selected_calendar}, api=api_dst
+                                        post={"event": event, "idCal": selected_calendar},
+                                        api=api_dst,
                                     )
                                     print("Calendar event created")
                                     success = True  # Indicate successful completion
@@ -1220,28 +1242,30 @@ def _add_ai_metadata_to_event(event, model, elapsed_time, confidence_score=None)
     model_name = "unknown"
     if model:
         # Try model_name attribute first (common in LLM clients like OllamaClient, GeminiClient, MistralClient)
-        if hasattr(model, 'model_name') and getattr(model, 'model_name', None) is not None:
-            model_name = getattr(model, 'model_name', str(model))
+        if hasattr(model, "model_name") and getattr(model, "model_name", None) is not None:
+            model_name = getattr(model, "model_name", str(model))
         # Try get_name() method (for LLMClient implementations that override it)
-        elif hasattr(model, 'get_name') and callable(getattr(model, 'get_name')):
+        elif hasattr(model, "get_name") and callable(model.get_name):
             try:
                 model_name = model.get_name()
             except NotImplementedError:
                 # If get_name is not implemented, fall back to other methods
                 pass
         # Try name attribute
-        elif hasattr(model, 'name'):
-            model_name = getattr(model, 'name', str(model))
+        elif hasattr(model, "name"):
+            model_name = getattr(model, "name", str(model))
         # Fallback to string representation
         else:
             model_name = str(model)
 
     # Add extended properties for programmatic access
-    event.setdefault("extendedProperties", {}).setdefault("private", {}).update({
-        "ai_model_used": model_name,
-        "processing_timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-        "processing_elapsed_time_seconds": f"{elapsed_time:.2f}",
-    })
+    event.setdefault("extendedProperties", {}).setdefault("private", {}).update(
+        {
+            "ai_model_used": model_name,
+            "processing_timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "processing_elapsed_time_seconds": f"{elapsed_time:.2f}",
+        }
+    )
 
     if confidence_score is not None:
         event["extendedProperties"]["private"]["confidence_score"] = f"{confidence_score:.2f}"
@@ -1328,7 +1352,7 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
                     api_src.getClient().select(label)
                     res = api_src.deletePostId(post_id)
                     logging.info(f"State: {api_src.getClient().state}")
-                if not "Fail!" in res:
+                if "Fail!" not in res:
                     logging.info(f"Email {post_id} processed successfully.")
                     return  # Success
             except Exception as e:
@@ -1338,6 +1362,7 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
 
                     if rules is None:
                         from socialModules import moduleRules
+
                         rules = moduleRules.moduleRules()
                         rules.checkRules()
                     source_details = rules.more.get(source_name, {})
@@ -1345,8 +1370,10 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
                     if label:
                         api_src.setChannel(label)
                 else:
-                    logging.error(f"Could not delete email {post_id} after {max_retries + 1} attempts: {e}")
-                    return # Exit after last attempt failure
+                    logging.error(
+                        f"Could not delete email {post_id} after {max_retries + 1} attempts: {e}"
+                    )
+                    return  # Exit after last attempt failure
 
 
 def _is_post_too_old(args, time_difference):
@@ -1364,7 +1391,10 @@ def _is_post_too_old(args, time_difference):
             return True
     return False
 
-def _process_common_flow(args, model, items, metadata_extractor, content_extractor, item_cleaner=None):
+
+def _process_common_flow(
+    args, model, items, metadata_extractor, content_extractor, item_cleaner=None
+):
     """
     Common flow for processing items (emails, web pages).
 
@@ -1421,9 +1451,10 @@ def process_email_cli(args, model, source_name=None, rules=None):
     api_src, posts = _get_emails_from_folder(args, source_name, rules=rules)
 
     if posts:
+
         def metadata_extractor(post, i):
             # Use getPostIdM if it exists, otherwise use getPostId
-            if hasattr(api_src, 'getPostIdM'):
+            if hasattr(api_src, "getPostIdM"):
                 post_id = api_src.getPostIdM(post)
             else:
                 post_id = api_src.getPostId(post)
@@ -1431,7 +1462,7 @@ def process_email_cli(args, model, source_name=None, rules=None):
 
         def content_extractor(post, i, post_date_time, post_title):
             full_email_content = api_src.getPostBody(post)
-            date_message = str(post_date_time).split(' ')[0]
+            date_message = str(post_date_time).split(" ")[0]
             return (
                 f"Subject: {post_title}\n"
                 f"Message: {full_email_content}\n"
@@ -1450,6 +1481,7 @@ def process_email_cli(args, model, source_name=None, rules=None):
         )
     return False  # Default return if something went wrong before the main logic
 
+
 def _get_pages_from_urls(args, urls):
 
     page = moduleHtml.moduleHtml()
@@ -1465,6 +1497,7 @@ def _get_pages_from_urls(args, urls):
 
     return page, posts
 
+
 def process_web_cli(args, model, urls=None, force_refresh=False):
     """Processes web pages and creates calendar events."""
 
@@ -1474,6 +1507,7 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
     api_src, posts = _get_pages_from_urls(args, urls)
 
     if posts:
+
         def metadata_extractor(post, i):
             title = api_src.getPostTitle(post)
             if not title:
@@ -1486,7 +1520,7 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
                 print(f"Could not process {urls[i]}, skipping.")
                 return None
 
-            date_message = str(post_date_time).split(' ')[0]
+            date_message = str(post_date_time).split(" ")[0]
             return (
                 f"Url: {urls[i]}\n"
                 f"Subject: {post_title}\n"
@@ -1494,9 +1528,7 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
                 f"Message date: {date_message}\n"
             )
 
-        return _process_common_flow(
-            args, model, posts, metadata_extractor, content_extractor
-        )
+        return _process_common_flow(args, model, posts, metadata_extractor, content_extractor)
 
     return False  # Default return if something went wrong before the main logic
 
@@ -1641,7 +1673,9 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
 
     print(f"{len(events_list)}) All")
 
-    selection = input(f"Which event(s) to {action_verb}? (comma-separated numbers, text to match, or 'all') ")
+    selection = input(
+        f"Which event(s) to {action_verb}? (comma-separated numbers, text to match, or 'all') "
+    )
 
     selected_events = []
     if selection.lower() == "all" or selection == str(len(events_list)):
@@ -1660,7 +1694,7 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
                         selected_events.append(events_list[i])
             else:
                 # At least one number is out of range, treat as text-based selection
-                search_terms = selection.split(',')
+                search_terms = selection.split(",")
                 for term in search_terms:
                     term = term.strip().lower()
                     for i, event in enumerate(events_list):
@@ -1669,7 +1703,7 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
                             selected_events.append(events_list[i])
         except ValueError:
             # If parsing as integers fails, treat as text-based selection
-            search_terms = selection.split(',')
+            search_terms = selection.split(",")
             for term in search_terms:
                 term = term.strip().lower()
                 for i, event in enumerate(events_list):
@@ -1680,7 +1714,9 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
     return selected_events
 
 
-def process_calendar_events(args, action_verb, action_func, destination_needed=False, api_src_type="gcalendar"):
+def process_calendar_events(
+    args, action_verb, action_func, destination_needed=False, api_src_type="gcalendar"
+):
     """
     Generic function to handle complete calendar event processing from initialization to action.
 
@@ -1718,7 +1754,7 @@ def process_calendar_events(args, action_verb, action_func, destination_needed=F
     for post in all_posts:
         post_date = api_cal.getPostDate(post)
         print(f"DAte: {post_date}")
-        if post_date: 
+        if post_date:
             post_date = dateparser.parse(post_date)
 
         if post_date and post_date >= today:
@@ -1814,7 +1850,9 @@ def update_event_status_cli(args):
 
     print("Upcoming events (up to 20):")
     for event in res["items"][:20]:
-        status = event.get("transparency", "opaque")  # "opaque" means busy, "transparent" means free
+        status = event.get(
+            "transparency", "opaque"
+        )  # "opaque" means busy, "transparent" means free
         title = api_cal.getPostTitle(event) or "No Title"
         print(f"- [{status}] {title}")
 
@@ -1844,11 +1882,7 @@ def update_event_status_cli(args):
         updated_event = (
             api_cal.getClient()
             .events()
-            .update(
-                calendarId=my_calendar,
-                eventId=event["id"],
-                body=event
-            )
+            .update(calendarId=my_calendar, eventId=event["id"], body=event)
             .execute()
         )
 
@@ -1899,7 +1933,7 @@ def clean_events_cli(args):
     selected_events = select_events_by_user_input(api_cal, events_to_process, "process")
 
     # Ask user whether to copy or delete
-    actions = ['Delete', 'Copy']
+    actions = ["Delete", "Copy"]
     msg = "Select operation:"
     for i, act in enumerate(actions):
         msg = f"{msg}\n{i}) {act}"
@@ -1908,14 +1942,14 @@ def clean_events_cli(args):
     action_sel = input(msg)
 
     my_calendar_dst = None
-    if action_sel == '1':  # Copy action
+    if action_sel == "1":  # Copy action
         if args.destination:
             my_calendar_dst = args.destination
         else:
             my_calendar_dst = select_calendar(api_cal)
 
     for event in selected_events:
-        if action_sel == '1':  # Copy
+        if action_sel == "1":  # Copy
             copy_action(api_cal, event, my_calendar, my_calendar_dst)
         else:  # Delete
             delete_action(api_cal, event, my_calendar, my_calendar_dst)
