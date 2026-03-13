@@ -760,20 +760,6 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
     return event, retry_needed
 
 
-def _interactive_date_confirmation_with_choice(args, event, confirmation, content_text, reference_date_time, post_identifier, subject_for_print):
-    """Handle specific user choice for date confirmation."""
-    if args.interactive:
-        current_start, current_end = _parse_event_times(event)
-
-        print(f"\nCurrent start time: {current_start}")
-        print(f"Current end time: {current_end}")
-
-        if confirmation in ["m", "d", "h", "f", "y", "i"]:
-            event = _process_date_modification(event, confirmation, current_start, current_end)
-
-    return event, False
-
-
 def _modify_single_component(dt, component, time_label):
     """
     Modify a single component of a datetime object.
