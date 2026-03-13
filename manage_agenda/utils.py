@@ -54,6 +54,11 @@ class Args:
     text: Optional[str] = None
 
 
+def _get_email_sources(rules):
+    """Helper function to get email sources (gmail + imap)."""
+    return rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+
+
 def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     if rules is None:
@@ -61,7 +66,7 @@ def get_add_sources(rules=None):
 
         rules = moduleRules.moduleRules()
         rules.checkRules()
-    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+    email_sources = _get_email_sources(rules)
     return email_sources + ["Web (Enter URL)"]
 
 
@@ -465,7 +470,7 @@ def authorize(args, rules=None):
 def _get_sources_by_type(source_type, rules):
     """Helper function to get sources based on type."""
     if source_type == "email":
-        return rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+        return _get_email_sources(rules)
     else:
         # For API sources and others, use the direct approach
         return rules.selectRule(source_type, "")
