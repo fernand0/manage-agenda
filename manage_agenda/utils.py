@@ -742,8 +742,8 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
     if args.interactive:
         current_start, current_end = _parse_event_times(event)
 
-        print(f"\nCurrent start time: {_format_datetime_for_display(current_start.isoformat() if current_start else None)}")
-        print(f"Current end time: {_format_datetime_for_display(current_end.isoformat() if current_end else None)}")
+        print(f"\nCurrent start time: {_format_datetime_for_display(current_start)}")
+        print(f"Current end time: {_format_datetime_for_display(current_end)}")
 
         # Extended prompt with options for individual components (includes 'r' option for retry)
         confirmation = input(DATE_CONFIRMATION_PROMPT_WITH_R_OPTION).lower()
@@ -1036,18 +1036,27 @@ def _validate_and_complete_event_interactively(args, event, vcal_json, elapsed_t
         return event, vcal_json, need_restart, need_another_ai  # Return validated event and flags
 
 
-def _format_datetime_for_display(dt_string):
+def _format_datetime_for_display(dt_value):
     """
-    Format a datetime string for consistent display in local timezone.
+    Format a datetime value for consistent display in local timezone.
     
     Args:
-        dt_string: ISO format datetime string or None
+        dt_value: ISO format datetime string, datetime object, or None
         
     Returns:
         Formatted datetime string in local timezone, or 'N/A' if input is None/invalid
     """
-    if not dt_string:
+    if dt_value is None:
         return "N/A"
+    
+    # Convert datetime object to string if needed
+    if isinstance(dt_value, datetime.datetime):
+        # Handle naive datetime by assuming it's in local timezone
+        if dt_value.tzinfo is None:
+            dt_value = dt_value.replace(tzinfo=datetime.datetime.now().astimezone().tzinfo)
+        dt_string = dt_value.isoformat()
+    else:
+        dt_string = dt_value
     
     try:
         dt_local = datetime.datetime.fromisoformat(dt_string).astimezone()
