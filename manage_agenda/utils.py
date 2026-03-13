@@ -742,8 +742,8 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
     if args.interactive:
         current_start, current_end = _parse_event_times(event)
 
-        print(f"\nCurrent start time: {current_start}")
-        print(f"Current end time: {current_end}")
+        print(f"\nCurrent start time: {_format_datetime_for_display(current_start.isoformat() if current_start else None)}")
+        print(f"Current end time: {_format_datetime_for_display(current_end.isoformat() if current_end else None)}")
 
         # Extended prompt with options for individual components (includes 'r' option for retry)
         confirmation = input(DATE_CONFIRMATION_PROMPT_WITH_R_OPTION).lower()
