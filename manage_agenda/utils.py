@@ -20,13 +20,7 @@ from manage_agenda.exceptions import (
 )
 
 # Constant for date confirmation prompt to avoid duplication
-DATE_CONFIRMATION_PROMPT_NO_RETRY = (
-    "Are the dates correct? "
-    "Ye(s), "
-    "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
-)
-
-DATE_CONFIRMATION_PROMPT_WITH_R_OPTION = (
+DATE_CONFIRM_PROMPT = (
     "Are the dates correct? "
     "Ye(s), (r)etry with LLM, "
     "(Y)ear, (M)onth, (D)ay, (h)our, m(i)nute, (f)ull date/time: "
@@ -659,7 +653,7 @@ def _interactive_date_confirmation(args, event, model=None, content_text=None, r
     print(f"Current end time: {current_end}")
 
     # Extended prompt with options for individual components (includes 'r' option for retry)
-    confirmation = input(DATE_CONFIRMATION_PROMPT_WITH_R_OPTION).lower()
+    confirmation = input(DATE_CONFIRM_PROMPT).lower()
 
     # Check if user wants to retry with LLM
     if confirmation == "r":
