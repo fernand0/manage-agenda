@@ -12,10 +12,11 @@ INSTRUCTIONS:
 6. The result must be a valid JSON with all fields and values enclosed in double quotes.
 7. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.
 8. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.
-9. For the summary, focus on the main event being announced, not background information.
-10. If time is specified (e.g., '19:00h'), include it in the dateTime field along with the date.
-11. Do not translate the text; keep all information in the original language.
-12. Return ONLY the completed JSON structure without any additional comments or explanations.
+9. For dateTime fields, use ISO 8601 format: "YYYY-MM-DD HH:MM:SS" (e.g., "2026-04-27 19:00:00"). Do NOT use formats like "27/04/2026 19:00h".
+10. For the summary, focus on the main event being announced, not background information.
+11. If time is specified (e.g., '19:00h'), include it in the dateTime field along with the date.
+12. Do not translate the text; keep all information in the original language.
+13. Return ONLY the completed JSON structure without any additional comments or explanations.
 
 SOURCE TEXT:
 {content_text}.
