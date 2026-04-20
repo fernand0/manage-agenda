@@ -9,7 +9,7 @@ from typing import Optional
 import dateparser
 import googleapiclient
 import pytz
-from socialModules import moduleHtml
+from socialModules import moduleHtml, moduleRules
 from socialModules.configMod import (
     safe_get,
     select_from_list,
@@ -117,8 +117,6 @@ def _get_email_sources(rules):
 def ensure_rules(rules=None):
     """Ensure rules object is initialized, creating one if needed."""
     if rules is None:
-        from socialModules import moduleRules
-
         rules = moduleRules.moduleRules()
         rules.checkRules()
     return rules
