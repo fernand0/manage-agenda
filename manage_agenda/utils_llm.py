@@ -7,7 +7,7 @@ import time
 # The google.generativeai package is deprecated. Need to migrate to Vertex AI SDK.
 import google.generativeai as genai
 import ollama
-from mistralai import Mistral
+from mistralai.client import MistralClient
 from ollama import ChatResponse, chat
 
 # from manage_agenda.utils_base import select_from_list
@@ -163,7 +163,7 @@ class MistralClient(LLMClient):
 
         super().__init__(name_class)
 
-        self.client = Mistral(api_key=self.api_key)
+        self.client = MistralClient(api_key=self.api_key)
         if not self.model_name:
             # names = [el.id for el in self.list_models(self).data]
             models = self.list_models(self).data
