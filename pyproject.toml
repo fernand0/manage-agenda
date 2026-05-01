@@ -15,7 +15,7 @@ dependencies = [
     "ollama",
     "setuptools",
     "social-modules @ git+https://github.com/fernand0/socialModules.git",
-    "another-note-taking-app @ git+https://github.com/fernand0/another-note-taking-app.git",
+    "note-taker @ git+https://github.com/fernand0/another-note-taking-app.git",
     "beautifulsoup4",
 ]
 
