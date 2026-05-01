@@ -424,7 +424,8 @@ def get_event_from_llm(model, prompt, verbose=False):
             print(f"Reply:\n{llm_response}")
             print("End Reply")
 
-        llm_response = llm_response.replace("\\", "").replace("\n", " ")
+        #llm_response = llm_response.replace("\\", "").replace("\n", " ")
+        llm_response = llm_response.replace("\n", " ")
 
         try:
             import ast
@@ -654,7 +655,7 @@ def _create_llm_prompt(content_text, reference_date_time):
             "2. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').\n"
             "3. Default timezone is CET if not specified otherwise.\n"
             "4. The result must be a valid JSON with all fields and values enclosed in double quotes.\n"
-            "5. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.\n"
+            "5. Replace any double or single quotes inside the extracted content with single quotes (') to avoid JSON parsing errors.\n"
             "6. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.\n"
             "7. Do not translate the text; keep all information in the original language.\n"
             "8. Return ONLY the completed JSON structure without any additional comments or explanations.\n\n"
