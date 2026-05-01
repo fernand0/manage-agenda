@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from datetime import timedelta
@@ -1481,11 +1482,47 @@ def _get_pages_from_urls(args, urls):
     return page, posts
 
 
+def _get_links_from_notes():
+    """Extracts URLs from all notes in ~/notes."""
+    try:
+        from note_app import NoteManager
+
+        notes_dir = os.path.expanduser("~/notes")
+        if not os.path.exists(notes_dir):
+            logging.warning(f"Notes directory {notes_dir} does not exist.")
+            return []
+
+        manager = NoteManager(storage_dir=notes_dir)
+        titles = manager.list_notes()
+        all_urls = set()
+        for title in titles:
+            note = manager.read_note(title)
+            if note:
+                # get_urls() returns explicitly added URLs
+                all_urls.update(note.get_urls())
+                # get_links() returns URLs extracted from content
+                all_urls.update(note.get_links())
+        return list(all_urls)
+    except ImportError:
+        logging.warning("note_app not found. Cannot extract links from notes.")
+        return []
+    except Exception as e:
+        logging.error(f"Error extracting links from notes: {e}")
+        return []
+
+
 def process_web_cli(args, model, urls=None, force_refresh=False):
     """Processes web pages and creates calendar events."""
 
     if not urls:
-        urls = input("Enter URLs separated by spaces: ").split()
+        urls = input("Enter URLs separated by spaces (leave empty to use ~/notes): ").split()
+        if not urls:
+            print("No URLs entered. Extracting links from ~/notes...")
+            urls = _get_links_from_notes()
+            if not urls:
+                print("No links found in ~/notes.")
+                return False
+            print(f"Found {len(urls)} links in notes.")
 
     api_src, posts = _get_pages_from_urls(args, urls)
 
