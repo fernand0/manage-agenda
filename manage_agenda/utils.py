@@ -1550,10 +1550,19 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
             if not title:
                 title = urls[i]
             
-            # Use a hash of the URL for the post_id to avoid "File name too long" errors
-            import hashlib
-            url_hash = hashlib.md5(urls[i].encode()).hexdigest()
-            return url_hash, title, datetime.datetime.now()
+            # Generate a safe, readable filename from the URL
+            from .utils_web import extract_domain_and_path_from_url
+            import re
+            
+            processed_url = extract_domain_and_path_from_url(urls[i])
+            # Replace unsafe characters with underscores
+            safe_id = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
+            
+            # Truncate to a safe length (e.g., 150 chars) to avoid "File name too long" errors
+            if len(safe_id) > 150:
+                safe_id = safe_id[:150]
+                
+            return safe_id, title, datetime.datetime.now()
 
         def content_extractor(post, i, post_date_time, post_title):
             web_content_reduced = reduce_html(urls[i], post, force_refresh=force_refresh)
