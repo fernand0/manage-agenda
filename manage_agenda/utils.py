@@ -1549,7 +1549,11 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
             title = api_src.getPostTitle(post)
             if not title:
                 title = urls[i]
-            return api_src.getPostId(post), title, datetime.datetime.now()
+            
+            # Use a hash of the URL for the post_id to avoid "File name too long" errors
+            import hashlib
+            url_hash = hashlib.md5(urls[i].encode()).hexdigest()
+            return url_hash, title, datetime.datetime.now()
 
         def content_extractor(post, i, post_date_time, post_title):
             web_content_reduced = reduce_html(urls[i], post, force_refresh=force_refresh)
