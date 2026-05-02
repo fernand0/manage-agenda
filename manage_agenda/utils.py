@@ -1490,43 +1490,60 @@ def _get_links_from_notes():
         notes_dir = os.path.expanduser("~/notes")
         if not os.path.exists(notes_dir):
             logging.warning(f"Notes directory {notes_dir} does not exist.")
-            return []
+            return {}
 
         manager = NoteManager(storage_dir=notes_dir)
         titles = manager.list_notes()
-        all_urls = set()
+        url_to_notes = {}
         for title in titles:
             note = manager.read_note(title)
             if note:
                 # get_urls() returns explicitly added URLs
-                all_urls.update(note.get_urls())
                 # get_links() returns URLs extracted from content
-                all_urls.update(note.get_links())
-        return list(all_urls)
+                note_urls = set(note.get_urls()) | set(note.get_links())
+                for url in note_urls:
+                    if url not in url_to_notes:
+                        url_to_notes[url] = []
+                    url_to_notes[url].append(title)
+        return url_to_notes
     except ImportError:
         logging.warning("note_app not found. Cannot extract links from notes.")
-        return []
+        return {}
     except Exception as e:
         logging.error(f"Error extracting links from notes: {e}")
-        return []
+        return {}
 
 
 def process_web_cli(args, model, urls=None, force_refresh=False):
     """Processes web pages and creates calendar events."""
 
+    url_to_notes = {}
     if not urls:
-        urls = input("Enter URLs separated by spaces (leave empty to use ~/notes): ").split()
-        if not urls:
+        urls_input = input("Enter URLs separated by spaces (leave empty to use ~/notes): ").split()
+        if not urls_input:
             print("No URLs entered. Extracting links from ~/notes...")
-            urls = _get_links_from_notes()
-            if not urls:
+            url_to_notes = _get_links_from_notes()
+            if not url_to_notes:
                 print("No links found in ~/notes.")
                 return False
+            urls = list(url_to_notes.keys())
             print(f"Found {len(urls)} links in notes.")
+        else:
+            urls = urls_input
 
     api_src, posts = _get_pages_from_urls(args, urls)
 
     if posts:
+        # Instantiate manager if we might need to delete notes
+        manager = None
+        if url_to_notes:
+            try:
+                from note_app import NoteManager
+
+                notes_dir = os.path.expanduser("~/notes")
+                manager = NoteManager(storage_dir=notes_dir)
+            except ImportError:
+                pass
 
         def metadata_extractor(post, i):
             title = api_src.getPostTitle(post)
@@ -1548,7 +1565,16 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
                 f"Message date: {date_message}\n"
             )
 
-        return _process_common_flow(args, model, posts, metadata_extractor, content_extractor)
+        def item_cleaner(post, i, post_id):
+            url = urls[i]
+            if url in url_to_notes and manager:
+                for note_title in url_to_notes[url]:
+                    print(f"Deleting note: {note_title}")
+                    manager.delete_note(note_title)
+
+        return _process_common_flow(
+            args, model, posts, metadata_extractor, content_extractor, item_cleaner
+        )
 
     return False  # Default return if something went wrong before the main logic
 
