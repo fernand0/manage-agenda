@@ -44,6 +44,36 @@ def extract_domain_and_path_from_url(url):
         return f"{domain}{final_path}"
 
 
+def extract_relevant_script_content(soup):
+    """
+    Extracts content from script tags that might contain event information,
+    such as JSON-LD or data objects.
+    """
+    script_content = []
+    for script in soup.find_all("script"):
+        # 1. JSON-LD is a common standard for structured data (events, etc.)
+        if script.get("type") == "application/ld+json":
+            if script.string:
+                script_content.append(f"Structured Data (JSON-LD):\n{script.string.strip()}")
+        
+        # 2. Look for large data objects or specific keywords in regular scripts
+        elif not script.get("src") and script.string:
+            content = script.string.strip()
+            # Heuristic: If it looks like a large JSON object or contains event keywords,
+            # it might be an initial state or data dump.
+            # We look for "window.__" or "EVENT_DATA" or similar common patterns.
+            keywords = ["event", "schedule", "calendar", "date", "venue", "location", "price"]
+            if (len(content) > 100 and 
+                any(k.lower() in content.lower() for k in keywords) and
+                ("{" in content or "[" in content)):
+                # We don't want to include huge minified libraries, so we check for some structure
+                # and limit the size if it doesn't look like pure data
+                if len(content) < 10000: # Arbitrary limit for sanity
+                    script_content.append(f"Possible Data Object:\n{content}")
+
+    return "\n\n".join(script_content)
+
+
 def reduce_html(url, post, force_refresh=False):
     """
     Reduces the HTML content of a URL by comparing it with a cached version.
@@ -65,6 +95,11 @@ def reduce_html(url, post, force_refresh=False):
     new_html = post
     logging.debug(f"Post: {post}")
 
+    soup = BeautifulSoup(new_html, "html.parser")
+    
+    # Extract relevant script content before they are decomposed
+    extra_script_data = extract_relevant_script_content(soup)
+
     if force_refresh:
         logging.info("Force refresh enabled. Returning full content after cleaning...")
         # Save the new HTML to the cache
@@ -72,7 +107,6 @@ def reduce_html(url, post, force_refresh=False):
             f.write(new_html)
 
         # Return the full content after basic cleaning
-        soup = BeautifulSoup(new_html, "html.parser")
         for script in soup.find_all("script"):
             script.decompose()
         for meta in soup.find_all("meta"):
@@ -84,7 +118,7 @@ def reduce_html(url, post, force_refresh=False):
             old_html = f.read()
 
         soup1 = BeautifulSoup(old_html, "html.parser")
-        soup2 = BeautifulSoup(new_html, "html.parser")
+        soup2 = soup # use the already parsed soup
 
         # Store the text of all tags from the old version in a set for quick lookup
         fragments1 = {
@@ -143,11 +177,13 @@ def reduce_html(url, post, force_refresh=False):
             f.write(new_html)
 
         # For the first time, we can return the full text after basic cleaning
-        soup = BeautifulSoup(new_html, "html.parser")
         for script in soup.find_all("script"):
             script.decompose()
         for meta in soup.find_all("meta"):
             meta.decompose()
         result = soup.get_text(separator="\n", strip=True)
+
+    if extra_script_data:
+        result = f"{result}\n\n--- Extra Data Found in Scripts ---\n{extra_script_data}"
 
     return result

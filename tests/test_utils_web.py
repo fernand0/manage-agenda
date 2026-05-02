@@ -179,6 +179,39 @@ class TestReduceHtml(unittest.TestCase):
         filename = files[0]
         self.assertRegex(filename, r"^[a-zA-Z0-9._-]+$")
 
+    def test_reduce_html_extracts_scripts(self):
+        """Test that reduce_html extracts relevant script content."""
+        url = "http://example.com/event-scripts"
+        html_content = """
+        <html>
+            <body>
+                <h1>Main Content</h1>
+                <script type="application/ld+json">
+                {"@context": "http://schema.org", "@type": "Event", "name": "JSON-LD Event"}
+                </script>
+                <script>
+                // This needs to be long enough (>100 chars) to trigger the heuristic
+                window.EVENT_DATA = {
+                    "name": "JS Object Event", 
+                    "date": "2024-05-02",
+                    "location": "A very nice place with a lot of character and history",
+                    "description": "An event that you should not miss for any reason!"
+                };
+                </script>
+            </body>
+        </html>
+        """
+        
+        # Execute
+        result = reduce_html(url, html_content)
+        
+        # Verify
+        self.assertIn("Main Content", result)
+        self.assertIn("Structured Data (JSON-LD):", result)
+        self.assertIn("JSON-LD Event", result)
+        self.assertIn("Possible Data Object:", result)
+        self.assertIn("JS Object Event", result)
+
 
 if __name__ == "__main__":
     unittest.main()
