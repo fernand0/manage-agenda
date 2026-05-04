@@ -74,6 +74,37 @@ def extract_relevant_script_content(soup):
     return "\n\n".join(script_content)
 
 
+def is_error_content(soup):
+    """
+    Checks if the BeautifulSoup object contains common error indicators.
+    """
+    # Check title
+    title_tag = soup.find("title")
+    if title_tag:
+        title_text = title_tag.get_text().lower()
+        error_titles = [
+            "404 not found", "403 forbidden", "500 internal server error",
+            "502 bad gateway", "503 service unavailable", "access denied",
+            "page not found", "error", "security check", "checking your browser"
+        ]
+        if any(err in title_text for err in error_titles):
+            return True
+
+    # Check common error heading patterns
+    for heading in soup.find_all(["h1", "h2"]):
+        h_text = heading.get_text().lower()
+        error_indicators = [
+            "404", "500", "502", "503", "not found", "access denied", 
+            "forbidden", "error occurred", "security check"
+        ]
+        if any(err in h_text for err in error_indicators):
+            # Double check if it's just a small page with this heading
+            if len(soup.get_text()) < 1000:
+                return True
+
+    return False
+
+
 def reduce_html(url, post, force_refresh=False):
     """
     Reduces the HTML content of a URL by comparing it with a cached version.
@@ -84,6 +115,10 @@ def reduce_html(url, post, force_refresh=False):
         post: The HTML content to process
         force_refresh: If True, bypass cache comparison and return full content
     """
+    if not post or not post.strip():
+        logging.warning(f"Empty content received for {url}")
+        return None
+
     if not os.path.exists(CACHE_DIR):
         os.makedirs(CACHE_DIR)
 
@@ -96,6 +131,11 @@ def reduce_html(url, post, force_refresh=False):
     logging.debug(f"Post: {post}")
 
     soup = BeautifulSoup(new_html, "html.parser")
+
+    # Detect error pages
+    if is_error_content(soup):
+        logging.warning(f"Error page detected for {url}")
+        return None
     
     # Extract relevant script content before they are decomposed
     extra_script_data = extract_relevant_script_content(soup)

@@ -212,6 +212,33 @@ class TestReduceHtml(unittest.TestCase):
         self.assertIn("Possible Data Object:", result)
         self.assertIn("JS Object Event", result)
 
+    def test_reduce_html_empty_content(self):
+        """Test that reduce_html returns None for empty content."""
+        url = "https://example.com/empty"
+        self.assertIsNone(reduce_html(url, ""))
+        self.assertIsNone(reduce_html(url, "   "))
+
+    def test_reduce_html_error_pages(self):
+        """Test that reduce_html returns None for error pages."""
+        url = "https://example.com/error"
+        
+        # 404 in title
+        html_404 = "<html><head><title>404 Not Found</title></head><body><h1>Nothing here</h1></body></html>"
+        self.assertIsNone(reduce_html(url, html_404))
+        
+        # 500 in heading
+        html_500 = "<html><body><h1>500 Internal Server Error</h1></body></html>"
+        self.assertIsNone(reduce_html(url, html_500))
+        
+        # Access denied in title
+        html_denied = "<html><head><title>Access Denied</title></head><body>Check your permissions.</body></html>"
+        self.assertIsNone(reduce_html(url, html_denied))
+
+        # Legitimate page with some error keywords but long content should NOT be skipped
+        # unless it's in the title
+        legit_html = "<html><body><h1>An error occurred in the past</h1>" + "Content " * 200 + "</body></html>"
+        self.assertIsNotNone(reduce_html(url, legit_html))
+
 
 if __name__ == "__main__":
     unittest.main()
