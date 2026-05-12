@@ -1224,7 +1224,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371 }
 wheels = [
@@ -2283,6 +2283,7 @@ dependencies = [
     { name = "google-generativeai" },
     { name = "mistralai", version = "1.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "mistralai", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "note-taker" },
     { name = "ollama" },
     { name = "setuptools" },
     { name = "social-modules" },
@@ -2336,6 +2337,7 @@ requires-dist = [
     { name = "google-generativeai" },
     { name = "isort", marker = "extra == 'dev'" },
     { name = "mistralai" },
+    { name = "note-taker", git = "https://github.com/fernand0/another-note-taking-app.git" },
     { name = "ollama" },
     { name = "pre-commit", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
@@ -2677,6 +2679,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/24/bf/d1bda4f6168e0b2e9
 wheels = [
     { url = "https://files.pythonhosted.org/packages/88/b2/d0896bdcdc8d28a7fc5717c305f1a861c26e18c05047949fb371034d98bd/nodeenv-1.10.0-py2.py3-none-any.whl", hash = "sha256:5bb13e3eed2923615535339b3c620e76779af4cb4c6a90deccc9e36b274d3827", size = 23438 },
 ]
+
+[[package]]
+name = "note-taker"
+version = "0.1.0"
+source = { git = "https://github.com/fernand0/another-note-taking-app.git#fa45149d1f55992fdd65d910cd57fe072c36851b" }
 
 [[package]]
 name = "oauth2"
