@@ -1526,8 +1526,10 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
             if not url_to_notes:
                 print("No links found in ~/notes.")
                 return False
+            print(f"Found {url_to_notes} links in notes.")
             urls = list(url_to_notes.keys())
             print(f"Found {len(urls)} links in notes.")
+            print(f"Found {urls} links in notes.")
         else:
             urls = urls_input
 
