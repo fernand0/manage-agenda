@@ -949,7 +949,7 @@ def _extract_event_with_llm_retry(
     write_file(f"{post_identifier}.vcal", vcal_json)
 
     # Now validate the event and handle interactive completion if needed
-    validated_event, validated_vcal_json, need_restart, need_another_ai = (
+    validated_event, validated_vcal_json, need_restart, need_another_ai, new_content = (
         _validate_and_complete_event_interactively(
             args,
             event,
@@ -962,6 +962,13 @@ def _extract_event_with_llm_retry(
             reference_date_time,
         )
     )
+
+    if need_another_ai:
+        prompt_content = new_content
+        # Restart the extraction loop with new content (snippet or original)
+        return _extract_event_with_llm_retry(
+            args, model, prompt_content, reference_date_time, post_identifier, subject_for_print
+        )
 
     # If validation failed completely
     if validated_event is None:
@@ -1011,8 +1018,10 @@ def _validate_and_complete_event_interactively(
         reference_date_time: Reference date/time
 
     Returns:
-        tuple: (event, vcal_json, need_restart, need_another_ai) where need_restart indicates if the whole process should restart
-               and need_another_ai indicates if another AI call is needed
+        tuple: (event, vcal_json, need_restart, need_another_ai, new_content_text)
+               where need_restart indicates if the whole process should restart,
+               need_another_ai indicates if another AI call is needed,
+               and new_content_text is updated content if provided.
     """
     # --- LLM Response Validation/Retry Loop ---
     retries = 0
@@ -1021,6 +1030,7 @@ def _validate_and_complete_event_interactively(
     should_skip = False
     need_restart = False
     need_another_ai = False
+    new_content_text = content_text
 
     # Process until completion or termination condition
     while (
@@ -1043,15 +1053,23 @@ def _validate_and_complete_event_interactively(
             data_complete = True
         else:
             if args.interactive:
-                print("Missing event information:")
+                print("\nMissing event information:")
                 if not summary:
                     print("- Summary")
                 if not start_datetime:
                     print("- Start Date/Time")
 
+                # Show URL if available in original content
+                for line in content_text.splitlines():
+                    if line.startswith("Url: "):
+                        print(line)
+                        break
+
+                print_first_10_lines(content_text, "source text")
+
                 choice = input(
-                    "Options: (m)anual input, (a)nother AI, (s)kip item: "
-                ).lower()  # Generalized message
+                    "Options: (m)anual input, (a)nother AI, (p)rovide snippet, (s)kip item, (r)estart: "
+                ).lower()
 
                 if choice == "m":
                     if not summary:
@@ -1080,12 +1098,32 @@ def _validate_and_complete_event_interactively(
                         print("Max AI retries reached. Skipping item.")  # Generalized message
                         should_skip = True
                     else:
-                        need_another_ai = True  # Signal that another AI call is needed
-                        # Instead of break, we'll set a flag to indicate we should exit the loop
-                        # The loop will naturally terminate on the next iteration due to the condition
-                        # But we need to make sure the loop condition will be false next time
-                        # We'll set data_complete to True to exit the loop
-                        data_complete = True  # This will cause the loop to exit on next evaluation
+                        need_another_ai = True
+                        data_complete = True
+                elif choice == "p":
+                    print(
+                        "Paste the relevant part of the text here (finish with Ctrl-D or a blank line):"
+                    )
+                    lines = []
+                    while True:
+                        try:
+                            line = input()
+                            if not line:
+                                break
+                            lines.append(line)
+                        except EOFError:
+                            break
+                    if lines:
+                        new_content_text = "\n".join(lines)
+                        # Try to preserve Message date for relative date processing
+                        for line in content_text.splitlines():
+                            if line.startswith("Message date:"):
+                                new_content_text += f"\n{line}"
+                                break
+                        need_another_ai = True
+                        data_complete = True
+                    else:
+                        print("No snippet provided. Continuing with current options.")
                 elif choice == "s":
                     should_skip = True
                 elif choice == "r":  # User wants to restart from the beginning
@@ -1105,9 +1143,15 @@ def _validate_and_complete_event_interactively(
 
     # Determine return values based on flags
     if should_skip or not data_complete:
-        return None, None, need_restart, need_another_ai  # Return flags
+        return None, None, need_restart, need_another_ai, new_content_text  # Return flags
     else:
-        return event, vcal_json, need_restart, need_another_ai  # Return validated event and flags
+        return (
+            event,
+            vcal_json,
+            need_restart,
+            need_another_ai,
+            new_content_text,
+        )  # Return validated event and flags
 
 
 def _format_datetime_for_display(dt_value):

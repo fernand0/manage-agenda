@@ -1059,9 +1059,6 @@ more text"""
         self.assertIsNone(result)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
     @patch("builtins.input", side_effect=["meeting", "0", "calendar2"])
@@ -1083,13 +1080,15 @@ if __name__ == "__main__":
                 {
                     "summary": "Team meeting",
                     "description": "Weekly sync",
-                    "start": {"dateTime": "2024-01-15T10:00:00"},
-                    "end": {"dateTime": "2024-01-15T11:00:00"},
+                    "start": {"dateTime": "2029-01-15T10:00:00"},
+                    "end": {"dateTime": "2029-01-15T11:00:00"},
                 }
             ]
         }
         mock_client.events().list().execute.return_value = mock_events
+        mock_api.getPosts.return_value = mock_events["items"]
         mock_api.getPostTitle.return_value = "Team meeting"
+        mock_api.getPostDate.return_value = "2029-01-15T10:00:00Z"
         mock_select_api.return_value = mock_api
 
         copy_events_cli(args)
@@ -1099,7 +1098,7 @@ if __name__ == "__main__":
 
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
-    @patch("builtins.input", return_value="0")
+    @patch("builtins.input", side_effect=["", "0"])
     def test_delete_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
         """Test delete_events_cli basic flow."""
         from manage_agenda.utils import delete_events_cli
@@ -1118,13 +1117,15 @@ if __name__ == "__main__":
                 {
                     "id": "event1",
                     "summary": "Old meeting",
-                    "start": {"dateTime": "2024-01-15T10:00:00"},
-                    "end": {"dateTime": "2024-01-15T11:00:00"},
+                    "start": {"dateTime": "2029-01-15T10:00:00"},
+                    "end": {"dateTime": "2029-01-15T11:00:00"},
                 }
             ]
         }
         mock_client.events().list().execute.return_value = mock_events
+        mock_api.getPosts.return_value = mock_events["items"]
         mock_api.getPostTitle.return_value = "Old meeting"
+        mock_api.getPostDate.return_value = "2029-01-15T10:00:00Z"
         mock_select_api.return_value = mock_api
 
         delete_events_cli(args)
@@ -1134,7 +1135,7 @@ if __name__ == "__main__":
 
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
-    @patch("builtins.input", side_effect=["0", "calendar2"])
+    @patch("builtins.input", side_effect=["", "0", "calendar2"])
     def test_move_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
         """Test move_events_cli basic flow."""
         from manage_agenda.utils import move_events_cli
@@ -1153,19 +1154,23 @@ if __name__ == "__main__":
                 {
                     "id": "event1",
                     "summary": "Moving meeting",
-                    "start": {"dateTime": "2024-01-15T10:00:00"},
-                    "end": {"dateTime": "2024-01-15T11:00:00"},
+                    "description": "Moving description",
+                    "start": {"dateTime": "2029-01-15T10:00:00"},
+                    "end": {"dateTime": "2029-01-15T11:00:00"},
                 }
             ]
         }
         mock_client.events().list().execute.return_value = mock_events
+        mock_api.getPosts.return_value = mock_events["items"]
         mock_api.getPostTitle.return_value = "Moving meeting"
+        mock_api.getPostDate.return_value = "2029-01-15T10:00:00Z"
         mock_select_api.return_value = mock_api
 
         move_events_cli(args)
 
-        # Verify event was moved
-        mock_client.events().move.assert_called()
+        # Verify event was moved (copy then delete)
+        mock_client.events().insert.assert_called()
+        mock_client.events().delete.assert_called()
 
 
 class TestLLMFallback(unittest.TestCase):
@@ -1231,7 +1236,13 @@ class TestLLMFallback(unittest.TestCase):
         mock_input.side_effect = ["p", "My snippet content", ""]
 
         # Mock validation to return the event
-        mock_validate.return_value = ({"summary": "Snippet Event"}, "valid json", False, False)
+        mock_validate.return_value = (
+            {"summary": "Snippet Event"},
+            "valid json",
+            False,
+            False,
+            "My snippet content",
+        )
 
         event, vcal, elapsed, success, restart, another_ai = _extract_event_with_llm_retry(
             self.args,
@@ -1251,6 +1262,52 @@ class TestLLMFallback(unittest.TestCase):
         self.assertIn("My snippet content", prompt)
         self.assertIn("Message date: 2026-05-12", prompt)
 
+    @patch("manage_agenda.utils.get_event_from_llm_with_retry")
+    @patch("manage_agenda.utils.input")
+    @patch("manage_agenda.utils.write_file")
+    @patch("manage_agenda.utils.print_first_10_lines")
+    def test_validate_and_complete_fallback_snippet(
+        self, mock_print_lines, mock_write_file, mock_input, mock_retry
+    ):
+        from manage_agenda.utils import _extract_event_with_llm_retry
+
+        # 1. First extraction returns partial event (missing start date)
+        # 2. User chooses 'p' and provides snippet
+        # 3. Second extraction (recursive call) succeeds
+        
+        partial_event = {"summary": "Partial Event"}
+        complete_event = {"summary": "Complete Event", "start": {"dateTime": "2026-05-13 10:00:00"}}
+        
+        mock_retry.side_effect = [
+            (partial_event, "partial json", 1.0),
+            (complete_event, "complete json", 1.0)
+        ]
+        
+        # Inputs: 
+        # First extraction succeeds (no input needed for get_event_from_llm_with_retry)
+        # Then _validate_and_complete_event_interactively asks for options: 'p'
+        # Then asks for snippet: 'My snippet'
+        # Then empty line to finish snippet: ''
+        mock_input.side_effect = ["p", "My snippet", ""]
+        
+        event, vcal, elapsed, success, restart, another_ai = _extract_event_with_llm_retry(
+            self.args,
+            self.model,
+            self.content_text,
+            self.reference_date_time,
+            self.post_identifier,
+            self.subject_for_print,
+        )
+        
+        self.assertTrue(success)
+        self.assertEqual(event["summary"], "Complete Event")
+        self.assertEqual(mock_retry.call_count, 2)
+        
+        # Verify second prompt used the snippet
+        args, _ = mock_retry.call_args
+        prompt = args[1]
+        self.assertIn("My snippet", prompt)
+
     @patch("manage_agenda.utils.get_event_from_llm")
     def test_get_event_from_llm_with_retry_limit(self, mock_get_event):
         from manage_agenda.utils import get_event_from_llm_with_retry
@@ -1264,3 +1321,7 @@ class TestLLMFallback(unittest.TestCase):
 
         self.assertIsNone(event)
         self.assertEqual(mock_get_event.call_count, 3)  # Max retries is 3
+
+
+if __name__ == "__main__":
+    unittest.main()
