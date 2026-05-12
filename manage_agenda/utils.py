@@ -455,9 +455,12 @@ def get_event_from_llm_with_retry(model, prompt, args):
     vcal_json = None
     elapsed_time = 0
     memory_error_occurred = False
+    retries = 0
+    max_retries = 3
 
-    while not event and not memory_error_occurred:
+    while not event and not memory_error_occurred and retries < max_retries:
         event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+        retries += 1
 
         # Handle memory error specifically
         if vcal_json == "MemoryError":
@@ -867,35 +870,83 @@ def _extract_event_with_llm_retry(
         need_another_ai) where success_flag indicates if extraction was
         successful and need_restart indicates if the whole process should
         restart"""
-    # Create initial event dict for helper
-    prompt = _create_llm_prompt(content_text, reference_date_time)
-    if args.verbose:
-        print(f"Prompt:\n{prompt}")
-        print("\nEnd Prompt:")
+    original_content = content_text
+    prompt_content = content_text
+    total_elapsed_time = 0
 
-    # Get AI reply with retry logic
-    event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args)
+    while True:
+        # Create initial event dict for helper
+        prompt = _create_llm_prompt(prompt_content, reference_date_time)
+        if args.verbose:
+            print(f"Prompt:\n{prompt}")
+            print("\nEnd Prompt:")
 
-    # Check for memory error
-    memory_error = event is None and vcal_json == "MemoryError"
+        # Get AI reply with retry logic
+        event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args)
+        total_elapsed_time += elapsed_time
 
-    if memory_error:
-        return event, vcal_json, elapsed_time, False, False, False
-        # Not successful, don't restart, don't need another AI
+        # Check for memory error
+        memory_error = event is None and vcal_json == "MemoryError"
 
-    # Process event data
-    event = process_event_data(event, content_text)
-    event = adjust_event_times(event)
+        if memory_error:
+            return event, vcal_json, total_elapsed_time, False, False, False
+            # Not successful, don't restart, don't need another AI
 
-    # Check if event processing was successful
-    processing_failed = not event
+        # Process event data
+        if event:
+            event = process_event_data(event, original_content)
+            event = adjust_event_times(event)
+            # Success - break out of fallback loop
+            break
 
-    # Save vCal data
-    write_file(f"{post_identifier}.vcal", vcal_json)  # Save vCal data
+        # If we got here, extraction failed (event is None)
+        # Save whatever we got for debugging
+        write_file(f"{post_identifier}.vcal", vcal_json or "Failed extraction")
 
-    # If basic processing failed, return with failure
-    if processing_failed:
-        return event, vcal_json, elapsed_time, False, False, False
+        if not args.interactive:
+            return None, vcal_json, total_elapsed_time, False, False, False
+
+        # Interactive fallback
+        print("\nLLM failed to extract event information.")
+        # Show URL if available in original content
+        for line in original_content.splitlines():
+            if line.startswith("Url: "):
+                print(line)
+                break
+
+        print_first_10_lines(original_content, "source text")
+
+        print("Options: (r)etry, (p)rovide relevant text snippet, (s)kip item")
+        choice = input("Choice: ").lower().strip()
+
+        if choice == "r":
+            prompt_content = original_content  # Reset to original content for retry
+            continue
+        elif choice == "p":
+            print("Paste the relevant part of the text here (finish with Ctrl-D or a blank line):")
+            lines = []
+            while True:
+                try:
+                    line = input()
+                    if not line:
+                        break
+                    lines.append(line)
+                except EOFError:
+                    break
+            if lines:
+                prompt_content = "\n".join(lines)
+                # Try to preserve Message date for relative date processing
+                for line in original_content.splitlines():
+                    if line.startswith("Message date:"):
+                        prompt_content += f"\n{line}"
+                        break
+                continue
+
+        # Skip or invalid choice
+        return None, vcal_json, total_elapsed_time, False, False, False
+
+    # Save final successful vCal data
+    write_file(f"{post_identifier}.vcal", vcal_json)
 
     # Now validate the event and handle interactive completion if needed
     validated_event, validated_vcal_json, need_restart, need_another_ai = (
@@ -903,11 +954,11 @@ def _extract_event_with_llm_retry(
             args,
             event,
             vcal_json,
-            elapsed_time,
+            total_elapsed_time,
             post_identifier,
             subject_for_print,
             model,
-            content_text,
+            prompt_content,
             reference_date_time,
         )
     )
@@ -917,14 +968,21 @@ def _extract_event_with_llm_retry(
         return (
             validated_event,
             validated_vcal_json,
-            elapsed_time,
+            total_elapsed_time,
             False,
             need_restart,
             need_another_ai,
         )
 
     # Success - return validated event
-    return validated_event, validated_vcal_json, elapsed_time, True, need_restart, need_another_ai
+    return (
+        validated_event,
+        validated_vcal_json,
+        total_elapsed_time,
+        True,
+        need_restart,
+        need_another_ai,
+    )
 
 
 def _validate_and_complete_event_interactively(

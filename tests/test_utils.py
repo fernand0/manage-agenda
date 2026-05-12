@@ -1166,3 +1166,101 @@ if __name__ == "__main__":
 
         # Verify event was moved
         mock_client.events().move.assert_called()
+
+
+class TestLLMFallback(unittest.TestCase):
+    def setUp(self):
+        self.args = Args(interactive=True, verbose=False)
+        self.model = MagicMock()
+        self.content_text = (
+            "Url: http://example.com\nSubject: Test\n"
+            "Message: Some long content\nMessage date: 2026-05-12"
+        )
+        self.reference_date_time = "2026-05-12"
+        self.post_identifier = "test_post"
+        self.subject_for_print = "Test Subject"
+
+    @patch("manage_agenda.utils.get_event_from_llm_with_retry")
+    @patch("manage_agenda.utils.input")
+    @patch("manage_agenda.utils.write_file")
+    @patch("manage_agenda.utils.print_first_10_lines")
+    def test_extract_event_fallback_skip(
+        self, mock_print_lines, mock_write_file, mock_input, mock_retry
+    ):
+        from manage_agenda.utils import _extract_event_with_llm_retry
+
+        # 1. LLM fails
+        mock_retry.return_value = (None, "Invalid JSON", 1.0)
+        # 2. User chooses 's' to skip
+        mock_input.return_value = "s"
+
+        event, vcal, elapsed, success, restart, another_ai = _extract_event_with_llm_retry(
+            self.args,
+            self.model,
+            self.content_text,
+            self.reference_date_time,
+            self.post_identifier,
+            self.subject_for_print,
+        )
+
+        self.assertIsNone(event)
+        self.assertFalse(success)
+        self.assertEqual(mock_input.call_count, 1)
+
+    @patch("manage_agenda.utils.get_event_from_llm_with_retry")
+    @patch("manage_agenda.utils.input")
+    @patch("manage_agenda.utils.write_file")
+    @patch("manage_agenda.utils._validate_and_complete_event_interactively")
+    def test_extract_event_fallback_snippet_success(
+        self, mock_validate, mock_write_file, mock_input, mock_retry
+    ):
+        from manage_agenda.utils import _extract_event_with_llm_retry
+
+        # 1. First call fails
+        # 2. Second call (with snippet) succeeds
+        mock_retry.side_effect = [
+            (None, "Invalid JSON", 1.0),
+            (
+                {"summary": "Snippet Event", "start": {"dateTime": "2026-05-13 10:00:00"}},
+                "valid json",
+                1.0,
+            ),
+        ]
+
+        # Mock inputs: 'p' for snippet, then the snippet itself, then empty line to finish snippet
+        mock_input.side_effect = ["p", "My snippet content", ""]
+
+        # Mock validation to return the event
+        mock_validate.return_value = ({"summary": "Snippet Event"}, "valid json", False, False)
+
+        event, vcal, elapsed, success, restart, another_ai = _extract_event_with_llm_retry(
+            self.args,
+            self.model,
+            self.content_text,
+            self.reference_date_time,
+            self.post_identifier,
+            self.subject_for_print,
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(event["summary"], "Snippet Event")
+        self.assertEqual(mock_retry.call_count, 2)
+
+        args, _ = mock_retry.call_args
+        prompt = args[1]
+        self.assertIn("My snippet content", prompt)
+        self.assertIn("Message date: 2026-05-12", prompt)
+
+    @patch("manage_agenda.utils.get_event_from_llm")
+    def test_get_event_from_llm_with_retry_limit(self, mock_get_event):
+        from manage_agenda.utils import get_event_from_llm_with_retry
+
+        # Mock get_event_from_llm to always fail
+        mock_get_event.return_value = (None, "Invalid JSON", 1.0)
+
+        event, vcal, elapsed = get_event_from_llm_with_retry(
+            self.model, "some prompt", self.args
+        )
+
+        self.assertIsNone(event)
+        self.assertEqual(mock_get_event.call_count, 3)  # Max retries is 3
