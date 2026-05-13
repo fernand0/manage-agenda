@@ -1211,8 +1211,11 @@ def _display_event_info(event, subject_for_print, elapsed_time=None):
     start_time_local = _format_datetime_for_display(start_time)
     end_time_local = _format_datetime_for_display(end_time)
 
+    # Use extracted summary if available, otherwise fallback to subject_for_print
+    event_summary = safe_get(event, ["summary"]) or subject_for_print
+
     print("=====================================")
-    print(f"Subject: {subject_for_print}")
+    print(f"Subject: {event_summary}")
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
 
