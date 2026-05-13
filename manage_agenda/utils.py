@@ -140,6 +140,56 @@ def print_first_10_lines(content, content_type="content"):
     print("-------------------------------------\n")
 
 
+def _get_text_snippet(original_content: str) -> Optional[str]:
+    """Get a text snippet from the user and preserve the Message date.
+
+    Args:
+        original_content: Original content to extract Message date from
+
+    Returns:
+        The new content text with Message date preserved, or None if no input
+    """
+    print("Paste the relevant part of the text here (finish with Ctrl-D):")
+    lines = []
+    while True:
+        try:
+            line = input()
+            lines.append(line)
+        except EOFError:
+            break
+
+    new_content_text = None
+    if lines:
+        new_content_text = "\n".join(lines)
+        # Try to preserve Message date for relative date processing
+        for line in original_content.splitlines():
+            if line.startswith("Message date:"):
+                new_content_text += f"\n{line}"
+                break
+    return new_content_text
+
+
+def _print_context_and_options(content: str, options_prompt: str) -> str:
+    """Print URL (if found), first 10 lines of content, and prompt for options.
+
+    Args:
+        content: The source text to display context from
+        options_prompt: The prompt string showing available options
+
+    Returns:
+        The user's choice (lowered and stripped)
+    """
+    # Show URL if available in original content
+    for line in content.splitlines():
+        if line.startswith("Url: "):
+            print(line)
+            break
+
+    print_first_10_lines(content, "source text")
+
+    return input(options_prompt).lower().strip()
+
+
 def select_calendar(calendar_api):
     """Selects a Google Calendar.
 
@@ -908,38 +958,17 @@ def _extract_event_with_llm_retry(
 
         # Interactive fallback
         print("\nLLM failed to extract event information.")
-        # Show URL if available in original content
-        for line in original_content.splitlines():
-            if line.startswith("Url: "):
-                print(line)
-                break
-
-        print_first_10_lines(original_content, "source text")
-
-        print("Options: (r)etry, (p)rovide relevant text snippet, (s)kip item")
-        choice = input("Choice: ").lower().strip()
+        choice = _print_context_and_options(
+            original_content, "Options: (r)etry, (p)rovide relevant text snippet, (s)kip item: "
+        )
 
         if choice == "r":
             prompt_content = original_content  # Reset to original content for retry
             continue
         elif choice == "p":
-            print("Paste the relevant part of the text here (finish with Ctrl-D or a blank line):")
-            lines = []
-            while True:
-                try:
-                    line = input()
-                    if not line:
-                        break
-                    lines.append(line)
-                except EOFError:
-                    break
-            if lines:
-                prompt_content = "\n".join(lines)
-                # Try to preserve Message date for relative date processing
-                for line in original_content.splitlines():
-                    if line.startswith("Message date:"):
-                        prompt_content += f"\n{line}"
-                        break
+            snippet = _get_text_snippet(original_content)
+            if snippet:
+                prompt_content = snippet
                 continue
 
         # Skip or invalid choice
@@ -1059,17 +1088,10 @@ def _validate_and_complete_event_interactively(
                 if not start_datetime:
                     print("- Start Date/Time")
 
-                # Show URL if available in original content
-                for line in content_text.splitlines():
-                    if line.startswith("Url: "):
-                        print(line)
-                        break
-
-                print_first_10_lines(content_text, "source text")
-
-                choice = input(
-                    "Options: (m)anual input, (a)nother AI, (p)rovide snippet, (s)kip item, (r)estart: "
-                ).lower()
+                choice = _print_context_and_options(
+                    content_text,
+                    "Options: (m)anual input, (a)nother AI, (p)rovide snippet, (s)kip item, (r)estart: ",
+                )
 
                 if choice == "m":
                     if not summary:
@@ -1101,25 +1123,9 @@ def _validate_and_complete_event_interactively(
                         need_another_ai = True
                         data_complete = True
                 elif choice == "p":
-                    print(
-                        "Paste the relevant part of the text here (finish with Ctrl-D or a blank line):"
-                    )
-                    lines = []
-                    while True:
-                        try:
-                            line = input()
-                            if not line:
-                                break
-                            lines.append(line)
-                        except EOFError:
-                            break
-                    if lines:
-                        new_content_text = "\n".join(lines)
-                        # Try to preserve Message date for relative date processing
-                        for line in content_text.splitlines():
-                            if line.startswith("Message date:"):
-                                new_content_text += f"\n{line}"
-                                break
+                    snippet = _get_text_snippet(content_text)
+                    if snippet:
+                        new_content_text = snippet
                         need_another_ai = True
                         data_complete = True
                     else:
