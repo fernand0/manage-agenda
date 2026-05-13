@@ -9,6 +9,7 @@ from socialModules.configMod import select_from_list
 
 from manage_agenda.utils import (
     Args,
+    _get_text_snippet,
     adjust_event_times,
     authorize,
     create_event_dict,
@@ -274,6 +275,35 @@ more text"""
         self.assertEqual(safe_get(data, ["a", "b", "c"]), "value")
         self.assertEqual(safe_get(data, ["a", "x", "c"]), "")
         self.assertEqual(safe_get(data, ["a", "b", "c", "d"]), "")
+
+    @patch("manage_agenda.utils.input")
+    def test_get_text_snippet_success(self, mock_input):
+        # Now it should allow empty lines and only terminate on EOFError
+        mock_input.side_effect = ["line 1", "", "line 2", EOFError]
+        original_content = "Some content\nMessage date: 2026-05-13\nOther stuff"
+
+        result = _get_text_snippet(original_content)
+
+        expected = "line 1\n\nline 2\nMessage date: 2026-05-13"
+        self.assertEqual(result, expected)
+
+    @patch("manage_agenda.utils.input")
+    def test_get_text_snippet_no_input(self, mock_input):
+        mock_input.side_effect = [EOFError]
+        original_content = "Some content\nMessage date: 2026-05-13\nOther stuff"
+
+        result = _get_text_snippet(original_content)
+
+        self.assertIsNone(result)
+
+    @patch("manage_agenda.utils.input")
+    def test_get_text_snippet_no_message_date(self, mock_input):
+        mock_input.side_effect = ["line 1", "", EOFError]
+        original_content = "Some content without date"
+
+        result = _get_text_snippet(original_content)
+
+        self.assertEqual(result, "line 1\n")
 
     @patch("click.prompt", return_value="0")
     @patch("os.popen")
@@ -1232,8 +1262,8 @@ class TestLLMFallback(unittest.TestCase):
             ),
         ]
 
-        # Mock inputs: 'p' for snippet, then the snippet itself, then empty line to finish snippet
-        mock_input.side_effect = ["p", "My snippet content", ""]
+        # Mock inputs: 'p' for snippet, then the snippet itself, then EOF to finish snippet
+        mock_input.side_effect = ["p", "My snippet content", EOFError]
 
         # Mock validation to return the event
         mock_validate.return_value = (
@@ -1283,13 +1313,13 @@ class TestLLMFallback(unittest.TestCase):
             (complete_event, "complete json", 1.0)
         ]
         
-        # Inputs: 
+        # Inputs:
         # First extraction succeeds (no input needed for get_event_from_llm_with_retry)
         # Then _validate_and_complete_event_interactively asks for options: 'p'
         # Then asks for snippet: 'My snippet'
-        # Then empty line to finish snippet: ''
-        mock_input.side_effect = ["p", "My snippet", ""]
-        
+        # Then EOF to finish snippet: EOFError
+        mock_input.side_effect = ["p", "My snippet", EOFError]
+
         event, vcal, elapsed, success, restart, another_ai = _extract_event_with_llm_retry(
             self.args,
             self.model,
