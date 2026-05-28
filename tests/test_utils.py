@@ -1060,8 +1060,6 @@ more text"""
         self.assertIsNone(result)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
@@ -1100,7 +1098,7 @@ if __name__ == "__main__":
 
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
-    @patch("builtins.input", return_value="0")
+    @patch("builtins.input", side_effect=["", "0"])
     def test_delete_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
         """Test delete_events_cli basic flow."""
         from manage_agenda.utils import delete_events_cli
@@ -1135,7 +1133,7 @@ if __name__ == "__main__":
 
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
-    @patch("builtins.input", side_effect=["0", "calendar2"])
+    @patch("builtins.input", side_effect=["", "0", "calendar2"])
     def test_move_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
         """Test move_events_cli basic flow."""
         from manage_agenda.utils import move_events_cli
@@ -1165,5 +1163,79 @@ if __name__ == "__main__":
 
         move_events_cli(args)
 
-        # Verify event was moved
-        mock_client.events().move.assert_called()
+        # Verify event was moved (via insert then delete)
+        mock_client.events().insert.assert_called()
+        mock_client.events().delete.assert_called()
+
+    @patch("manage_agenda.utils.get_event_from_llm")
+    @patch("manage_agenda.utils.select_api_source")
+    @patch("manage_agenda.utils.select_calendar")
+    @patch("manage_agenda.utils.write_file")
+    @patch("manage_agenda.utils._interactive_date_confirmation")
+    def test_process_event_with_llm_and_calendar_multiple_events(
+        self,
+        mock_interactive_confirmation,
+        mock_write_file,
+        mock_select_calendar,
+        mock_select_api_source,
+        mock_get_event_from_llm,
+    ):
+        """Test _process_event_with_llm_and_calendar when LLM returns a tuple of events."""
+        from manage_agenda.utils import _process_event_with_llm_and_calendar, Args
+
+        args = Args(
+            interactive=False,
+            delete=False,
+            source="gemini",
+            verbose=False,
+            destination="",
+            text="",
+        )
+
+        mock_model = MagicMock()
+        event1 = {
+            "summary": "Meeting One",
+            "start": {"dateTime": "2024-01-01T10:00:00"},
+            "end": {"dateTime": "2024-01-01T11:00:00"},
+        }
+        event2 = {
+            "summary": "Meeting Two",
+            "start": {"dateTime": "2024-01-02T12:00:00"},
+            "end": {"dateTime": "2024-01-02T13:00:00"},
+        }
+        
+        # get_event_from_llm returns (event, vcal_json, elapsed_time)
+        mock_get_event_from_llm.return_value = ((event1, event2), (event1, event2), 1.0)
+
+        mock_api_dst = MagicMock()
+        mock_select_api_source.return_value = mock_api_dst
+        mock_select_calendar.return_value = "calendar_id"
+        mock_interactive_confirmation.side_effect = lambda args, ev: ev
+        mock_api_dst.publishPost.side_effect = ["result1", "result2"]
+
+        events, results = _process_event_with_llm_and_calendar(
+            args,
+            mock_model,
+            content_text="Multiple events text",
+            reference_date_time="2024-01-01T00:00:00",
+            post_identifier="post_123",
+            subject_for_print="Test Subject",
+        )
+
+        self.assertIsInstance(events, list)
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0]["summary"], "Meeting One")
+        self.assertEqual(events[1]["summary"], "Meeting Two")
+        self.assertEqual(results, ["result1", "result2"])
+
+        # Check write_file calls for suffix index files: _1.vcal, _1.json, _1_times.json, _2.vcal, ...
+        # (each event writes 3 files)
+        self.assertEqual(mock_write_file.call_count, 6)
+        
+        # Verify publishPost was called for both events
+        self.assertEqual(mock_api_dst.publishPost.call_count, 2)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
