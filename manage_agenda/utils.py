@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from datetime import timedelta
@@ -137,6 +138,56 @@ def print_first_10_lines(content, content_type="content"):
             break
         print(line)
     print("-------------------------------------\n")
+
+
+def _get_text_snippet(original_content: str) -> Optional[str]:
+    """Get a text snippet from the user and preserve the Message date.
+
+    Args:
+        original_content: Original content to extract Message date from
+
+    Returns:
+        The new content text with Message date preserved, or None if no input
+    """
+    print("Paste the relevant part of the text here (finish with Ctrl-D):")
+    lines = []
+    while True:
+        try:
+            line = input()
+            lines.append(line)
+        except EOFError:
+            break
+
+    new_content_text = None
+    if lines:
+        new_content_text = "\n".join(lines)
+        # Try to preserve Message date for relative date processing
+        for line in original_content.splitlines():
+            if line.startswith("Message date:"):
+                new_content_text += f"\n{line}"
+                break
+    return new_content_text
+
+
+def _print_context_and_options(content: str, options_prompt: str) -> str:
+    """Print URL (if found), first 10 lines of content, and prompt for options.
+
+    Args:
+        content: The source text to display context from
+        options_prompt: The prompt string showing available options
+
+    Returns:
+        The user's choice (lowered and stripped)
+    """
+    # Show URL if available in original content
+    for line in content.splitlines():
+        if line.startswith("Url: "):
+            print(line)
+            break
+
+    print_first_10_lines(content, "source text")
+
+    return input(options_prompt).lower().strip()
 
 
 def select_calendar(calendar_api):
@@ -424,7 +475,8 @@ def get_event_from_llm(model, prompt, verbose=False):
             print(f"Reply:\n{llm_response}")
             print("End Reply")
 
-        llm_response = llm_response.replace("\\", "").replace("\n", " ")
+        #llm_response = llm_response.replace("\\", "").replace("\n", " ")
+        llm_response = llm_response.replace("\n", " ")
 
         try:
             import ast
@@ -453,9 +505,12 @@ def get_event_from_llm_with_retry(model, prompt, args):
     vcal_json = None
     elapsed_time = 0
     memory_error_occurred = False
+    retries = 0
+    max_retries = 3
 
-    while not event and not memory_error_occurred:
+    while not event and not memory_error_occurred and retries < max_retries:
         event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+        retries += 1
 
         # Handle memory error specifically
         if vcal_json == "MemoryError":
@@ -654,7 +709,7 @@ def _create_llm_prompt(content_text, reference_date_time):
             "2. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').\n"
             "3. Default timezone is CET if not specified otherwise.\n"
             "4. The result must be a valid JSON with all fields and values enclosed in double quotes.\n"
-            "5. Replace any double or single quotes in the extracted content with single quotes (') to avoid JSON parsing errors.\n"
+            "5. Replace any double or single quotes inside the extracted content with single quotes (') to avoid JSON parsing errors.\n"
             "6. Place the start and end times in event['start']['dateTime'] and event['end']['dateTime'] respectively.\n"
             "7. Do not translate the text; keep all information in the original language.\n"
             "8. Return ONLY the completed JSON structure without any additional comments or explanations.\n\n"
@@ -865,64 +920,105 @@ def _extract_event_with_llm_retry(
         need_another_ai) where success_flag indicates if extraction was
         successful and need_restart indicates if the whole process should
         restart"""
-    # Create initial event dict for helper
-    prompt = _create_llm_prompt(content_text, reference_date_time)
-    if args.verbose:
-        print(f"Prompt:\n{prompt}")
-        print("\nEnd Prompt:")
+    original_content = content_text
+    prompt_content = content_text
+    total_elapsed_time = 0
 
-    # Get AI reply with retry logic
-    event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args)
+    while True:
+        # Create initial event dict for helper
+        prompt = _create_llm_prompt(prompt_content, reference_date_time)
+        if args.verbose:
+            print(f"Prompt:\n{prompt}")
+            print("\nEnd Prompt:")
 
-    # Check for memory error
-    memory_error = event is None and vcal_json == "MemoryError"
+        # Get AI reply with retry logic
+        event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args)
+        total_elapsed_time += elapsed_time
 
-    if memory_error:
-        return event, vcal_json, elapsed_time, False, False, False
-        # Not successful, don't restart, don't need another AI
+        # Check for memory error
+        memory_error = event is None and vcal_json == "MemoryError"
 
-    # Process event data
-    event = process_event_data(event, content_text)
-    event = adjust_event_times(event)
+        if memory_error:
+            return event, vcal_json, total_elapsed_time, False, False, False
+            # Not successful, don't restart, don't need another AI
 
-    # Check if event processing was successful
-    processing_failed = not event
+        # Process event data
+        if event:
+            event = process_event_data(event, original_content)
+            event = adjust_event_times(event)
+            # Success - break out of fallback loop
+            break
 
-    # Save vCal data
-    write_file(f"{post_identifier}.vcal", vcal_json)  # Save vCal data
+        # If we got here, extraction failed (event is None)
+        # Save whatever we got for debugging
+        write_file(f"{post_identifier}.vcal", vcal_json or "Failed extraction")
 
-    # If basic processing failed, return with failure
-    if processing_failed:
-        return event, vcal_json, elapsed_time, False, False, False
+        if not args.interactive:
+            return None, vcal_json, total_elapsed_time, False, False, False
+
+        # Interactive fallback
+        print("\nLLM failed to extract event information.")
+        choice = _print_context_and_options(
+            original_content, "Options: (r)etry, (p)rovide relevant text snippet, (s)kip item: "
+        )
+
+        if choice == "r":
+            prompt_content = original_content  # Reset to original content for retry
+            continue
+        elif choice == "p":
+            snippet = _get_text_snippet(original_content)
+            if snippet:
+                prompt_content = snippet
+                continue
+
+        # Skip or invalid choice
+        return None, vcal_json, total_elapsed_time, False, False, False
+
+    # Save final successful vCal data
+    write_file(f"{post_identifier}.vcal", vcal_json)
 
     # Now validate the event and handle interactive completion if needed
-    validated_event, validated_vcal_json, need_restart, need_another_ai = (
+    validated_event, validated_vcal_json, need_restart, need_another_ai, new_content = (
         _validate_and_complete_event_interactively(
             args,
             event,
             vcal_json,
-            elapsed_time,
+            total_elapsed_time,
             post_identifier,
             subject_for_print,
             model,
-            content_text,
+            prompt_content,
             reference_date_time,
         )
     )
+
+    if need_another_ai:
+        prompt_content = new_content
+        # Restart the extraction loop with new content (snippet or original)
+        return _extract_event_with_llm_retry(
+            args, model, prompt_content, reference_date_time, post_identifier, subject_for_print
+        )
 
     # If validation failed completely
     if validated_event is None:
         return (
             validated_event,
             validated_vcal_json,
-            elapsed_time,
+            total_elapsed_time,
             False,
             need_restart,
             need_another_ai,
         )
 
     # Success - return validated event
-    return validated_event, validated_vcal_json, elapsed_time, True, need_restart, need_another_ai
+    return (
+        validated_event,
+        validated_vcal_json,
+        total_elapsed_time,
+        True,
+        need_restart,
+        need_another_ai,
+    )
 
 
 def _validate_and_complete_event_interactively(
@@ -951,8 +1047,10 @@ def _validate_and_complete_event_interactively(
         reference_date_time: Reference date/time
 
     Returns:
-        tuple: (event, vcal_json, need_restart, need_another_ai) where need_restart indicates if the whole process should restart
-               and need_another_ai indicates if another AI call is needed
+        tuple: (event, vcal_json, need_restart, need_another_ai, new_content_text)
+               where need_restart indicates if the whole process should restart,
+               need_another_ai indicates if another AI call is needed,
+               and new_content_text is updated content if provided.
     """
     # --- LLM Response Validation/Retry Loop ---
     retries = 0
@@ -961,6 +1059,7 @@ def _validate_and_complete_event_interactively(
     should_skip = False
     need_restart = False
     need_another_ai = False
+    new_content_text = content_text
 
     # Process until completion or termination condition
     while (
@@ -983,15 +1082,16 @@ def _validate_and_complete_event_interactively(
             data_complete = True
         else:
             if args.interactive:
-                print("Missing event information:")
+                print("\nMissing event information:")
                 if not summary:
                     print("- Summary")
                 if not start_datetime:
                     print("- Start Date/Time")
 
-                choice = input(
-                    "Options: (m)anual input, (a)nother AI, (s)kip item: "
-                ).lower()  # Generalized message
+                choice = _print_context_and_options(
+                    content_text,
+                    "Options: (m)anual input, (a)nother AI, (p)rovide snippet, (s)kip item, (r)estart: ",
+                )
 
                 if choice == "m":
                     if not summary:
@@ -1020,12 +1120,16 @@ def _validate_and_complete_event_interactively(
                         print("Max AI retries reached. Skipping item.")  # Generalized message
                         should_skip = True
                     else:
-                        need_another_ai = True  # Signal that another AI call is needed
-                        # Instead of break, we'll set a flag to indicate we should exit the loop
-                        # The loop will naturally terminate on the next iteration due to the condition
-                        # But we need to make sure the loop condition will be false next time
-                        # We'll set data_complete to True to exit the loop
-                        data_complete = True  # This will cause the loop to exit on next evaluation
+                        need_another_ai = True
+                        data_complete = True
+                elif choice == "p":
+                    snippet = _get_text_snippet(content_text)
+                    if snippet:
+                        new_content_text = snippet
+                        need_another_ai = True
+                        data_complete = True
+                    else:
+                        print("No snippet provided. Continuing with current options.")
                 elif choice == "s":
                     should_skip = True
                 elif choice == "r":  # User wants to restart from the beginning
@@ -1045,9 +1149,15 @@ def _validate_and_complete_event_interactively(
 
     # Determine return values based on flags
     if should_skip or not data_complete:
-        return None, None, need_restart, need_another_ai  # Return flags
+        return None, None, need_restart, need_another_ai, new_content_text  # Return flags
     else:
-        return event, vcal_json, need_restart, need_another_ai  # Return validated event and flags
+        return (
+            event,
+            vcal_json,
+            need_restart,
+            need_another_ai,
+            new_content_text,
+        )  # Return validated event and flags
 
 
 def _format_datetime_for_display(dt_value):
@@ -1101,8 +1211,11 @@ def _display_event_info(event, subject_for_print, elapsed_time=None):
     start_time_local = _format_datetime_for_display(start_time)
     end_time_local = _format_datetime_for_display(end_time)
 
+    # Use extracted summary if available, otherwise fallback to subject_for_print
+    event_summary = safe_get(event, ["summary"]) or subject_for_print
+
     print("=====================================")
-    print(f"Subject: {subject_for_print}")
+    print(f"Subject: {event_summary}")
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
 
@@ -1480,21 +1593,89 @@ def _get_pages_from_urls(args, urls):
     return page, posts
 
 
+def _get_links_from_notes():
+    """Extracts URLs from all notes in ~/notes."""
+    try:
+        from note_app import NoteManager
+
+        notes_dir = os.path.expanduser("~/notes")
+        if not os.path.exists(notes_dir):
+            logging.warning(f"Notes directory {notes_dir} does not exist.")
+            return {}
+
+        manager = NoteManager(storage_dir=notes_dir)
+        titles = manager.list_notes()
+        url_to_notes = {}
+        for title in titles:
+            note = manager.read_note(title)
+            if note:
+                # get_urls() returns explicitly added URLs
+                # get_links() returns URLs extracted from content
+                note_urls = set(note.get_urls()) | set(note.get_links())
+                for url in note_urls:
+                    if url not in url_to_notes:
+                        url_to_notes[url] = []
+                    url_to_notes[url].append(title)
+        return url_to_notes
+    except ImportError:
+        logging.warning("note_app not found. Cannot extract links from notes.")
+        return {}
+    except Exception as e:
+        logging.error(f"Error extracting links from notes: {e}")
+        return {}
+
+
 def process_web_cli(args, model, urls=None, force_refresh=False):
     """Processes web pages and creates calendar events."""
 
+    url_to_notes = {}
     if not urls:
-        urls = input("Enter URLs separated by spaces: ").split()
+        urls_input = input("Enter URLs separated by spaces (leave empty to use ~/notes): ").split()
+        if not urls_input:
+            print("No URLs entered. Extracting links from ~/notes...")
+            url_to_notes = _get_links_from_notes()
+            if not url_to_notes:
+                print("No links found in ~/notes.")
+                return False
+            print(f"Found {url_to_notes} links in notes.")
+            urls = list(url_to_notes.keys())
+            print(f"Found {len(urls)} links in notes.")
+            print(f"Found {urls} links in notes.")
+        else:
+            urls = urls_input
 
     api_src, posts = _get_pages_from_urls(args, urls)
 
     if posts:
+        # Instantiate manager if we might need to delete notes
+        manager = None
+        if url_to_notes:
+            try:
+                from note_app import NoteManager
+
+                notes_dir = os.path.expanduser("~/notes")
+                manager = NoteManager(storage_dir=notes_dir)
+            except ImportError:
+                pass
 
         def metadata_extractor(post, i):
             title = api_src.getPostTitle(post)
             if not title:
                 title = urls[i]
-            return api_src.getPostId(post), title, datetime.datetime.now()
+            
+            # Generate a safe, readable filename from the URL
+            from .utils_web import extract_domain_and_path_from_url
+            import re
+            
+            processed_url = extract_domain_and_path_from_url(urls[i])
+            # Replace unsafe characters with underscores
+            safe_id = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
+            
+            # Truncate to a safe length (e.g., 150 chars) to avoid "File name too long" errors
+            if len(safe_id) > 150:
+                safe_id = safe_id[:150]
+                
+            return safe_id, title, datetime.datetime.now()
 
         def content_extractor(post, i, post_date_time, post_title):
             web_content_reduced = reduce_html(urls[i], post, force_refresh=force_refresh)
@@ -1510,7 +1691,16 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
                 f"Message date: {date_message}\n"
             )
 
-        return _process_common_flow(args, model, posts, metadata_extractor, content_extractor)
+        def item_cleaner(post, i, post_id):
+            url = urls[i]
+            if url in url_to_notes and manager:
+                for note_title in url_to_notes[url]:
+                    print(f"Deleting note: {note_title}")
+                    manager.delete_note(note_title)
+
+        return _process_common_flow(
+            args, model, posts, metadata_extractor, content_extractor, item_cleaner
+        )
 
     return False  # Default return if something went wrong before the main logic
 

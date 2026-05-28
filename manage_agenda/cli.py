@@ -31,11 +31,14 @@ def select_from_list(options, identifier="", selector="", default=""):
     Presents a list of options to the user and returns the selected option.
     """
     for i, option in enumerate(options):
-        print(f"{i}) {option}")
+        display = option.get(identifier, option) if isinstance(option, dict) else option
+        print(f"{i}) {display}")
 
     while True:
         try:
-            selection = input("Select an option: ")
+            selection = input("Select an option: ").strip()
+            if not selection:
+                continue
             if selection.isdigit():
                 selection = int(selection)
                 if 0 <= selection < len(options):
@@ -44,7 +47,8 @@ def select_from_list(options, identifier="", selector="", default=""):
                 return len(options) - 1, selection
             else:
                 for i, option in enumerate(options):
-                    if selection.lower() in option.lower():
+                    option_str = option.get(identifier, str(option)) if isinstance(option, dict) else str(option)
+                    if selection.lower() in option_str.lower():
                         return i, option
         except (ValueError, IndexError):
             pass
@@ -145,6 +149,9 @@ def add(ctx, interactive, source, force_refresh):
     if interactive:
         sources = get_add_sources(rules=rules)
         sel, selected = select_from_list(sources)
+
+        if selected is None:
+            return
 
         # if "Web" in selected_source:  # Check if "Web" is in the selected source string
         print(f"\nSelected: {selected} - {type(selected)}")

@@ -179,6 +179,66 @@ class TestReduceHtml(unittest.TestCase):
         filename = files[0]
         self.assertRegex(filename, r"^[a-zA-Z0-9._-]+$")
 
+    def test_reduce_html_extracts_scripts(self):
+        """Test that reduce_html extracts relevant script content."""
+        url = "http://example.com/event-scripts"
+        html_content = """
+        <html>
+            <body>
+                <h1>Main Content</h1>
+                <script type="application/ld+json">
+                {"@context": "http://schema.org", "@type": "Event", "name": "JSON-LD Event"}
+                </script>
+                <script>
+                // This needs to be long enough (>100 chars) to trigger the heuristic
+                window.EVENT_DATA = {
+                    "name": "JS Object Event", 
+                    "date": "2024-05-02",
+                    "location": "A very nice place with a lot of character and history",
+                    "description": "An event that you should not miss for any reason!"
+                };
+                </script>
+            </body>
+        </html>
+        """
+        
+        # Execute
+        result = reduce_html(url, html_content)
+        
+        # Verify
+        self.assertIn("Main Content", result)
+        self.assertIn("Structured Data (JSON-LD):", result)
+        self.assertIn("JSON-LD Event", result)
+        self.assertIn("Possible Data Object:", result)
+        self.assertIn("JS Object Event", result)
+
+    def test_reduce_html_empty_content(self):
+        """Test that reduce_html returns None for empty content."""
+        url = "https://example.com/empty"
+        self.assertIsNone(reduce_html(url, ""))
+        self.assertIsNone(reduce_html(url, "   "))
+
+    def test_reduce_html_error_pages(self):
+        """Test that reduce_html returns None for error pages."""
+        url = "https://example.com/error"
+        
+        # 404 in title
+        html_404 = "<html><head><title>404 Not Found</title></head><body><h1>Nothing here</h1></body></html>"
+        self.assertIsNone(reduce_html(url, html_404))
+        
+        # 500 in heading
+        html_500 = "<html><body><h1>500 Internal Server Error</h1></body></html>"
+        self.assertIsNone(reduce_html(url, html_500))
+        
+        # Access denied in title
+        html_denied = "<html><head><title>Access Denied</title></head><body>Check your permissions.</body></html>"
+        self.assertIsNone(reduce_html(url, html_denied))
+
+        # Legitimate page with some error keywords but long content should NOT be skipped
+        # unless it's in the title
+        legit_html = "<html><body><h1>An error occurred in the past</h1>" + "Content " * 200 + "</body></html>"
+        self.assertIsNotNone(reduce_html(url, legit_html))
+
 
 if __name__ == "__main__":
     unittest.main()
