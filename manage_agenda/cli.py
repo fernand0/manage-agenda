@@ -25,25 +25,30 @@ from .utils_llm import (
     evaluate_models,
 )
 
+
 def select_from_list(options, identifier="", selector="", default=""):
     """
     Presents a list of options to the user and returns the selected option.
     """
     for i, option in enumerate(options):
-        print(f"{i}) {option}")
+        display = option.get(identifier, option) if isinstance(option, dict) else option
+        print(f"{i}) {display}")
 
     while True:
         try:
-            selection = input("Select an option: ")
+            selection = input("Select an option: ").strip()
+            if not selection:
+                continue
             if selection.isdigit():
                 selection = int(selection)
                 if 0 <= selection < len(options):
                     return selection, options[selection]
-            elif selection.startswith('http'):
-                return len(options)-1, selection
+            elif selection.startswith("http"):
+                return len(options) - 1, selection
             else:
                 for i, option in enumerate(options):
-                    if selection.lower() in option.lower():
+                    option_str = option.get(identifier, str(option)) if isinstance(option, dict) else str(option)
+                    if selection.lower() in option_str.lower():
                         return i, option
         except (ValueError, IndexError):
             pass
@@ -111,8 +116,15 @@ def evaluate(ctx, prompt):
     default="gemini",
     help="Select LLM",
 )
+@click.option(
+    "-f",
+    "--force-refresh",
+    is_flag=True,
+    default=False,
+    help="Force refresh web content to bypass cache",
+)
 @click.pass_context
-def add(ctx, interactive, source):
+def add(ctx, interactive, source, force_refresh):
     """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
@@ -125,9 +137,9 @@ def add(ctx, interactive, source):
     )
 
     # Create rules instance once and reuse it
-    from socialModules import moduleRules
-    rules = moduleRules.moduleRules()
-    rules.checkRules()
+    from .utils import ensure_rules
+
+    rules = ensure_rules()
 
     model = select_llm(args)
 
@@ -138,16 +150,17 @@ def add(ctx, interactive, source):
         sources = get_add_sources(rules=rules)
         sel, selected = select_from_list(sources)
 
-        #if "Web" in selected_source:  # Check if "Web" is in the selected source string
+        if selected is None:
+            return
+
+        # if "Web" in selected_source:  # Check if "Web" is in the selected source string
         print(f"\nSelected: {selected} - {type(selected)}")
-        if (isinstance(selected, str)
-            and (("Web" in selected)
-            or selected.startswith('http'))):
+        if isinstance(selected, str) and (("Web" in selected) or selected.startswith("http")):
             url = None
-            if selected.startswith('http'):
-                process_web_cli(args, model, urls = selected.split(' '))
+            if selected.startswith("http"):
+                process_web_cli(args, model, urls=selected.split(" "), force_refresh=force_refresh)
             else:
-                process_web_cli(args, model)
+                process_web_cli(args, model, force_refresh=force_refresh)
         else:
             process_email_cli(args, model, source_name=selected, rules=rules)
     else:

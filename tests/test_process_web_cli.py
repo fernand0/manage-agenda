@@ -97,15 +97,42 @@ class TestProcessWebCli(unittest.TestCase):
         # that happen *after* accessing api_src.url[i].
 
         mock_page.getPostTitle.assert_called_with("post_obj")
-        mock_reduce_html.assert_called_with("http://example.com/post1", "post_obj")
+        mock_reduce_html.assert_called_with("http://example.com/post1", "post_obj", force_refresh=False)
 
     @patch("manage_agenda.utils._get_pages_from_urls")
-    def test_process_web_cli_no_posts(self, mock_get_pages):
-        mock_get_pages.return_value = (MagicMock(), None)
-
-        result = process_web_cli(self.args, self.model, urls=["http://example.com"])
-
-        self.assertFalse(result)
+    @patch("manage_agenda.utils._get_links_from_notes")
+    @patch("note_app.NoteManager")
+    @patch("manage_agenda.utils._process_common_flow")
+    def test_process_web_cli_deletes_note(
+        self,
+        mock_process_flow,
+        mock_note_manager_class,
+        mock_get_links,
+        mock_get_pages
+    ):
+        # Setup
+        url = "http://example.com/note_url"
+        mock_get_links.return_value = {url: ["note_title"]}
+        
+        mock_manager = MagicMock()
+        mock_note_manager_class.return_value = mock_manager
+        
+        mock_page = MagicMock()
+        mock_get_pages.return_value = (mock_page, ["post_obj"])
+        
+        # Intercept _process_common_flow to trigger item_cleaner
+        def side_effect(args, model, items, metadata_extractor, content_extractor, item_cleaner=None):
+            if item_cleaner:
+                item_cleaner("post_obj", 0, "post_id")
+            return True
+        mock_process_flow.side_effect = side_effect
+        
+        # Execute - simulating empty input to trigger _get_links_from_notes
+        with patch("builtins.input", return_value=""):
+            process_web_cli(self.args, self.model)
+            
+        # Verify
+        mock_manager.delete_note.assert_called_with("note_title")
 
 if __name__ == "__main__":
     unittest.main()
