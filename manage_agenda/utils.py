@@ -44,6 +44,15 @@ class Args:
     destination: Optional[str] = None
     text: Optional[str] = None
 
+def ensure_rules(rules=None):
+    """Ensure rules object is initialized, creating one if needed."""
+    if rules is None:
+        from socialModules import moduleRules
+
+        rules = moduleRules.moduleRules()
+        rules.checkRules()
+    return rules
+
 
 
 
