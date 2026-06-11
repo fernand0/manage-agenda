@@ -154,7 +154,7 @@ def add(ctx, interactive, source, force_refresh):
             return
 
         # if "Web" in selected_source:  # Check if "Web" is in the selected source string
-        print(f"\nSelected: {selected} - {type(selected)}")
+        print(f"\nSelected: {selected}")
         if isinstance(selected, str) and (("Web" in selected) or selected.startswith("http")):
             url = None
             if selected.startswith("http"):
