@@ -944,8 +944,18 @@ def _extract_event_with_llm_retry(
 
         # Process event data
         if event:
-            event = process_event_data(event, original_content)
-            event = adjust_event_times(event)
+            if isinstance(event, (list, tuple)):
+                processed_events = []
+                for single_event in event:
+                    if isinstance(single_event, dict):
+                        single_event = process_event_data(single_event, original_content)
+                        single_event = adjust_event_times(single_event)
+                        processed_events.append(single_event)
+                event = processed_events if processed_events else None
+            else:
+                event = process_event_data(event, original_content)
+                event = adjust_event_times(event)
+
             # Success - break out of fallback loop
             break
 
@@ -975,7 +985,19 @@ def _extract_event_with_llm_retry(
         return None, vcal_json, total_elapsed_time, False, False, False
 
     # Save final successful vCal data
-    write_file(f"{post_identifier}.vcal", vcal_json)
+    if isinstance(event, (list, tuple)):
+        if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
+            for idx, event_vcal in enumerate(vcal_json, start=1):
+                write_file(f"{post_identifier}_{idx}.vcal", event_vcal)
+        else:
+            for idx in range(1, len(event) + 1):
+                write_file(f"{post_identifier}_{idx}.vcal", vcal_json)
+    else:
+        write_file(f"{post_identifier}.vcal", vcal_json)
+
+    # If the LLM returned multiple events, skip single-event validation and return them directly
+    if isinstance(event, (list, tuple)):
+        return event, vcal_json, total_elapsed_time, True, False, False
 
     # Now validate the event and handle interactive completion if needed
     validated_event, validated_vcal_json, need_restart, need_another_ai, new_content = (
@@ -1274,49 +1296,106 @@ def _process_event_with_llm_and_calendar(
                     should_process = False  # Indicate failure
                 else:
                     # --- Event Adjustment ---
-                    event = adjust_event_times(event)
-                    write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
-                    write_file(
-                        f"{post_identifier}_times.json", json.dumps(event)
-                    )  # Save event JSON (redundant, but existing)
+                    if isinstance(event, (list, tuple)):
+                        events = list(event)
+                        calendar_results = []
+                        selected_calendar = select_calendar(api_dst)
+                        if selected_calendar:
+                            for idx, single_event in enumerate(events, start=1):
+                                single_event = adjust_event_times(single_event)
+                                write_file(
+                                    f"{post_identifier}_{idx}.json", json.dumps(single_event)
+                                )
+                                write_file(
+                                    f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                )
 
-                    _display_event_info(event, subject_for_print, elapsed_time)
+                                _display_event_info(single_event, subject_for_print, elapsed_time)
 
-                    # Check if user wants to retry with LLM from the beginning or make date
-                    # corrections Always call _interactive_date_confirmation, which handles
-                    # both interactive and non-interactive modes
-                    event, retry_needed = _interactive_date_confirmation(
-                        args,
-                        event,
-                        model,
-                        content_text,
-                        reference_date_time,
-                        post_identifier,
-                        subject_for_print,
-                    )
-
-                    if not (retry_needed and model and content_text and reference_date_time):
-                        # Successful completion of main processing, proceed to calendar creation
-                        should_process = False
-
-                        # If we have an event, proceed with calendar creation
-                        if event is not None:
-                            # Add AI metadata to the event for tracking and transparency
-                            _add_ai_metadata_to_event(event, model, elapsed_time)
-
-                            selected_calendar = select_calendar(api_dst)
-                            if selected_calendar:
-                                try:
-                                    calendar_result = api_dst.publishPost(
-                                        post={"event": event, "idCal": selected_calendar},
-                                        api=api_dst,
+                                retry_needed = False
+                                if args.interactive:
+                                    validation_result = _interactive_date_confirmation(
+                                        args,
+                                        single_event,
+                                        model,
+                                        content_text,
+                                        reference_date_time,
+                                        post_identifier,
+                                        subject_for_print,
                                     )
-                                    print("Calendar event created")
-                                    success = True  # Indicate successful completion
-                                except googleapiclient.errors.HttpError as e:
-                                    logging.error(f"Error creating calendar event: {e}")
-                            else:
-                                print("No calendar selected, skipping event creation.")
+                                    if isinstance(validation_result, tuple):
+                                        single_event, retry_needed = validation_result
+                                    else:
+                                        single_event = validation_result
+                                        retry_needed = False
+
+                                if retry_needed and model and content_text and reference_date_time:
+                                    should_process = True
+                                    break
+
+                                if single_event is not None:
+                                    _add_ai_metadata_to_event(single_event, model, elapsed_time)
+                                    try:
+                                        calendar_result = api_dst.publishPost(
+                                            post={"event": single_event, "idCal": selected_calendar},
+                                            api=api_dst,
+                                        )
+                                        calendar_results.append(calendar_result)
+                                        print("Calendar event created")
+                                        success = True
+                                    except googleapiclient.errors.HttpError as e:
+                                        logging.error(f"Error creating calendar event: {e}")
+                        else:
+                            print("No calendar selected, skipping event creation.")
+
+                        if success:
+                            return events, calendar_results
+                        else:
+                            return None, None
+                    else:
+                        event = adjust_event_times(event)
+                        write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
+                        write_file(
+                            f"{post_identifier}_times.json", json.dumps(event)
+                        )  # Save event JSON (redundant, but existing)
+
+                        _display_event_info(event, subject_for_print, elapsed_time)
+
+                        # Check if user wants to retry with LLM from the beginning or make date
+                        # corrections Always call _interactive_date_confirmation, which handles
+                        # both interactive and non-interactive modes
+                        event, retry_needed = _interactive_date_confirmation(
+                            args,
+                            event,
+                            model,
+                            content_text,
+                            reference_date_time,
+                            post_identifier,
+                            subject_for_print,
+                        )
+
+                        if not (retry_needed and model and content_text and reference_date_time):
+                            # Successful completion of main processing, proceed to calendar creation
+                            should_process = False
+
+                            # If we have an event, proceed with calendar creation
+                            if event is not None:
+                                # Add AI metadata to the event for tracking and transparency
+                                _add_ai_metadata_to_event(event, model, elapsed_time)
+
+                                selected_calendar = select_calendar(api_dst)
+                                if selected_calendar:
+                                    try:
+                                        calendar_result = api_dst.publishPost(
+                                            post={"event": event, "idCal": selected_calendar},
+                                            api=api_dst,
+                                        )
+                                        print("Calendar event created")
+                                        success = True  # Indicate successful completion
+                                    except googleapiclient.errors.HttpError as e:
+                                        logging.error(f"Error creating calendar event: {e}")
+                                else:
+                                    print("No calendar selected, skipping event creation.")
 
     # Return appropriate values based on success
     if success:
