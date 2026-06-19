@@ -1610,16 +1610,16 @@ def _process_common_flow(
         print_first_10_lines(content_text, "content")
 
         # 5. Process with LLM
-        # processed_event, calendar_result = _process_event_with_llm_and_calendar(
-        #     args,
-        #     model,
-        #     content_text,
-        #     post_date_time,
-        #     post_id,
-        #     post_title,
-        # )
+        processed_event, calendar_result = _process_event_with_llm_and_calendar(
+            args,
+            model,
+            content_text,
+            post_date_time,
+            post_id,
+            post_title,
+        )
 
-        processed_event = True
+        # processed_event = True
 
         if processed_event:
             processed_any_event = True
