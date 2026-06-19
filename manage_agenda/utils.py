@@ -273,9 +273,13 @@ def filter_events_by_title(api_cal, events, text_filter):
         title = api_cal.getPostTitle(event)
         if title and text_filter and text_filter.lower() in title.lower():
             filtered_events.append(event)
-        elif not text_filter:  # If no filter, include all events with titles
-            if title:
+        else:
+            abstract = api_cal.getPostAbstract(event)
+            if abstract and text_filter and text_filter.lower() in abstract.lower():
                 filtered_events.append(event)
+            elif not text_filter:  # If no filter, include all events with titles
+                if title:
+                    filtered_events.append(event)
 
     return filtered_events
 
@@ -2013,43 +2017,44 @@ def process_calendar_events(
     all_posts = []
     try:
         api_cal.setPostsType("posts")
-        api_cal.setPosts()
+        api_cal.setPosts("2008-01-01")
         all_posts = api_cal.getPosts()
     except Exception:
         all_posts = []
 
-    # Fall back to the raw Google Calendar API if api_cal.getPosts() does not return a list
-    if not isinstance(all_posts, (list, tuple)):
-        try:
-            time_min = today.isoformat(timespec="seconds") + "Z"
-            res = (
-                api_cal.getClient()
-                .events()
-                .list(
-                    calendarId=my_calendar,
-                    timeMin=time_min,
-                    singleEvents=True,
-                    orderBy="startTime",
-                )
-                .execute()
-            )
-            all_posts = res.get("items", []) if isinstance(res, dict) else []
-        except Exception:
-            all_posts = []
+    # # Fall back to the raw Google Calendar API if api_cal.getPosts() does not return a list
+    # if not isinstance(all_posts, (list, tuple)):
+    #     try:
+    #         time_min = today.isoformat(timespec="seconds") + "Z"
+    #         res = (
+    #             api_cal.getClient()
+    #             .events()
+    #             .list(
+    #                 calendarId=my_calendar,
+    #                 timeMin=time_min,
+    #                 singleEvents=True,
+    #                 orderBy="startTime",
+    #             )
+    #             .execute()
+    #         )
+    #         all_posts = res.get("items", []) if isinstance(res, dict) else []
+    #     except Exception:
+    #         all_posts = []
 
-    print(all_posts)
+    # print(all_posts)
 
     today = datetime.datetime.now()
     today = pytz.utc.localize(datetime.datetime.utcnow())
 
-    # If interactive, present all fetched posts (tests expect interactive flows to show items regardless of date)
+    # If interactive, present all fetched posts (tests expect interactive flows
+    # to show items regardless of date)
     if args.interactive:
         future_events = all_posts
     else:
         future_events = []
         for post in all_posts:
             post_date = api_cal.getPostDate(post)
-            print(f"DAte: {post_date}")
+            print(f"Date: {post_date}")
 
             if not isinstance(post_date, str):
                 if isinstance(post, dict):
@@ -2072,7 +2077,7 @@ def process_calendar_events(
 
     print("Upcoming events (up to 20):")
     for event in future_events[:20]:
-        print(f"- {api_cal.getPostTitle(event)}")
+        print(f"- {api_cal.getPostTitle(event)} ({api_cal.getPostDate(event)})")
 
     text_filter = args.text
     if args.interactive and not text_filter:
