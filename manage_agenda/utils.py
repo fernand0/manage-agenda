@@ -460,6 +460,7 @@ def get_event_from_llm(model, prompt, verbose=False):
     print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
 
     memory_error_occurred = False
+    json_error_occurred = True
 
     if not llm_response:
         print("Failed to get response from LLM.")
@@ -480,20 +481,23 @@ def get_event_from_llm(model, prompt, verbose=False):
 
         try:
             import ast
-
             vcal_json = ast.literal_eval(extract_json(llm_response))
             if verbose:
                 print(f"Json:\n{vcal_json}")
             event = vcal_json
+            json_error_occurred = False
         except json.JSONDecodeError as e:
             logging.error(f"Invalid JSON in vCal data: {vcal_json}")
             logging.error(f"Error: {e}")
         except SyntaxError as e:
             logging.error(f"Syntax error: {vcal_json}")
             logging.error(f"Error: {e}")
+        except ValueError as e:
+            logging.error(f"Value error: {vcal_json}")
+            logging.error(f"Error: {e}")
 
     # Return appropriate values based on whether memory error occurred
-    if memory_error_occurred:
+    if memory_error_occurred or json_error_occurred:
         event = None
         vcal_json = "MemoryError"
     return event, vcal_json, elapsed_time
@@ -1537,6 +1541,7 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
                     api_src.getClient().select(label)
                     res = api_src.deletePostId(post_id)
                     logging.info(f"State: {api_src.getClient().state}")
+                logging.info(f"Res: {res}")
                 if "Fail!" not in res:
                     logging.info(f"Email {post_id} processed successfully.")
                     return  # Success
@@ -1605,14 +1610,16 @@ def _process_common_flow(
         print_first_10_lines(content_text, "content")
 
         # 5. Process with LLM
-        processed_event, calendar_result = _process_event_with_llm_and_calendar(
-            args,
-            model,
-            content_text,
-            post_date_time,
-            post_id,
-            post_title,
-        )
+        # processed_event, calendar_result = _process_event_with_llm_and_calendar(
+        #     args,
+        #     model,
+        #     content_text,
+        #     post_date_time,
+        #     post_id,
+        #     post_title,
+        # )
+
+        processed_event = True
 
         if processed_event:
             processed_any_event = True

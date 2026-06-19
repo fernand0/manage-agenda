@@ -194,24 +194,24 @@ def auth(ctx, interactive):
     if not api_src.getClient():
         msg = (
             "1. Enable the Gcalendar API:\n"
-            "   Go to the Google Cloud Console. https://console.cloud. google.com/"
+            "   Go to the Google Cloud Console. https://console.cloud.google.com/\n"
             "   If you don't have a project, create one.\n"
-            '   Search for "Gmail API" in the API Library. '
-            "   Enable the Gmail API. "
-            "2. Create Credentials: "
-            '   In the Google Cloud Console, go to "APIs & Services" > "Credentials". '
-            '   Click "Create credentials" and choose "OAuth client ID".  '
-            "   You might be asked to configure the consent screen first. "
-            '   If so, click "Configure consent screen", choose "External",'
+            '   Search for "Gmail API" in the API Library. \n'
+            "   Enable the Gmail API. \n"
+            "2. Create Credentials: \n"
+            '   In the Google Cloud Console, go to "APIs & Services" > "Credentials". \n'
+            '   Click "Create credentials" and choose "OAuth client ID".  \n'
+            "   You might be asked to configure the consent screen first. \n"
+            '   If so, click "Configure consent screen", choose "External",\n'
             "     give your app a name, and save.\n"
-            '   Back on the "Create credentials" page, select "Web application" '
-            "     as the Application type. "
-            "   Give your OAuth 2.0 client a name. "
-            '   Add http://localhost:8080 to "Authorized JavaScript origins". '
-            '   Add http://localhost:8080/oauth2callback to "Authorized redirect URIs". '
-            '   Click "Create". '
-            "   Download the resulting JSON file (this is your credentials.json file). "
-            f"  and rename (or make a link) to: {api_src.confName((api_src.getServer(), api_src.getNick()))}"
+            '   Back on the "Create credentials" page, select "Web application\n" '
+            "     as the Application type. \n"
+            "   Give your OAuth 2.0 client a name. \n"
+            '   Add http://localhost:8080 to "Authorized JavaScript origins". \n'
+            '   Add http://localhost:8080/oauth2callback to "Authorized redirect URIs". \n'
+            '   Click "Create". \n'
+            "   Download the resulting JSON file (this is your credentials.json file). \n"
+            f"  and rename (or make a link) to: {api_src.confName((api_src.getServer(), api_src.getNick()))}\n"
         )
         print(msg)
     else:
