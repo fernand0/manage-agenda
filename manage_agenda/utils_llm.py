@@ -5,10 +5,20 @@ import time
 
 # TODO: Migrate from google.generativeai to google-cloud-aiplatform due to deprecation
 # The google.generativeai package is deprecated. Need to migrate to Vertex AI SDK.
-import google.generativeai as genai
-import ollama
-from mistralai.client import Mistral
-from ollama import ChatResponse, chat
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
+try:
+    import ollama
+    from ollama import ChatResponse, chat
+except Exception:
+    ollama = None
+
+try:
+    from mistralai.client import Mistral
+except Exception:
+    Mistral = None
 
 # from manage_agenda.utils_base import select_from_list
 from socialModules.configMod import CONFIGDIR, select_from_list

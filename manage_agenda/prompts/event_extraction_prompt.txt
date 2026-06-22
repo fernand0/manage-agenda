@@ -5,8 +5,8 @@ JSON structure to fill:
 
 INSTRUCTIONS:
 1. Extract event details from the message body ('Message:') and subject ('Subject:').
-2. When multiple dates are mentioned, prioritize the date of the main event being organized/announced, not dates of related events or historical references (e.g., movie release dates vs. screening discussion dates).
-3. In case there can be several related events, you can generate as many results as needed.
+2. In case there can be a series of related events, you can generate as many results as needed.
+3. When multiple dates are mentioned, and they do not correspond to a future series, prioritize the date of the main event being organized/announced, not dates of related events or historical references (e.g., movie release dates vs. screening discussion dates).
 4. Use the reference date marked with 'Message date:' ONLY when interpreting relative dates (e.g., 'next Thursday', 'this Friday', 'tomorrow'). Do NOT use the reference date as the event date unless the text specifically indicates it.
 5. Look carefully for explicit dates in the text (e.g., 'January 9th', '9 de enero', 'viernes 9 de enero') and prioritize these over the reference date.
 6. Default timezone is CET if not specified otherwise.
