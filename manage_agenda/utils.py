@@ -190,7 +190,7 @@ def _print_context_and_options(content: str, options_prompt: str) -> str:
     return input(options_prompt).lower().strip()
 
 
-def select_calendar(calendar_api):
+def select_calendar(calendar_api, title=""):
     """Selects a Google Calendar.
 
     Args:
@@ -214,7 +214,11 @@ def select_calendar(calendar_api):
         if not eligible_calendars:
             raise CalendarError("No writable calendars found. Check your calendar permissions.")
 
-        selection, cal = select_from_list(eligible_calendars, "summary")
+        import inspect
+        print(inspect.getsourcefile(select_from_list))
+
+
+        selection, cal = select_from_list(eligible_calendars, "summary", title=title)
 
         if selection < 0 or selection >= len(eligible_calendars):
             raise CalendarError(f"Invalid calendar selection: {selection}")
@@ -594,7 +598,7 @@ def _get_sources_by_type(source_type, rules):
         return rules.selectRule(source_type, "")
 
 
-def select_source_by_type(args, source_type, rules=None):
+def select_source_by_type(args, source_type, rules=None, title=""):
     """Factory function to select sources by type."""
     rules = ensure_rules(rules)
 
@@ -606,7 +610,7 @@ def select_source_by_type(args, source_type, rules=None):
             return selected_source
         else:
             # For API sources and others
-            api_src = rules.selectRuleInteractive(source_type)
+            api_src = rules.selectRuleInteractive(source_type, title=title)
             return api_src
     else:
         if not sources:
@@ -625,9 +629,9 @@ def select_source_by_type(args, source_type, rules=None):
             return api_src
 
 
-def select_api_source(args, api_src_type, rules=None):
+def select_api_source(args, api_src_type, rules=None, title=""):
     """Selects an API source, interactive or not."""
-    return select_source_by_type(args, api_src_type, rules)
+    return select_source_by_type(args, api_src_type, rules, title=title)
 
 
 def list_events_folder(args, api_src, calendar=""):
@@ -1305,7 +1309,8 @@ def _process_event_with_llm_and_calendar(
                 should_process = False  # Indicate failure due to memory error or other issues
             else:
                 api_dst_type = "gcalendar"
-                api_dst = select_api_source(args, api_dst_type)
+                title = event['summary']
+                api_dst = select_api_source(args, api_dst_type, title=title)
 
                 if event is None:
                     should_process = False  # Indicate failure
@@ -1314,7 +1319,7 @@ def _process_event_with_llm_and_calendar(
                     if isinstance(event, (list, tuple)):
                         events = list(event)
                         calendar_results = []
-                        selected_calendar = select_calendar(api_dst)
+                        selected_calendar = select_calendar(api_dst, title=subject_for_print)
                         if selected_calendar:
                             for idx, single_event in enumerate(events, start=1):
                                 single_event = adjust_event_times(single_event)
@@ -2022,24 +2027,24 @@ def process_calendar_events(
     except Exception:
         all_posts = []
 
-    # Fall back to the raw Google Calendar API if api_cal.getPosts() does not return a list
-    if not isinstance(all_posts, (list, tuple)):
-        try:
-            time_min = today.isoformat(timespec="seconds") + "Z"
-            res = (
-                api_cal.getClient()
-                .events()
-                .list(
-                    calendarId=my_calendar,
-                    timeMin=time_min,
-                    singleEvents=True,
-                    orderBy="startTime",
-                )
-                .execute()
-            )
-            all_posts = res.get("items", []) if isinstance(res, dict) else []
-        except Exception:
-            all_posts = []
+    ## Fall back to the raw Google Calendar API if api_cal.getPosts() does not return a list
+    #if not isinstance(all_posts, (list, tuple)):
+    #    try:
+    #        time_min = today.isoformat(timespec="seconds") + "Z"
+    #        res = (
+    #            api_cal.getClient()
+    #            .events()
+    #            .list(
+    #                calendarId=my_calendar,
+    #                timeMin=time_min,
+    #                singleEvents=True,
+    #                orderBy="startTime",
+    #            )
+    #            .execute()
+    #        )
+    #        all_posts = res.get("items", []) if isinstance(res, dict) else []
+    #    except Exception:
+    #        all_posts = []
 
     # print(all_posts)
 
@@ -2261,7 +2266,8 @@ def clean_events_cli(args):
         if args.destination:
             my_calendar_dst = args.destination
         else:
-            my_calendar_dst = select_calendar(api_cal)
+            title = selected_events[0]['summary']
+            my_calendar_dst = select_calendar(api_cal, title=title)
 
     for event in selected_events:
         if action_sel == "1":  # Copy
