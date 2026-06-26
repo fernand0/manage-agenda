@@ -10,7 +10,8 @@ CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "manage_agenda")
 
 def extract_domain_and_path_from_url(url):
     """
-    Extracts the domain and path from a given URL, excluding filename and date patterns.
+    Extracts the domain and path from a given URL, excluding filename and date
+    patterns.  
     Returns a string in the format "domain/path".
     """
     parsed_url = urlparse(url)

@@ -1773,7 +1773,8 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
             # Replace unsafe characters with underscores
             safe_id = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
             
-            # Truncate to a safe length (e.g., 150 chars) to avoid "File name too long" errors
+            # Truncate to a safe length (e.g., 150 chars) to avoid "File name
+            # too long" errors
             if len(safe_id) > 150:
                 safe_id = safe_id[:150]
                 
