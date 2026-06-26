@@ -1376,9 +1376,6 @@ def _process_event_with_llm_and_calendar(
                     else:
                         event = adjust_event_times(event)
                         write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
-                        write_file(
-                            f"{post_identifier}_times.json", json.dumps(event)
-                        )  # Save event JSON (redundant, but existing)
 
                         _display_event_info(event, subject_for_print, elapsed_time)
 
@@ -1413,6 +1410,10 @@ def _process_event_with_llm_and_calendar(
                                         )
                                         print("Calendar event created")
                                         success = True  # Indicate successful completion
+                                        write_file(
+                                            f"{post_identifier}_times.json", json.dumps(event)
+                                        )  # Save event JSON (redundant, but existing)
+
                                     except googleapiclient.errors.HttpError as e:
                                         logging.error(f"Error creating calendar event: {e}")
                                 else:
