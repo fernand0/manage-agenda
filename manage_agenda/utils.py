@@ -1315,6 +1315,8 @@ def _process_event_with_llm_and_calendar(
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
+                    if not isinstance(event, (list, tuple)):
+                        event = list(event)
                     # --- Event Adjustment ---
                     if isinstance(event, (list, tuple)):
                         events = list(event)
