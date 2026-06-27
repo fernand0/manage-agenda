@@ -963,6 +963,10 @@ def _extract_event_with_llm_retry(
 
         # Process event data
         if event:
+            print(f"Event: {event}")
+            if not isinstance(event, (list, tuple)):
+                event = [event,]
+            print(f"Event 2: {event}")
             if isinstance(event, (list, tuple)):
                 processed_events = []
                 for single_event in event:
@@ -1309,14 +1313,12 @@ def _process_event_with_llm_and_calendar(
                 should_process = False  # Indicate failure due to memory error or other issues
             else:
                 api_dst_type = "gcalendar"
-                title = event['summary']
+                title = event[0]['summary']
                 api_dst = select_api_source(args, api_dst_type, title=title)
 
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
-                    if not isinstance(event, (list, tuple)):
-                        event = list(event)
                     # --- Event Adjustment ---
                     if isinstance(event, (list, tuple)):
                         events = list(event)
