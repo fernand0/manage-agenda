@@ -161,6 +161,8 @@ def add(ctx, interactive, source, force_refresh):
                 process_web_cli(args, model, urls=selected.split(" "), force_refresh=force_refresh)
             else:
                 process_web_cli(args, model, force_refresh=force_refresh)
+        elif isinstance(selected, str) and ("Text" in selected):
+            process_txt_cli(args, model, source_name=selected, rules=rules)
         else:
             process_email_cli(args, model, source_name=selected, rules=rules)
     else:

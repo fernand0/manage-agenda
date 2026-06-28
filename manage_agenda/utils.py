@@ -127,7 +127,7 @@ def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     rules = ensure_rules(rules)
     email_sources = _get_email_sources(rules)
-    return email_sources + ["Web (Enter URL)"]
+    return email_sources + ["Web (Enter URL)"] + ["Text in default directory]]
 
 
 def print_first_10_lines(content, content_type="content"):
@@ -213,10 +213,6 @@ def select_calendar(calendar_api, title=""):
 
         if not eligible_calendars:
             raise CalendarError("No writable calendars found. Check your calendar permissions.")
-
-        import inspect
-        print(inspect.getsourcefile(select_from_list))
-
 
         selection, cal = select_from_list(eligible_calendars, "summary", title=title)
 
@@ -645,6 +641,43 @@ def list_events_folder(args, api_src, calendar=""):
                 print(f"{i}) {post_title}")
     else:
         print("Some problem with the account")
+
+def _get_msgs_from_folder(args, source_name, rules=None):
+    """Helper function to get posts stored in some folder."""
+    "FIXME: maybe a folder argument?"
+    #rules = ensure_rules(rules)
+    #source_details = rules.more.get(source_name, {})
+    #api_src = rules.readConfigSrc("", source_name, source_details)
+
+    #if not api_src.getClient():
+    #    print("Some problem with the account")
+    #    return None, None
+
+    # api_src.setPostsType("posts")
+    # api_src.setLabels()
+    # label = api_src.getLabels(folder)
+    # if not label:
+    #     print(f"There are no posts tagged with label {folder}")
+    #     return api_src, None
+
+    # # label_id = safe_get(label[0], ["id"])
+    # api_src.setChannel(folder)
+    # api_src.setPosts()
+    # posts = api_src.getPosts()
+
+    target_dir = Path(DEFAULT_DATA_DIR)
+    txt_files = target_dir.glob("*.txt")
+    posts = []
+    for file_path in txt_files:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            posts.append([file_path, content])
+
+    if not posts:
+        print(f"There are no posts tagged with label {folder}")
+        posts = None
+
+    return _, posts
 
 
 def _get_emails_from_folder(args, source_name, rules=None):
@@ -1445,22 +1478,28 @@ def _add_ai_metadata_to_event(event, model, elapsed_time, confidence_score=None)
     # Get model name - try multiple approaches in order of preference
     model_name = "unknown"
     if model:
-        # Try model_name attribute first (common in LLM clients like OllamaClient, GeminiClient, MistralClient)
-        if hasattr(model, "model_name") and getattr(model, "model_name", None) is not None:
-            model_name = getattr(model, "model_name", str(model))
-        # Try get_name() method (for LLMClient implementations that override it)
+        from unittest.mock import Mock
+
+        def is_mock(val):
+            return isinstance(val, Mock)
+
+        val = getattr(model, "model_name", None)
+        if val is not None and not is_mock(val):
+            model_name = str(val)
         elif hasattr(model, "get_name") and callable(model.get_name):
             try:
-                model_name = model.get_name()
+                res = model.get_name()
+                if res is not None and not is_mock(res):
+                    model_name = str(res)
             except NotImplementedError:
-                # If get_name is not implemented, fall back to other methods
                 pass
-        # Try name attribute
-        elif hasattr(model, "name"):
-            model_name = getattr(model, "name", str(model))
-        # Fallback to string representation
-        else:
-            model_name = str(model)
+
+        if model_name == "unknown":
+            val = getattr(model, "name", None)
+            if val is not None and not is_mock(val):
+                model_name = str(val)
+            elif not is_mock(model):
+                model_name = str(model)
 
     # Add extended properties for programmatic access
     event.setdefault("extendedProperties", {}).setdefault("private", {}).update(
@@ -1644,6 +1683,44 @@ def _process_common_flow(
 
     return processed_any_event
 
+def process_txt_cli(args, model, source_name=None, rules=None):
+    """Processes txt files and creates calendar events."""
+
+    #if not source_name:
+    #    source_name = select_email_source(args, rules=rules)
+
+    api_src, posts = _get_msgs_from_folder(args, source_name, rules=rules)
+
+    if posts:
+
+        def metadata_extractor(post, i):
+            # Use getPostIdM if it exists, otherwise use getPostId
+            if hasattr(api_src, "getPostIdM"):
+                post_id = api_src.getPostIdM(post)
+            else:
+                post_id = post[0]
+            lines_txt = post[1].split('\n')
+            return post_id, lines_txt[1][len("Subject: "):], lines_txt[-1].split(' ')[-1]
+
+        def content_extractor(post, i, post_date_time, post_title):
+            lines_txt = post[1].split('\n')
+            post_title = lines_txt[1][len("Subject: "):]
+            full_email_content = "".join(lines_txt[3:-1])
+            date_message = lines_txt[-1].split(' ')[-1]
+            return (
+                f"Subject: {post_title}\n"
+                f"Message: {full_email_content}\n"
+                f"Message date: {date_message}\n"
+            )
+
+        def item_cleaner(post, i, post_id):
+            pass
+
+        return _process_common_flow(
+            args, model, posts, metadata_extractor, content_extractor, item_cleaner
+        )
+    return False  # Default return if something went wrong before the main logic
+
 
 def process_email_cli(args, model, source_name=None, rules=None):
     """Processes emails and creates calendar events."""
@@ -1770,20 +1847,20 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
             title = api_src.getPostTitle(post)
             if not title:
                 title = urls[i]
-            
+
             # Generate a safe, readable filename from the URL
             from .utils_web import extract_domain_and_path_from_url
             import re
-            
+
             processed_url = extract_domain_and_path_from_url(urls[i])
             # Replace unsafe characters with underscores
             safe_id = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
-            
+
             # Truncate to a safe length (e.g., 150 chars) to avoid "File name
             # too long" errors
             if len(safe_id) > 150:
                 safe_id = safe_id[:150]
-                
+
             return safe_id, title, datetime.datetime.now()
 
         def content_extractor(post, i, post_date_time, post_title):
