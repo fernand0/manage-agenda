@@ -679,7 +679,7 @@ def _get_msgs_from_folder(args, source_name, rules=None):
         print(f"There are no posts tagged with label {folder}")
         posts = None
 
-    return _, posts
+    return None, posts
 
 
 def _get_emails_from_folder(args, source_name, rules=None):
