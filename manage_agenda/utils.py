@@ -127,7 +127,7 @@ def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     rules = ensure_rules(rules)
     email_sources = _get_email_sources(rules)
-    return email_sources + ["Web (Enter URL)"] + ["Text in default directory]]
+    return email_sources + ["Web (Enter URL)"] + ["Text in default directory"]
 
 
 def print_first_10_lines(content, content_type="content"):
