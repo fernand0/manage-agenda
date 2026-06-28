@@ -666,6 +666,7 @@ def _get_msgs_from_folder(args, source_name, rules=None):
     # api_src.setPosts()
     # posts = api_src.getPosts()
 
+    DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
     target_dir = Path(DEFAULT_DATA_DIR)
     txt_files = target_dir.glob("*.txt")
     posts = []
