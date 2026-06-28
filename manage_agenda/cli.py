@@ -13,6 +13,7 @@ from .utils import (
     move_events_cli,
     process_email_cli,
     process_web_cli,
+    process_txt_cli,
     select_api_source,
     select_email_prompt,
     select_llm,
