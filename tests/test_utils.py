@@ -336,7 +336,7 @@ more text"""
             text="",
         )
         mock_rules = MagicMock()
-        mock_module_rules.return_value = mock_rules
+        select_api_source(args, "gmail", rules=mock_rules)
         # When rules are injected, checkRules is not called internally
         mock_rules.selectRuleInteractive.assert_called_once_with("gmail", title="")
 
@@ -1088,6 +1088,7 @@ more text"""
         }
         mock_client.events().list().execute.return_value = mock_events
         mock_api.getPostTitle.return_value = "Team meeting"
+        mock_api.getPosts.return_value = mock_events["items"]
         mock_select_api.return_value = mock_api
 
         copy_events_cli(args)
@@ -1123,6 +1124,7 @@ more text"""
         }
         mock_client.events().list().execute.return_value = mock_events
         mock_api.getPostTitle.return_value = "Old meeting"
+        mock_api.getPosts.return_value = mock_events["items"]
         mock_select_api.return_value = mock_api
 
         delete_events_cli(args)
@@ -1158,6 +1160,7 @@ more text"""
         }
         mock_client.events().list().execute.return_value = mock_events
         mock_api.getPostTitle.return_value = "Moving meeting"
+        mock_api.getPosts.return_value = mock_events["items"]
         mock_select_api.return_value = mock_api
 
         move_events_cli(args)

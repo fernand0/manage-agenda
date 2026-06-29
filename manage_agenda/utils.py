@@ -1655,7 +1655,13 @@ def _process_common_flow(
             continue
 
         # 4. Save & Print (Common)
-        if not post_id.suffix.endswith('txt'):
+        is_txt = False
+        if isinstance(post_id, Path):
+            is_txt = post_id.suffix.endswith("txt")
+        elif isinstance(post_id, str):
+            is_txt = post_id.endswith(".txt")
+
+        if not is_txt:
             write_file(f"{post_id}.txt", content_text)
         print_first_10_lines(content_text, "content")
 
