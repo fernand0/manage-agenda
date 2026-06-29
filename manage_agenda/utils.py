@@ -986,10 +986,8 @@ def _extract_event_with_llm_retry(
 
         # Process event data
         if event:
-            print(f"Event: {event}")
             if not isinstance(event, (list, tuple)):
                 event = [event,]
-            print(f"Event 2: {event}")
             if isinstance(event, (list, tuple)):
                 processed_events = []
                 for single_event in event:
@@ -1034,7 +1032,12 @@ def _extract_event_with_llm_retry(
     if isinstance(event, (list, tuple)):
         if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
             for idx, event_vcal in enumerate(vcal_json, start=1):
-                write_file(f"{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal))
+                if not os.path.exists(f"{post_identifier}"):
+                    write_file(f"{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal)) 
+                else:
+                    # It has been processed befor is a recomputation
+                    write_file(f"kk/{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal)) 
+                    
         else:
             for idx in range(1, len(event) + 1):
                 write_file(f"{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
