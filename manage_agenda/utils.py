@@ -439,17 +439,6 @@ def extract_json(text):
         if pos != -1:
             text = text[: pos + 1]
     vcal_json = text
-    # if "```" in text:
-    #     start_index = text.find("```")
-    #     end_index = text.find("```", start_index + 1)
-    #     vcal_json = text[
-    #         start_index + 8 : end_index
-    #     ].strip()  # extract content between backticks
-    # elif "<think>" in text:
-    #     start_index = text.find("/think")
-    #     vcal_json = text[start_index + 9 :].strip()
-    # else:
-    #     vcal_json = text
 
     return vcal_json
 
@@ -1543,7 +1532,11 @@ def _get_post_datetime_and_diff(post_date):
     else:
         from email.utils import parsedate_to_datetime
 
-        post_date_time = parsedate_to_datetime(post_date)
+        try:
+            post_date_time = parsedate_to_datetime(post_date)
+        except:
+            from datetime import date
+            post_date_time = date(*map(int,post_date.split("-")))
 
     try:
         import pytz
@@ -1662,7 +1655,8 @@ def _process_common_flow(
             continue
 
         # 4. Save & Print (Common)
-        write_file(f"{post_id}.txt", content_text)
+        if not post_id.suffix.endswith('txt'):
+            write_file(f"{post_id}.txt", content_text)
         print_first_10_lines(content_text, "content")
 
         # 5. Process with LLM
@@ -1702,7 +1696,19 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             else:
                 post_id = post[0]
             lines_txt = post[1].split('\n')
-            return post_id, lines_txt[1][len("Subject: "):], lines_txt[-1].split(' ')[-1]
+            if lines_txt[-1]: 
+                date = "".join(lines_txt[-1].split(': ')[1:]) 
+            else:
+                date = "".join(lines_txt[-2].split(': ')[1:]) 
+            print(f"DAte: *{date}*")
+            if not date:
+                print(f"     {lines_txt[-1]}")
+                print(f"     {lines_txt[-1].split(' ')}")
+                date = lines_txt[1].split(' ')[-1]
+            if ' ' in date:
+                date = date.split(' ')[0]
+            print(f"DAte: *{date}*")
+            return post_id, lines_txt[1][len("Subject: "):], date
 
         def content_extractor(post, i, post_date_time, post_title):
             lines_txt = post[1].split('\n')
