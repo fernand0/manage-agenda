@@ -2,6 +2,7 @@
 Centralized configuration management for manage-agenda.
 """
 
+import datetime
 import logging
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ from typing import Optional
 BASE_DIR = Path(__file__).parent.parent
 CONFIG_DIR = Path.home() / ".config" / "manage-agenda"
 DATA_DIR = Path.home() / ".local" / "share" / "manage-agenda"
+RUN_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 # Ensure directories exist
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
