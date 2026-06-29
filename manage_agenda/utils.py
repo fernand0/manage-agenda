@@ -1709,18 +1709,28 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             else:
                 post_id = post[0]
             lines_txt = post[1].split('\n')
-            if lines_txt[-1]: 
-                date = "".join(lines_txt[-1].split(': ')[1:]) 
-            else:
-                date = "".join(lines_txt[-2].split(': ')[1:]) 
-            print(f"DAte: *{date}*")
-            if not date:
-                print(f"     {lines_txt[-1]}")
-                print(f"     {lines_txt[-1].split(' ')}")
+            import re
+            date = ""
+            for line in reversed(lines_txt):
+                match = re.search(r"(?i)date:\s*([^\s\n]+)", line)
+                if match:
+                    date = match.group(1)
+                    break
+
+            if not date and len(lines_txt) > 1:
+                last_line = lines_txt[-1].strip() or lines_txt[-2].strip()
+                if last_line:
+                    parts = last_line.split(': ')
+                    if len(parts) > 1:
+                        date = "".join(parts[1:])
+
+            if not date and len(lines_txt) > 1:
                 date = lines_txt[1].split(' ')[-1]
+
             if ' ' in date:
                 date = date.split(' ')[0]
-            print(f"DAte: *{date}*")
+
+            logging.debug(f"Extracted date: {date}")
             return post_id, lines_txt[1][len("Subject: "):], date
 
         def content_extractor(post, i, post_date_time, post_title):
