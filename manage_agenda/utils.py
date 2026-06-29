@@ -1534,9 +1534,16 @@ def _get_post_datetime_and_diff(post_date):
 
         try:
             post_date_time = parsedate_to_datetime(post_date)
-        except:
-            from datetime import date
-            post_date_time = date(*map(int,post_date.split("-")))
+        except (ValueError, TypeError):
+            parsed = dateparser.parse(post_date)
+            if parsed is not None:
+                post_date_time = parsed
+            else:
+                try:
+                    parts = [int(p) for p in post_date.split("-") if p.isdigit()]
+                    post_date_time = datetime.datetime(parts[0], parts[1], parts[2])
+                except (IndexError, ValueError):
+                    post_date_time = datetime.datetime.now()
 
     try:
         import pytz
