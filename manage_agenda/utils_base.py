@@ -10,7 +10,7 @@ from pathlib import Path
 from manage_agenda.config import config
 
 LOGDIR = ""
-DEFAULT_DATA_DIR = os.path.expanduser("~/Documents/data/msgs/")
+DEFAULT_DATA_DIR = config.MSG_TXT_DIR
 
 
 # --- File I/O ---
