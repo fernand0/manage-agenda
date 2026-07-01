@@ -991,6 +991,7 @@ def _extract_event_with_llm_retry(
             if isinstance(event, (list, tuple)):
                 processed_events = []
                 for single_event in event:
+                    print(f"Single event: {single_event}")
                     if isinstance(single_event, dict):
                         single_event = process_event_data(single_event, original_content)
                         single_event = adjust_event_times(single_event)
@@ -1051,7 +1052,7 @@ def _extract_event_with_llm_retry(
                     
         else:
             for idx in range(1, len(event) + 1):
-                if not post_identifier.suffix:
+                if not post_identifier.endswith('.txt'):
                     write_file(f"{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
                 else: 
                     print(f"else .") 
@@ -1060,7 +1061,7 @@ def _extract_event_with_llm_retry(
                     write_file(f"kk/{filename}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
 
     else:
-        if not post_identifier.suffix:
+        if not post_identifier.endswith('.txt'):
             write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
         else: 
             print(f"else ..") 
