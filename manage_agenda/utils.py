@@ -1005,7 +1005,15 @@ def _extract_event_with_llm_retry(
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
+        if not post_identifier.suffix:
+            write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
+        else: 
+            print(f"else") 
+            # It has been processed befor is a recomputation 
+            filename = Path(post_identifier).stem
+            write_file(f"kk/{filename}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
+                    
+
 
         if not args.interactive:
             return None, vcal_json, total_elapsed_time, False, False, False
@@ -1032,17 +1040,33 @@ def _extract_event_with_llm_retry(
     if isinstance(event, (list, tuple)):
         if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
             for idx, event_vcal in enumerate(vcal_json, start=1):
-                if not os.path.exists(f"{post_identifier}"):
+                print(f"Id: {post_identifier}")
+                if not post_identifier.suffix:
                     write_file(f"{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal)) 
                 else:
+                    print(f"else")
                     # It has been processed befor is a recomputation
-                    write_file(f"kk/{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal)) 
+                    filename = Path(post_identifier).stem
+                    write_file(f"kk/{filename}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal)) 
                     
         else:
             for idx in range(1, len(event) + 1):
-                write_file(f"{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
+                if not post_identifier.suffix:
+                    write_file(f"{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
+                else: 
+                    print(f"else .") 
+                    # It has been processed before is a recomputation 
+                    filename = Path(post_identifier).stem
+                    write_file(f"kk/{filename}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
+
     else:
-        write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
+        if not post_identifier.suffix:
+            write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
+        else: 
+            print(f"else ..") 
+            # It has been processed before is a recomputation 
+            filename = Path(post_identifier).stem
+            write_file(f"kk/{filename}.vcal", json.dumps(vcal_json) if isinstance(vcal_json,event_ (dict, list)) else str(vcal_json)) 
 
     # If the LLM returned multiple events, skip single-event validation and return them directly
     if isinstance(event, (list, tuple)):

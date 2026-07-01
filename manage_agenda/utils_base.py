@@ -28,8 +28,10 @@ def write_file(filename, content):
 
         # Ensure the filename doesn't contain path traversal sequences that would allow
         # writing outside the DEFAULT_DATA_DIR
-        # Check if the normalized filename is an absolute path (which would bypass DEFAULT_DATA_DIR)
-        # or if it contains '..' components that could traverse up the directory tree
+        # Check if the normalized filename is an absolute path (which would
+        # bypass DEFAULT_DATA_DIR) or 
+        # if it contains '..' components that could traverse up the directory
+        # tree
         if os.path.isabs(normalized_filename) or '..' in normalized_filename.split(os.sep):
             logging.error(f"Invalid filename: {filename} - contains path traversal attempts")
             return False
@@ -43,7 +45,8 @@ def write_file(filename, content):
             full_path_real = os.path.realpath(full_path)
             default_dir_real = os.path.realpath(DEFAULT_DATA_DIR)
 
-            # Ensure the resolved file path is within the resolved default directory
+            # Ensure the resolved file path is within the resolved default
+            # directory
             if not full_path_real.startswith(default_dir_real + os.sep) and full_path_real != default_dir_real:
                 logging.error(f"Invalid filename: {filename} - resolves outside allowed directory")
                 return False
