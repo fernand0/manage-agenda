@@ -167,7 +167,7 @@ def add(ctx, interactive, source, force_refresh):
         else:
             process_email_cli(args, model, source_name=selected, rules=rules)
     else:
-        process_email_cli(args, model, rules=rules)
+        process_txt_cli(args, model, rules=rules)
 
 
 @cli.command()

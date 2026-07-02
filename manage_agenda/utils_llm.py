@@ -103,11 +103,15 @@ class OllamaClient(LLMClient):
         self.config = False
         super().__init__(name_class)
 
-        if not model_name:
+        iss = isinstance(model_name,int)
+        if not iss and not model_name:
             models = self.list_models()
             _, self.model_name = select_from_list(models, identifier="model")
         else:
-            self.model_name = model_name
+            if isinstance(model_name,int):
+                self.model_name = self.list_models()[0].model
+            else:
+                self.model_name = model_name
 
     def generate_text(self, prompt):
         try:

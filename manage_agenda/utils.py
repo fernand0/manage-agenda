@@ -5,7 +5,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Optional
 
 import dateparser
@@ -720,7 +720,7 @@ def list_emails_folder(args, rules=None):
 
 def _create_llm_prompt(*args):
     """Constructs the LLM prompt for event extraction."""
-    from pathlib import Path
+    from pathlib import Path, PosixPath
 
     if len(args) == 2:
         content_text, reference_date_time = args
@@ -994,8 +994,11 @@ def _extract_event_with_llm_retry(
                     print(f"Single event: {single_event}")
                     if isinstance(single_event, dict):
                         single_event = process_event_data(single_event, original_content)
+                        print(f"Single event: {single_event}")
                         single_event = adjust_event_times(single_event)
+                        print(f"Single event: {single_event}")
                         processed_events.append(single_event)
+                        print(f"Proc event: {processed_events}")
                 event = processed_events if processed_events else None
             else:
                 event = process_event_data(event, original_content)
@@ -1006,7 +1009,7 @@ def _extract_event_with_llm_retry(
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        if not post_identifier.suffix:
+        if (isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt')):
             write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
         else: 
             print(f"else") 
@@ -1042,7 +1045,7 @@ def _extract_event_with_llm_retry(
         if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
             for idx, event_vcal in enumerate(vcal_json, start=1):
                 print(f"Id: {post_identifier}")
-                if not post_identifier.suffix:
+                if (isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt')):
                     write_file(f"{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal)) 
                 else:
                     print(f"else")
@@ -1052,7 +1055,7 @@ def _extract_event_with_llm_retry(
                     
         else:
             for idx in range(1, len(event) + 1):
-                if not post_identifier.endswith('.txt'):
+                if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
                     write_file(f"{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
                 else: 
                     print(f"else .") 
@@ -1061,7 +1064,7 @@ def _extract_event_with_llm_retry(
                     write_file(f"kk/{filename}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
 
     else:
-        if not post_identifier.endswith('.txt'):
+        if (isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt')):
             write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
         else: 
             print(f"else ..") 
@@ -1349,6 +1352,7 @@ def _process_event_with_llm_and_calendar(
             )
         )
 
+        print(f"argssss: {args}")
         # Handle restart case first
         if need_restart:
             # Loop will continue to restart the process
@@ -1374,13 +1378,24 @@ def _process_event_with_llm_and_calendar(
                     if isinstance(event, (list, tuple)):
                         events = list(event)
                         calendar_results = []
-                        selected_calendar = select_calendar(api_dst, title=subject_for_print)
+                        if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
+                            selected_calendar = select_calendar(api_dst, title=subject_for_print)
+                        else:
+                            selected_calendar = -1
                         if selected_calendar:
                             for idx, single_event in enumerate(events, start=1):
                                 single_event = adjust_event_times(single_event)
-                                write_file(
-                                    f"{post_identifier}_{idx}.json", json.dumps(single_event)
-                                )
+                                if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
+                                    write_file(
+                                        f"{post_identifier}_{idx}.json", json.dumps(single_event)
+                                    )
+                                else:
+                                    print(f"else ...") 
+                                    # It has been processed before is a recomputation 
+                                    filename = Path(post_identifier).stem
+                                    write_file(f"kk/{filename}_{idx}.json", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
+
+
                                 _display_event_info(single_event, subject_for_print, elapsed_time)
 
                                 retry_needed = False
@@ -1407,16 +1422,30 @@ def _process_event_with_llm_and_calendar(
                                 if single_event is not None:
                                     _add_ai_metadata_to_event(single_event, model, elapsed_time)
                                     try:
-                                        calendar_result = api_dst.publishPost(
-                                            post={"event": single_event, "idCal": selected_calendar},
-                                            api=api_dst,
-                                        )
-                                        calendar_results.append(calendar_result)
-                                        print("Calendar event created")
-                                        success = True
-                                        write_file(
-                                            f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
-                                        )
+
+                                        if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
+                                            calendar_result = api_dst.publishPost(
+                                                post={"event": single_event, "idCal": selected_calendar},
+                                                api=api_dst,
+                                            )
+                                            calendar_results.append(calendar_result)
+                                            print("Calendar event created")
+                                            success = True
+                                        else:
+                                            print("Skipping calendar event creation")
+                                            success = True
+                                        if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
+
+                                            write_file(
+                                             f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                            ) 
+                                        else: 
+                                            print(f"else .....") 
+                                            # It has been processed before is a recomputation 
+                                            filename = Path(post_identifier).stem 
+                                            write_file(f"kk/{filename}_{idx}_times.json", json.dumps(single_event) if isinstance(single_event, (dict, list)) else str(single_event)) 
+
+
 
 
                                     except googleapiclient.errors.HttpError as e:
@@ -1430,7 +1459,14 @@ def _process_event_with_llm_and_calendar(
                             return None, None
                     else:
                         event = adjust_event_times(event)
-                        write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
+                        if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
+                            write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
+                        else: 
+                            print(f"else ....-") 
+                            # It has been processed before is a recomputation 
+                            filename = Path(post_identifier).stem 
+                            write_file(f"kk/{filename}.json", json.dumps(single_event) if isinstance(single_event, (dict, list)) else str(single_event)) 
+
 
                         _display_event_info(event, subject_for_print, elapsed_time)
 
@@ -1456,23 +1492,39 @@ def _process_event_with_llm_and_calendar(
                                 # Add AI metadata to the event for tracking and transparency
                                 _add_ai_metadata_to_event(event, model, elapsed_time)
 
-                                selected_calendar = select_calendar(api_dst)
-                                if selected_calendar:
-                                    try:
-                                        calendar_result = api_dst.publishPost(
-                                            post={"event": event, "idCal": selected_calendar},
-                                            api=api_dst,
-                                        )
-                                        print("Calendar event created")
-                                        success = True  # Indicate successful completion
+                                if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
+
+                                    selected_calendar = select_calendar(api_dst)
+                                    if selected_calendar:
+                                        try:
+                                            calendar_result = api_dst.publishPost(
+                                                post={"event": event, "idCal": selected_calendar},
+                                                api=api_dst,
+                                            )
+                                            print("Calendar event created")
+                                            success = True  # Indicate successful completion
+                                        except googleapiclient.errors.HttpError as e:
+                                            logging.error(f"Error creating calendar event: {e}")
+
+                                    else:
+                                        print("No calendar selected, skipping event creation.")
+
+                                else:
+                                    print("Skipping calendar event creation")
+                                    success = True
+                                if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
                                         write_file(
                                             f"{post_identifier}_times.json", json.dumps(event)
                                         )  # Save event JSON (redundant, but existing)
+                                else: 
+                                    print(f"else ....+") 
+                                    # It has been processed before is a recomputation 
+                                    filename = Path(post_identifier).stem 
+                                    write_file(f"kk/{filename}_times.json", json.dumps(single_event) if isinstance(single_event, (dict, list)) else str(single_event)) 
 
-                                    except googleapiclient.errors.HttpError as e:
-                                        logging.error(f"Error creating calendar event: {e}")
-                                else:
-                                    print("No calendar selected, skipping event creation.")
+
+
+
 
     # Return appropriate values based on success
     if success:
@@ -2028,14 +2080,17 @@ def select_llm(args):
         args = Args(
             interactive=args.interactive,
             delete=args.delete,
-            source="gemini",
+            source=args.source,
             verbose=args.verbose,
             destination=args.destination,
             text=args.text,
         )
 
     if args.source == "ollama":
-        model = OllamaClient()
+        if args.interactive:
+            model = OllamaClient()
+        else:
+            model = OllamaClient(0)
         return model
     elif args.source == "gemini":
         if args.interactive:
