@@ -42,7 +42,7 @@ class Config:
 
     # Paths
     GOOGLE_CREDENTIALS_DIR: Path = CONFIG_DIR
-    MSG_TXT_DIR: str = os.getenv("MSG_TXT_DIR", os.path.expanduser("~/Documents/data/msgs/"))
+    MSG_TXT_DIR: str = os.getenv("MSG_TXT_DIR", os.path.expanduser("~/Documents/txt/"))
 
     @classmethod
     def validate(cls) -> bool:

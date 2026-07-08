@@ -658,28 +658,12 @@ def list_events_folder(args, api_src, calendar=""):
 def _get_msgs_from_folder(args, source_name, rules=None):
     """Helper function to get posts stored in some folder."""
     "FIXME: maybe a folder argument?"
-    #rules = ensure_rules(rules)
-    #source_details = rules.more.get(source_name, {})
-    #api_src = rules.readConfigSrc("", source_name, source_details)
 
-    #if not api_src.getClient():
-    #    print("Some problem with the account")
-    #    return None, None
-
-    # api_src.setPostsType("posts")
-    # api_src.setLabels()
-    # label = api_src.getLabels(folder)
-    # if not label:
-    #     print(f"There are no posts tagged with label {folder}")
-    #     return api_src, None
-
-    # # label_id = safe_get(label[0], ["id"])
-    # api_src.setChannel(folder)
-    # api_src.setPosts()
-    # posts = api_src.getPosts()
-
-    target_dir = Path(config.MSG_TXT_DIR)
-    txt_files = target_dir.glob("*.txt")
+    if source_name and isinstance(source_name, list):
+        txt_files = source_name
+    else:
+        target_dir = Path(config.MSG_TXT_DIR)
+        txt_files = target_dir.glob("*.txt")
     posts = []
     for file_path in txt_files:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -687,7 +671,7 @@ def _get_msgs_from_folder(args, source_name, rules=None):
             posts.append([file_path, content])
 
     if not posts:
-        print(f"There are no posts tagged with label {folder}")
+        print(f"There are no posts in {target_dir}")
         posts = None
 
     return None, posts
@@ -1371,7 +1355,6 @@ def _process_event_with_llm_and_calendar(
             )
         )
 
-        print(f"argssss: {args}")
         # Handle restart case first
         if need_restart:
             # Loop will continue to restart the process
@@ -1776,9 +1759,11 @@ def _process_common_flow(
 def process_txt_cli(args, model, source_name=None, rules=None):
     """Processes txt files and creates calendar events."""
 
-    #if not source_name:
-    #    source_name = select_email_source(args, rules=rules)
-
+    if not source_name:
+        source_name = input(f"Enter URLs separated by spaces (leave empty to use {config.MSG_TXT_DIR}): ").split()
+        if not source_name:
+            print(f"No filenames entered. Extracting texts from {config.MSG_TXT_DIR}...")
+ 
     api_src, posts = _get_msgs_from_folder(args, source_name, rules=rules)
 
     if posts:

@@ -1,4 +1,5 @@
 import click
+import os
 
 # Import auxiliary functions and classes from utils.py
 from .utils import (
@@ -44,7 +45,8 @@ def select_from_list(options, identifier="", selector="", default=""):
                 selection = int(selection)
                 if 0 <= selection < len(options):
                     return selection, options[selection]
-            elif selection.startswith("http"):
+            elif (selection.startswith("http") or ('.' in selection)):
+                # An URL or a filename containing a '.'
                 return len(options) - 1, selection
             else:
                 for i, option in enumerate(options):
@@ -162,8 +164,11 @@ def add(ctx, interactive, source, force_refresh):
                 process_web_cli(args, model, urls=selected.split(" "), force_refresh=force_refresh)
             else:
                 process_web_cli(args, model, force_refresh=force_refresh)
-        elif isinstance(selected, str) and ("Text" in selected):
-            process_txt_cli(args, model, source_name=selected, rules=rules)
+        elif isinstance(selected, str) and (("Text" in selected) or os.path.exists(selected)):
+            if '.' in selected:
+                process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
+            else:
+                process_txt_cli(args, model, rules=rules)
         else:
             process_email_cli(args, model, source_name=selected, rules=rules)
     else:
