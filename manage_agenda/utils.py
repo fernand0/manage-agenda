@@ -411,6 +411,29 @@ def adjust_event_times(event):
     return event
 
 
+def _ensure_valid_event_timezones(event, fallback_tz="UTC"):
+    """Ensure both start and end have valid timeZone values."""
+    if not isinstance(event, dict):
+        return event
+
+    for when in ("start", "end"):
+        field = event.setdefault(when, {})
+        tz_name = field.get("timeZone")
+        if not tz_name:
+            field["timeZone"] = fallback_tz
+            continue
+
+        try:
+            pytz.timezone(tz_name)
+        except Exception:
+            logging.warning(
+                f"Invalid timezone '{tz_name}' for event {when}; using fallback '{fallback_tz}'."
+            )
+            field["timeZone"] = fallback_tz
+
+    return event
+
+
 # def list_models_cli(args):
 #     """Lists available LLMs."""
 #     "Not used. Maybe interesting?"
@@ -943,6 +966,27 @@ def _modify_single_component(dt, component, time_label):
         return dt
 
 
+def _normalize_post_identifier(post_identifier):
+    """Strip file extensions (e.g. '.txt') from post_identifier.
+
+    When reprocessing saved .txt files, the post_identifier arrives with a
+    .txt suffix.  Stripping it here lets all downstream code (file writes,
+    calendar creation) use the same paths regardless of where the input came
+    from.
+
+    Returns:
+        The post_identifier with any file extension removed, preserving its
+        original type (str or Path).
+    """
+    if isinstance(post_identifier, PosixPath) and post_identifier.suffix:
+        result = post_identifier.with_suffix("")
+    elif isinstance(post_identifier, str) and "." in post_identifier.rsplit("/", 1)[-1]:
+        result = str(Path(post_identifier).with_suffix(""))
+    else:
+        result = post_identifier
+    return result
+
+
 def _extract_event_with_llm_retry(
     args, model, content_text, reference_date_time, post_identifier, subject_for_print
 ):
@@ -962,6 +1006,7 @@ def _extract_event_with_llm_retry(
         need_another_ai) where success_flag indicates if extraction was
         successful and need_restart indicates if the whole process should
         restart"""
+    post_identifier = _normalize_post_identifier(post_identifier)
     original_content = content_text
     prompt_content = content_text
     total_elapsed_time = 0
@@ -1009,14 +1054,7 @@ def _extract_event_with_llm_retry(
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        if (isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt')):
-            write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
-        else: 
-            print(f"else") 
-            # It has been processed befor is a recomputation 
-            filename = Path(post_identifier).stem
-            write_file(f"kk/{filename}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
-                    
+        write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
 
 
         if not args.interactive:
@@ -1045,32 +1083,12 @@ def _extract_event_with_llm_retry(
         if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
             for idx, event_vcal in enumerate(vcal_json, start=1):
                 print(f"Id: {post_identifier}")
-                if (isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt')):
-                    write_file(f"{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal)) 
-                else:
-                    print(f"else")
-                    # It has been processed befor is a recomputation
-                    filename = Path(post_identifier).stem
-                    write_file(f"kk/{filename}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal)) 
-                    
+                write_file(f"{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal))
         else:
             for idx in range(1, len(event) + 1):
-                if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
-                    write_file(f"{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
-                else: 
-                    print(f"else .") 
-                    # It has been processed before is a recomputation 
-                    filename = Path(post_identifier).stem
-                    write_file(f"kk/{filename}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
-
+                write_file(f"{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
     else:
-        if (isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt')):
-            write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
-        else: 
-            print(f"else ..") 
-            # It has been processed before is a recomputation 
-            filename = Path(post_identifier).stem
-            write_file(f"kk/{filename}.vcal", json.dumps(vcal_json) if isinstance(vcal_json,event_ (dict, list)) else str(vcal_json)) 
+        write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
 
     # If the LLM returned multiple events, skip single-event validation and return them directly
     if isinstance(event, (list, tuple)):
@@ -1338,6 +1356,7 @@ def _process_event_with_llm_and_calendar(
     Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
     """
     # Initialize result variables
+    post_identifier = _normalize_post_identifier(post_identifier)
     event = None
     calendar_result = None
     success = False
@@ -1378,22 +1397,13 @@ def _process_event_with_llm_and_calendar(
                     if isinstance(event, (list, tuple)):
                         events = list(event)
                         calendar_results = []
-                        if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
-                            selected_calendar = select_calendar(api_dst, title=subject_for_print)
-                        else:
-                            selected_calendar = -1
+                        selected_calendar = select_calendar(api_dst, title=subject_for_print)
                         if selected_calendar:
                             for idx, single_event in enumerate(events, start=1):
                                 single_event = adjust_event_times(single_event)
-                                if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
-                                    write_file(
-                                        f"{post_identifier}_{idx}.json", json.dumps(single_event)
-                                    )
-                                else:
-                                    print(f"else ...") 
-                                    # It has been processed before is a recomputation 
-                                    filename = Path(post_identifier).stem
-                                    write_file(f"kk/{filename}_{idx}.json", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json)) 
+                                write_file(
+                                    f"{post_identifier}_{idx}.json", json.dumps(single_event)
+                                )
 
 
                                 _display_event_info(single_event, subject_for_print, elapsed_time)
@@ -1422,34 +1432,34 @@ def _process_event_with_llm_and_calendar(
                                 if single_event is not None:
                                     _add_ai_metadata_to_event(single_event, model, elapsed_time)
                                     try:
-
-                                        if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
-                                            calendar_result = api_dst.publishPost(
-                                                post={"event": single_event, "idCal": selected_calendar},
-                                                api=api_dst,
-                                            )
-                                            calendar_results.append(calendar_result)
-                                            print("Calendar event created")
-                                            success = True
-                                        else:
-                                            print("Skipping calendar event creation")
-                                            success = True
-                                        if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
-
-                                            write_file(
-                                             f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
-                                            ) 
-                                        else: 
-                                            print(f"else .....") 
-                                            # It has been processed before is a recomputation 
-                                            filename = Path(post_identifier).stem 
-                                            write_file(f"kk/{filename}_{idx}_times.json", json.dumps(single_event) if isinstance(single_event, (dict, list)) else str(single_event)) 
-
-
-
-
+                                        calendar_result = api_dst.publishPost(
+                                            post={"event": single_event, "idCal": selected_calendar},
+                                            api=api_dst,
+                                        )
+                                        calendar_results.append(calendar_result)
+                                        print("Calendar event created")
+                                        success = True
+                                        write_file(
+                                            f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                        )
                                     except googleapiclient.errors.HttpError as e:
                                         logging.error(f"Error creating calendar event: {e}")
+                                        if "Invalid time zone definition for end time'" in str(e):
+                                            logging.info("Detected invalid timezone definition for end time. Correcting event timezones and retrying.")
+                                            single_event = _ensure_valid_event_timezones(single_event, fallback_tz="UTC")
+                                            try:
+                                                calendar_result = api_dst.publishPost(
+                                                    post={"event": single_event, "idCal": selected_calendar},
+                                                    api=api_dst,
+                                                )
+                                                calendar_results.append(calendar_result)
+                                                print("Calendar event created after timezone correction")
+                                                success = True
+                                                write_file(
+                                                    f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                                )
+                                            except Exception as retry_e:
+                                                logging.error(f"Retry after timezone correction failed: {retry_e}")
                         else:
                             print("No calendar selected, skipping event creation.")
 
@@ -1459,14 +1469,7 @@ def _process_event_with_llm_and_calendar(
                             return None, None
                     else:
                         event = adjust_event_times(event)
-                        if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
-                            write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
-                        else: 
-                            print(f"else ....-") 
-                            # It has been processed before is a recomputation 
-                            filename = Path(post_identifier).stem 
-                            write_file(f"kk/{filename}.json", json.dumps(single_event) if isinstance(single_event, (dict, list)) else str(single_event)) 
-
+                        write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
 
                         _display_event_info(event, subject_for_print, elapsed_time)
 
@@ -1492,35 +1495,34 @@ def _process_event_with_llm_and_calendar(
                                 # Add AI metadata to the event for tracking and transparency
                                 _add_ai_metadata_to_event(event, model, elapsed_time)
 
-                                if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
-
-                                    selected_calendar = select_calendar(api_dst)
-                                    if selected_calendar:
-                                        try:
-                                            calendar_result = api_dst.publishPost(
-                                                post={"event": event, "idCal": selected_calendar},
-                                                api=api_dst,
-                                            )
-                                            print("Calendar event created")
-                                            success = True  # Indicate successful completion
-                                        except googleapiclient.errors.HttpError as e:
-                                            logging.error(f"Error creating calendar event: {e}")
-
-                                    else:
-                                        print("No calendar selected, skipping event creation.")
-
+                                selected_calendar = select_calendar(api_dst)
+                                if selected_calendar:
+                                    try:
+                                        calendar_result = api_dst.publishPost(
+                                            post={"event": event, "idCal": selected_calendar},
+                                            api=api_dst,
+                                        )
+                                        print("Calendar event created")
+                                        success = True  # Indicate successful completion
+                                    except googleapiclient.errors.HttpError as e:
+                                        logging.error(f"Error creating calendar event: {e}")
+                                        if "Invalid time zone definition for end time'" in str(e):
+                                            logging.info("Detected invalid timezone definition for end time. Correcting event timezones and retrying.")
+                                            event = _ensure_valid_event_timezones(event, fallback_tz="UTC")
+                                            try:
+                                                calendar_result = api_dst.publishPost(
+                                                    post={"event": event, "idCal": selected_calendar},
+                                                    api=api_dst,
+                                                )
+                                                print("Calendar event created after timezone correction")
+                                                success = True
+                                            except Exception as retry_e:
+                                                logging.error(f"Retry after timezone correction failed: {retry_e}")
                                 else:
-                                    print("Skipping calendar event creation")
-                                    success = True
-                                if ((isinstance(post_identifier, PosixPath) and not post_identifier.suffix) or (isinstance(post_identifier, str) and not post_identifier.endswith('.txt'))):
-                                        write_file(
-                                            f"{post_identifier}_times.json", json.dumps(event)
-                                        )  # Save event JSON (redundant, but existing)
-                                else: 
-                                    print(f"else ....+") 
-                                    # It has been processed before is a recomputation 
-                                    filename = Path(post_identifier).stem 
-                                    write_file(f"kk/{filename}_times.json", json.dumps(single_event) if isinstance(single_event, (dict, list)) else str(single_event)) 
+                                    print("No calendar selected, skipping event creation.")
+                                write_file(
+                                    f"{post_identifier}_times.json", json.dumps(event)
+                                )  # Save event JSON (redundant, but existing)
 
 
 
@@ -2077,10 +2079,11 @@ def select_llm(args):
                 text=args.text,
             )
     else:
+        # In non-interactive mode the system currently always uses Gemini.
         args = Args(
             interactive=args.interactive,
             delete=args.delete,
-            source=args.source,
+            source="gemini",
             verbose=args.verbose,
             destination=args.destination,
             text=args.text,
