@@ -620,7 +620,8 @@ more text"""
 
         self.assertIn("gmail1", sources)
         self.assertIn("imap1", sources)
-        self.assertIn("Web (Enter URL)", sources)
+        self.assertIn("Web (Enter URLs or leave empty)", sources)
+        self.assertIn("Text (enter filenames or leave empty)", sources)
 
     def test_extract_json_with_braces(self):
         """Test extract_json finds JSON within text."""
