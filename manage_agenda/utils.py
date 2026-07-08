@@ -128,7 +128,7 @@ def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     rules = ensure_rules(rules)
     email_sources = _get_email_sources(rules)
-    return email_sources + ["Web (Enter URL)"] + ["Text in default directory"]
+    return email_sources + ["Web (Enter URLs or leave empty)"] + ["Text (enter filenames or leave empty)"]
 
 
 def print_first_10_lines(content, content_type="content"):
@@ -1760,7 +1760,7 @@ def process_txt_cli(args, model, source_name=None, rules=None):
     """Processes txt files and creates calendar events."""
 
     if not source_name:
-        source_name = input(f"Enter URLs separated by spaces (leave empty to use {config.MSG_TXT_DIR}): ").split()
+        source_name = input(f"Enter filenames separated by spaces (leave empty to use {config.MSG_TXT_DIR}): ").split()
         if not source_name:
             print(f"No filenames entered. Extracting texts from {config.MSG_TXT_DIR}...")
  
