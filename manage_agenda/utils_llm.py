@@ -36,10 +36,12 @@ except Exception:
 from socialModules.configMod import CONFIGDIR, select_from_list
 
 
-def evaluate_models(prompt):
+def evaluate_models(args, prompt):
     """
     Evaluates multiple Ollama models and prints their responses and timings.
     """
+    from manage_agenda.config import config
+
     results = []
     models = OllamaClient.list_models()
     for model_info in models:
@@ -47,12 +49,15 @@ def evaluate_models(prompt):
         print(f"Evaluating model: {model_name}")
         client = OllamaClient(model_name=model_name)
 
-        start_time = time.time()
-        response = client.generate_text(prompt)
-        end_time = time.time()
+        from utils import process_txt_cli
+        print(f"Cli: {process_txt_cli(args, client, source_name=config.MSG_TXT_DIR)}")
+        # print(f"Prompt: {prompt}")
+        # start_time = time.time()
+        # response = client.generate_text(prompt)
+        # end_time = time.time()
 
-        duration = end_time - start_time
-        results.append({"model": model_name, "response": response, "duration": duration})
+        # duration = end_time - start_time
+        # results.append({"model": model_name, "response": response, "duration": duration})
 
     print("\n--- Evaluation Results ---")
     for result in results:

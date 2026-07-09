@@ -1796,6 +1796,9 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             if ' ' in date:
                 date = date.split(' ')[0]
 
+            #FIXME is this ok?
+            date = datetime.datetime.today()
+
             logging.debug(f"Extracted date: {date}")
             return post_id, lines_txt[1][len("Subject: "):], date
 

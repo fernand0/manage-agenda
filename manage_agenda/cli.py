@@ -90,8 +90,8 @@ def llm(ctx):
 @click.pass_context
 def evaluate(ctx, prompt):
     """Evaluate different LLM models"""
-    if not prompt:
-        args = Args(
+    print(prompt)
+    args = Args(
             interactive=True,
             delete=None,
             source=None,
@@ -99,10 +99,12 @@ def evaluate(ctx, prompt):
             destination=None,
             text=None,
         )
+
+    if not prompt:
         prompt = select_email_prompt(args)
 
     if prompt:
-        evaluate_models(prompt)
+        evaluate_models(args, prompt)
 
 
 @cli.command()
