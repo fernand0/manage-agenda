@@ -16,7 +16,6 @@ from .utils import (
     process_web_cli,
     process_txt_cli,
     select_api_source,
-    select_email_prompt,
     select_llm,
     update_event_status_cli,
 )
@@ -86,25 +85,30 @@ def llm(ctx):
 
 
 @llm.command()
+@click.option(
+    "-t",
+    "--type",
+    "type_",
+    type=click.Choice(["email", "web", "txt"]),
+    default="txt",
+    help="Type of evaluation to run (email, web, txt)",
+)
 @click.argument("prompt", required=False)
 @click.pass_context
-def evaluate(ctx, prompt):
+def evaluate(ctx, type_, prompt):
     """Evaluate different LLM models"""
-    print(prompt)
-    args = Args(
-            interactive=True,
-            delete=None,
-            source=None,
-            verbose=ctx.obj["VERBOSE"],
-            destination=None,
-            text=None,
-        )
-
-    if not prompt:
-        prompt = select_email_prompt(args)
-
     if prompt:
-        evaluate_models(args, prompt)
+        print(prompt)
+    args = Args(
+        interactive=True,
+        delete=None,
+        source=None,
+        verbose=ctx.obj["VERBOSE"],
+        destination=None,
+        text=None,
+    )
+
+    evaluate_models(args, prompt=prompt, eval_type=type_ if not prompt else None)
 
 
 @cli.command()

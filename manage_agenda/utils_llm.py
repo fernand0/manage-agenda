@@ -36,7 +36,7 @@ except Exception:
 from socialModules.configMod import CONFIGDIR, select_from_list
 
 
-def evaluate_models(args, prompt):
+def evaluate_models(args, prompt=None, eval_type=None):
     """
     Evaluates multiple Ollama models and prints their responses and timings.
     """
@@ -49,22 +49,33 @@ def evaluate_models(args, prompt):
         print(f"Evaluating model: {model_name}")
         client = OllamaClient(model_name=model_name)
 
-        from utils import process_txt_cli
-        print(f"Cli: {process_txt_cli(args, client, source_name=config.MSG_TXT_DIR)}")
-        # print(f"Prompt: {prompt}")
-        # start_time = time.time()
-        # response = client.generate_text(prompt)
-        # end_time = time.time()
+        if eval_type == "email":
+            from .utils import process_email_cli
+            print(f"Cli (email): {process_email_cli(args, client)}")
+        elif eval_type == "web":
+            from .utils import process_web_cli
+            print(f"Cli (web): {process_web_cli(args, client)}")
+        elif eval_type == "txt":
+            from .utils import process_txt_cli
+            print(f"Cli (txt): {process_txt_cli(args, client, source_name=config.MSG_TXT_DIR)}")
+        else:
+            if prompt:
+                import time
+                print(f"Prompt: {prompt}")
+                start_time = time.time()
+                response = client.generate_text(prompt)
+                end_time = time.time()
 
-        # duration = end_time - start_time
-        # results.append({"model": model_name, "response": response, "duration": duration})
+                duration = end_time - start_time
+                results.append({"model": model_name, "response": response, "duration": duration})
 
-    print("\n--- Evaluation Results ---")
-    for result in results:
-        print(f"Model: {result['model']}")
-        print(f"Time taken: {result['duration']:.2f} seconds")
-        print(f"Response: {result['response']}")
-        print("--------------------")
+    if results:
+        print("\n--- Evaluation Results ---")
+        for result in results:
+            print(f"Model: {result['model']}")
+            print(f"Time taken: {result['duration']:.2f} seconds")
+            print(f"Response: {result['response']}")
+            print("--------------------")
 
 
 # This shouln't go here?

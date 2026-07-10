@@ -302,10 +302,19 @@ class TestEvaluateModels(unittest.TestCase):
     def test_evaluate_models(self, mock_list_models, mock_init, mock_time, mock_print):
         """Test evaluate_models function."""
         mock_list_models.return_value = [{"model": "llama2"}, {"model": "mistral"}]
+        from manage_agenda.utils import Args
+        args = Args(
+            interactive=False,
+            delete=None,
+            source=None,
+            verbose=False,
+            destination=None,
+            text=None,
+        )
 
         # Mock generate_text method
         with patch.object(OllamaClient, "generate_text", return_value="Test response"):
-            evaluate_models("test prompt")
+            evaluate_models(args, prompt="test prompt")
 
         # list_models should be called once
         mock_list_models.assert_called_once()
@@ -313,6 +322,55 @@ class TestEvaluateModels(unittest.TestCase):
         self.assertEqual(mock_init.call_count, 2)
         # Should print results
         self.assertGreater(mock_print.call_count, 0)
+
+    @patch("builtins.print")
+    @patch("manage_agenda.utils_llm.OllamaClient.__init__", return_value=None)
+    @patch.object(OllamaClient, "list_models")
+    @patch("manage_agenda.utils.process_email_cli")
+    @patch("manage_agenda.utils.process_web_cli")
+    @patch("manage_agenda.utils.process_txt_cli")
+    def test_evaluate_models_by_type(
+        self,
+        mock_process_txt,
+        mock_process_web,
+        mock_process_email,
+        mock_list_models,
+        mock_init,
+        mock_print,
+    ):
+        """Test evaluate_models function with eval_type option."""
+        mock_list_models.return_value = [{"model": "llama2"}]
+        from manage_agenda.utils import Args
+        args = Args(
+            interactive=False,
+            delete=None,
+            source=None,
+            verbose=False,
+            destination=None,
+            text=None,
+        )
+
+        # Test email
+        evaluate_models(args, eval_type="email")
+        mock_process_email.assert_called_once()
+        mock_process_web.assert_not_called()
+        mock_process_txt.assert_not_called()
+
+        mock_process_email.reset_mock()
+
+        # Test web
+        evaluate_models(args, eval_type="web")
+        mock_process_email.assert_not_called()
+        mock_process_web.assert_called_once()
+        mock_process_txt.assert_not_called()
+
+        mock_process_web.reset_mock()
+
+        # Test txt
+        evaluate_models(args, eval_type="txt")
+        mock_process_email.assert_not_called()
+        mock_process_web.assert_not_called()
+        mock_process_txt.assert_called_once()
 
 
 if __name__ == "__main__":

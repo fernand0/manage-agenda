@@ -191,14 +191,15 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
 
     @patch("manage_agenda.cli.evaluate_models")
-    @patch("manage_agenda.cli.select_email_prompt", return_value="test prompt")
-    def test_llm_evaluate_no_prompt(self, mock_select_prompt, mock_evaluate):
+    def test_llm_evaluate_no_prompt(self, mock_evaluate):
         """Test llm evaluate command without prompt."""
         result = self.runner.invoke(self.cli.cli, ["llm", "evaluate"])
 
         self.assertEqual(result.exit_code, 0)
-        mock_select_prompt.assert_called_once()
-        mock_evaluate.assert_called_once_with("test prompt")
+        mock_evaluate.assert_called_once()
+        args, kwargs = mock_evaluate.call_args
+        self.assertIsNone(kwargs.get("prompt"))
+        self.assertEqual(kwargs.get("eval_type"), "txt")
 
     @patch("manage_agenda.cli.evaluate_models")
     def test_llm_evaluate_with_prompt(self, mock_evaluate):
@@ -206,17 +207,21 @@ class TestCliCommands(unittest.TestCase):
         result = self.runner.invoke(self.cli.cli, ["llm", "evaluate", "test prompt"])
 
         self.assertEqual(result.exit_code, 0)
-        mock_evaluate.assert_called_once_with("test prompt")
+        mock_evaluate.assert_called_once()
+        args, kwargs = mock_evaluate.call_args
+        self.assertEqual(kwargs.get("prompt"), "test prompt")
+        self.assertIsNone(kwargs.get("eval_type"))
 
     @patch("manage_agenda.cli.evaluate_models")
-    @patch("manage_agenda.cli.select_email_prompt", return_value=None)
-    def test_llm_evaluate_no_prompt_returned(self, mock_select_prompt, mock_evaluate):
-        """Test llm evaluate when select_email_prompt returns None."""
-        result = self.runner.invoke(self.cli.cli, ["llm", "evaluate"])
+    def test_llm_evaluate_with_type(self, mock_evaluate):
+        """Test llm evaluate command with type option."""
+        result = self.runner.invoke(self.cli.cli, ["llm", "evaluate", "--type", "email"])
 
         self.assertEqual(result.exit_code, 0)
-        mock_select_prompt.assert_called_once()
-        mock_evaluate.assert_not_called()
+        mock_evaluate.assert_called_once()
+        args, kwargs = mock_evaluate.call_args
+        self.assertIsNone(kwargs.get("prompt"))
+        self.assertEqual(kwargs.get("eval_type"), "email")
 
     @patch("manage_agenda.cli.copy_events_cli")
     def test_copy_command(self, mock_copy):

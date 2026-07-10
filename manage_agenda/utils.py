@@ -1991,49 +1991,6 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
     return False  # Default return if something went wrong before the main logic
 
 
-def select_email_prompt(args):
-    """Interactively selects an email and returns its content."""
-    api_src_type = ["gmail", "imap"]
-    api_src = select_api_source(args, api_src_type)
-
-    if not api_src.getClient():
-        print("Failed to connect to the email account.")
-        return None
-
-    api_src.setLabels()
-    # labels = api_src.getLabels()
-    # names = [safe_get(label, ["name"]) for label in labels]
-
-    label_name = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
-    api_src.setChannel(label_name)
-    api_src.setPosts()
-    posts = api_src.getPosts()
-
-    if not posts:
-        print(f"No emails found in folder '{label_name}'.")
-        return None
-
-    titles = [api_src.getPostTitle(post) for post in posts]
-    sel, post_title = select_from_list(titles)
-
-    selected_post = posts[sel]
-
-    full_email_content = api_src.getPostBody(selected_post)
-    if isinstance(full_email_content, bytes):
-        full_email_content = full_email_content.decode("utf-8")
-    # pattern_generic = re.compile(
-    #                             #r'[\u200c\u00a0\u2007\u00ad\u200b\u200e\ufeff]',
-    #                             #r'[\p{Cf}\p{Cc}\p{Zs}\
-    #                             r'[\p{Cf}\p{Cc}\p{Zs}]',
-    #                             re.UNICODE
-    #                             )
-    # full_email_content = pattern_generic.sub('', full_email_content)
-    # print(f"Email: {full_email_content}")
-
-    # sys.exit()
-
-    return full_email_content
-
 
 def select_llm(args):
     """Selects and initializes the appropriate LLM client."""
