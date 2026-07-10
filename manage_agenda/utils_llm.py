@@ -44,6 +44,8 @@ def evaluate_models(args, prompt=None, eval_type=None):
 
     results = []
     models = OllamaClient.list_models()
+    if not models:
+        print("No models available")
     for model_info in models:
         model_name = model_info["model"]
         print(f"Evaluating model: {model_name}")

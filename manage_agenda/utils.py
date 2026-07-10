@@ -664,6 +664,7 @@ def _get_msgs_from_folder(args, source_name, rules=None):
     else:
         target_dir = Path(config.MSG_TXT_DIR)
         txt_files = target_dir.glob("*.txt")
+
     posts = []
     for file_path in txt_files:
         with open(file_path, "r", encoding="utf-8") as f:
@@ -671,7 +672,10 @@ def _get_msgs_from_folder(args, source_name, rules=None):
             posts.append([file_path, content])
 
     if not posts:
-        print(f"There are no posts in {target_dir}")
+        if not os.path.exists(target_dir):
+            print(f"There is no {target_dir} directory")
+        else:
+            print(f"There are no posts in {target_dir}")
         posts = None
 
     return None, posts
@@ -1020,14 +1024,14 @@ def _extract_event_with_llm_retry(
             if isinstance(event, (list, tuple)):
                 processed_events = []
                 for single_event in event:
-                    print(f"Single event: {single_event}")
+                    if args.verbose:
+                        print(f"Single event: {single_event}")
                     if isinstance(single_event, dict):
                         single_event = process_event_data(single_event, original_content)
-                        print(f"Single event: {single_event}")
                         single_event = adjust_event_times(single_event)
-                        print(f"Single event: {single_event}")
                         processed_events.append(single_event)
-                        print(f"Proc event: {processed_events}")
+                        if args.verbose:
+                            print(f"Proc event: {processed_events}")
                 event = processed_events if processed_events else None
             else:
                 event = process_event_data(event, original_content)
@@ -1763,7 +1767,7 @@ def process_txt_cli(args, model, source_name=None, rules=None):
         source_name = input(f"Enter filenames separated by spaces (leave empty to use {config.MSG_TXT_DIR}): ").split()
         if not source_name:
             print(f"No filenames entered. Extracting texts from {config.MSG_TXT_DIR}...")
- 
+
     api_src, posts = _get_msgs_from_folder(args, source_name, rules=rules)
 
     if posts:
@@ -1800,7 +1804,11 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             date = datetime.datetime.today()
 
             logging.debug(f"Extracted date: {date}")
-            return post_id, lines_txt[1][len("Subject: "):], date
+            if 'Subject: ' in lines_txt:
+                title = lines_txt[1][len("Subject: "):]
+            else:
+                title = lines_txt[0]
+            return post_id, title, date
 
         def content_extractor(post, i, post_date_time, post_title):
             lines_txt = post[1].split('\n')

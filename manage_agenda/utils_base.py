@@ -29,7 +29,7 @@ def write_file(filename, content):
         # Ensure the filename doesn't contain path traversal sequences that would allow
         # writing outside the DEFAULT_DATA_DIR
         # Check if the normalized filename is an absolute path (which would
-        # bypass DEFAULT_DATA_DIR) or 
+        # bypass DEFAULT_DATA_DIR) or
         # if it contains '..' components that could traverse up the directory
         # tree
         if os.path.isabs(normalized_filename) or '..' in normalized_filename.split(os.sep):
