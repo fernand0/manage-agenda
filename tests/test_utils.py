@@ -1238,6 +1238,62 @@ more text"""
         # Verify publishPost was called for both events
         self.assertEqual(mock_api_dst.publishPost.call_count, 2)
 
+    @patch("manage_agenda.utils.get_event_from_llm")
+    @patch("manage_agenda.utils.select_api_source")
+    @patch("manage_agenda.utils.select_calendar")
+    @patch("manage_agenda.utils.write_file")
+    @patch("manage_agenda.utils._interactive_date_confirmation")
+    def test_process_event_with_llm_and_calendar_file_output(
+        self,
+        mock_interactive_confirmation,
+        mock_write_file,
+        mock_select_calendar,
+        mock_select_api_source,
+        mock_get_event_from_llm,
+    ):
+        """Test _process_event_with_llm_and_calendar with file output option."""
+        from manage_agenda.utils import _process_event_with_llm_and_calendar, Args
+
+        args = Args(
+            interactive=False,
+            delete=False,
+            source="gemini",
+            verbose=False,
+            destination="",
+            text="",
+            output="file",
+        )
+
+        mock_model = MagicMock()
+        event = {
+            "summary": "Meeting One",
+            "start": {"dateTime": "2024-01-01T10:00:00"},
+            "end": {"dateTime": "2024-01-01T11:00:00"},
+        }
+        
+        # get_event_from_llm returns (event, vcal_json, elapsed_time)
+        mock_get_event_from_llm.return_value = (event, event, 1.0)
+        mock_interactive_confirmation.side_effect = lambda args, ev, *a, **kw: (ev, False)
+
+        events, results = _process_event_with_llm_and_calendar(
+            args,
+            mock_model,
+            content_text="Single event text",
+            reference_date_time="2024-01-01T00:00:00",
+            post_identifier="post_123",
+            subject_for_print="Test Subject",
+        )
+
+        self.assertEqual(events["summary"], "Meeting One")
+        self.assertEqual(results, "post_123_times.json")
+
+        # Verify select_api_source, select_calendar, and publishPost were not called
+        mock_select_api_source.assert_not_called()
+        mock_select_calendar.assert_not_called()
+        
+        # Verify file write was called
+        mock_write_file.assert_called()
+
 
 if __name__ == "__main__":
     unittest.main()

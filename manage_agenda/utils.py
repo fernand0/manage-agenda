@@ -109,6 +109,7 @@ class Args:
     verbose: bool = False
     destination: Optional[str] = None
     text: Optional[str] = None
+    output: str = "calendar"
 
 
 def _get_email_sources(rules):
@@ -1373,9 +1374,12 @@ def _process_event_with_llm_and_calendar(
             if not extraction_success:
                 should_process = False  # Indicate failure due to memory error or other issues
             else:
-                api_dst_type = "gcalendar"
-                title = event[0]['summary']
-                api_dst = select_api_source(args, api_dst_type, title=title)
+                if getattr(args, "output", "calendar") == "calendar":
+                    api_dst_type = "gcalendar"
+                    title = event[0]['summary']
+                    api_dst = select_api_source(args, api_dst_type, title=title)
+                else:
+                    api_dst = None
 
                 if event is None:
                     should_process = False  # Indicate failure
@@ -1384,8 +1388,14 @@ def _process_event_with_llm_and_calendar(
                     if isinstance(event, (list, tuple)):
                         events = list(event)
                         calendar_results = []
-                        selected_calendar = select_calendar(api_dst, title=subject_for_print)
-                        if selected_calendar:
+                        if getattr(args, "output", "calendar") == "calendar":
+                            selected_calendar = select_calendar(api_dst, title=subject_for_print)
+                        else:
+                            selected_calendar = None
+
+                        if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
+                            print("No calendar selected, skipping event creation.")
+                        else:
                             for idx, single_event in enumerate(events, start=1):
                                 single_event = adjust_event_times(single_event)
                                 write_file(
@@ -1418,38 +1428,43 @@ def _process_event_with_llm_and_calendar(
 
                                 if single_event is not None:
                                     _add_ai_metadata_to_event(single_event, model, elapsed_time)
-                                    try:
-                                        calendar_result = api_dst.publishPost(
-                                            post={"event": single_event, "idCal": selected_calendar},
-                                            api=api_dst,
-                                        )
-                                        calendar_results.append(calendar_result)
-                                        print("Calendar event created")
-                                        success = True
+                                    if getattr(args, "output", "calendar") == "calendar":
+                                        try:
+                                            calendar_result = api_dst.publishPost(
+                                                post={"event": single_event, "idCal": selected_calendar},
+                                                api=api_dst,
+                                            )
+                                            calendar_results.append(calendar_result)
+                                            print("Calendar event created")
+                                            success = True
+                                            write_file(
+                                                f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                            )
+                                        except googleapiclient.errors.HttpError as e:
+                                            logging.error(f"Error creating calendar event: {e}")
+                                            if "Invalid time zone definition for end time'" in str(e):
+                                                logging.info("Detected invalid timezone definition for end time. Correcting event timezones and retrying.")
+                                                single_event = _ensure_valid_event_timezones(single_event, fallback_tz="UTC")
+                                                try:
+                                                    calendar_result = api_dst.publishPost(
+                                                        post={"event": single_event, "idCal": selected_calendar},
+                                                        api=api_dst,
+                                                    )
+                                                    calendar_results.append(calendar_result)
+                                                    print("Calendar event created after timezone correction")
+                                                    success = True
+                                                    write_file(
+                                                        f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                                    )
+                                                except Exception as retry_e:
+                                                    logging.error(f"Retry after timezone correction failed: {retry_e}")
+                                    else:
                                         write_file(
                                             f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
                                         )
-                                    except googleapiclient.errors.HttpError as e:
-                                        logging.error(f"Error creating calendar event: {e}")
-                                        if "Invalid time zone definition for end time'" in str(e):
-                                            logging.info("Detected invalid timezone definition for end time. Correcting event timezones and retrying.")
-                                            single_event = _ensure_valid_event_timezones(single_event, fallback_tz="UTC")
-                                            try:
-                                                calendar_result = api_dst.publishPost(
-                                                    post={"event": single_event, "idCal": selected_calendar},
-                                                    api=api_dst,
-                                                )
-                                                calendar_results.append(calendar_result)
-                                                print("Calendar event created after timezone correction")
-                                                success = True
-                                                write_file(
-                                                    f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
-                                                )
-                                            except Exception as retry_e:
-                                                logging.error(f"Retry after timezone correction failed: {retry_e}")
-                        else:
-                            print("No calendar selected, skipping event creation.")
-
+                                        calendar_results.append(f"{post_identifier}_{idx}_times.json")
+                                        print(f"File {post_identifier}_{idx}_times.json created")
+                                        success = True
                         if success:
                             return events, calendar_results
                         else:
@@ -1482,31 +1497,37 @@ def _process_event_with_llm_and_calendar(
                                 # Add AI metadata to the event for tracking and transparency
                                 _add_ai_metadata_to_event(event, model, elapsed_time)
 
-                                selected_calendar = select_calendar(api_dst)
-                                if selected_calendar:
-                                    try:
-                                        calendar_result = api_dst.publishPost(
-                                            post={"event": event, "idCal": selected_calendar},
-                                            api=api_dst,
-                                        )
-                                        print("Calendar event created")
-                                        success = True  # Indicate successful completion
-                                    except googleapiclient.errors.HttpError as e:
-                                        logging.error(f"Error creating calendar event: {e}")
-                                        if "Invalid time zone definition for end time'" in str(e):
-                                            logging.info("Detected invalid timezone definition for end time. Correcting event timezones and retrying.")
-                                            event = _ensure_valid_event_timezones(event, fallback_tz="UTC")
-                                            try:
-                                                calendar_result = api_dst.publishPost(
-                                                    post={"event": event, "idCal": selected_calendar},
-                                                    api=api_dst,
-                                                )
-                                                print("Calendar event created after timezone correction")
-                                                success = True
-                                            except Exception as retry_e:
-                                                logging.error(f"Retry after timezone correction failed: {retry_e}")
+                                if getattr(args, "output", "calendar") == "calendar":
+                                    selected_calendar = select_calendar(api_dst)
+                                    if selected_calendar:
+                                        try:
+                                            calendar_result = api_dst.publishPost(
+                                                post={"event": event, "idCal": selected_calendar},
+                                                api=api_dst,
+                                            )
+                                            print("Calendar event created")
+                                            success = True  # Indicate successful completion
+                                        except googleapiclient.errors.HttpError as e:
+                                            logging.error(f"Error creating calendar event: {e}")
+                                            if "Invalid time zone definition for end time'" in str(e):
+                                                logging.info("Detected invalid timezone definition for end time. Correcting event timezones and retrying.")
+                                                event = _ensure_valid_event_timezones(event, fallback_tz="UTC")
+                                                try:
+                                                    calendar_result = api_dst.publishPost(
+                                                        post={"event": event, "idCal": selected_calendar},
+                                                        api=api_dst,
+                                                    )
+                                                    print("Calendar event created after timezone correction")
+                                                    success = True
+                                                except Exception as retry_e:
+                                                    logging.error(f"Retry after timezone correction failed: {retry_e}")
+                                    else:
+                                        print("No calendar selected, skipping event creation.")
                                 else:
-                                    print("No calendar selected, skipping event creation.")
+                                    calendar_result = f"{post_identifier}_times.json"
+                                    print(f"File {post_identifier}_times.json created")
+                                    success = True
+
                                 write_file(
                                     f"{post_identifier}_times.json", json.dumps(event)
                                 )  # Save event JSON (redundant, but existing)

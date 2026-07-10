@@ -93,12 +93,21 @@ def llm(ctx):
     default="txt",
     help="Type of evaluation to run (email, web, txt)",
 )
+@click.option(
+    "-o",
+    "--output",
+    type=click.Choice(["calendar", "file", "files"]),
+    default="file",
+    help="Output destination: calendar, file, or files",
+)
 @click.argument("prompt", required=False)
 @click.pass_context
-def evaluate(ctx, type_, prompt):
+def evaluate(ctx, type_, output, prompt):
     """Evaluate different LLM models"""
     if prompt:
         print(prompt)
+    if output == "files":
+        output = "file"
     args = Args(
         interactive=True,
         delete=None,
@@ -106,6 +115,7 @@ def evaluate(ctx, type_, prompt):
         verbose=ctx.obj["VERBOSE"],
         destination=None,
         text=None,
+        output=output,
     )
 
     evaluate_models(args, prompt=prompt, eval_type=type_ if not prompt else None)
@@ -132,10 +142,19 @@ def evaluate(ctx, type_, prompt):
     default=False,
     help="Force refresh web content to bypass cache",
 )
+@click.option(
+    "-o",
+    "--output",
+    type=click.Choice(["calendar", "file", "files"]),
+    default="calendar",
+    help="Output destination: calendar, file, or files",
+)
 @click.pass_context
-def add(ctx, interactive, source, force_refresh):
+def add(ctx, interactive, source, force_refresh, output):
     """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
+    if output == "files":
+        output = "file"
     args = Args(
         interactive=interactive,
         delete=None,
@@ -143,6 +162,7 @@ def add(ctx, interactive, source, force_refresh):
         verbose=verbose,
         destination=None,
         text=None,
+        output=output,
     )
 
     # Create rules instance once and reuse it
