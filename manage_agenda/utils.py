@@ -501,6 +501,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
         try:
             import ast
             vcal_json = ast.literal_eval(extract_json(llm_response))
+            write_file(f"log/{post_id}_vcal_extracted.txt", llm_response)
             if verbose:
                 print(f"Json:\n{vcal_json}")
             event = vcal_json
@@ -540,6 +541,7 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
             print("Switching to a different LLM due to memory constraints...")
 
             # Determine source based on interactive mode
+            # FIXME: what if we have another model?
             source = None if args.interactive else "gemini"
             if not args.interactive:
                 # In non-interactive mode, try to switch to a lighter model automatically
@@ -1047,7 +1049,7 @@ def _extract_event_with_llm_retry(
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        write_file(f"log/{post_identifier}.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
+        write_file(f"log/{post_identifier}_fail.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
 
 
         if not args.interactive:
@@ -1071,17 +1073,20 @@ def _extract_event_with_llm_retry(
         # Skip or invalid choice
         return None, vcal_json, total_elapsed_time, False, False, False
 
+    
+    write_file(f"log/{post_identifier}_event_processed.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
     # Save final successful vCal data
     if isinstance(event, (list, tuple)):
-        if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
-            for idx, event_vcal in enumerate(vcal_json, start=1):
-                print(f"Id: {post_identifier}")
-                write_file(f"log/{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal))
-        else:
-            for idx in range(1, len(event) + 1):
-                write_file(f"log/{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
+        # if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
+        #     for idx, event_vcal in enumerate(vcal_json, start=1):
+        #         print(f"Id: {post_identifier}")
+        #         write_file(f"log/{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal))
+        # else:
+        for idx in range(len(event)): 
+            write_file(f"log/{post_identifier}_{idx+1}.vcal", json.dumps(event[idx]) if isinstance(event[idx], (dict, list)) else str(event[idx]))
     else:
-        write_file(f"log/{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
+        write_file(f"log/{post_identifier}.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
+    sys.exit()
 
     # If the LLM returned multiple events, skip single-event validation and return them directly
     if isinstance(event, (list, tuple)):
