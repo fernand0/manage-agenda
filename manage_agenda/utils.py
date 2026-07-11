@@ -467,12 +467,13 @@ def extract_json(text):
     return vcal_json
 
 
-def get_event_from_llm(model, prompt, verbose=False):
+def get_event_from_llm(model, prompt, post_id, verbose=False):
     """Gets event data from LLM, handling response and JSON parsing."""
     print("Calling LLM")
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
+    write_file(f"log/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
@@ -521,7 +522,7 @@ def get_event_from_llm(model, prompt, verbose=False):
     return event, vcal_json, elapsed_time
 
 
-def get_event_from_llm_with_retry(model, prompt, args):
+def get_event_from_llm_with_retry(model, prompt, post_id, args):
     """Wrapper for get_event_from_llm with consistent retry and error handling logic."""
     event = None
     vcal_json = None
@@ -531,7 +532,7 @@ def get_event_from_llm_with_retry(model, prompt, args):
     max_retries = 3
 
     while not event and not memory_error_occurred and retries < max_retries:
-        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, args.verbose)
+        event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, post_id, args.verbose)
         retries += 1
 
         # Handle memory error specifically
@@ -670,7 +671,8 @@ def _get_msgs_from_folder(args, source_name, rules=None):
     for file_path in txt_files:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-            posts.append([file_path, content])
+            file_name = file_path.stem
+            posts.append([file_name, content])
 
     if not posts:
         if not os.path.exists(target_dir):
@@ -995,7 +997,8 @@ def _extract_event_with_llm_retry(
         need_another_ai) where success_flag indicates if extraction was
         successful and need_restart indicates if the whole process should
         restart"""
-    post_identifier = _normalize_post_identifier(post_identifier)
+    # post_identifier = _normalize_post_identifier(post_identifier)
+    # Again?
     original_content = content_text
     prompt_content = content_text
     total_elapsed_time = 0
@@ -1003,12 +1006,13 @@ def _extract_event_with_llm_retry(
     while True:
         # Create initial event dict for helper
         prompt = _create_llm_prompt(prompt_content, reference_date_time)
+        write_file(f"log/{post_identifier}_prompt.txt", prompt)
         if args.verbose:
             print(f"Prompt:\n{prompt}")
             print("\nEnd Prompt:")
 
         # Get AI reply with retry logic
-        event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, args)
+        event, vcal_json, elapsed_time = get_event_from_llm_with_retry(model, prompt, post_identifier, args)
         total_elapsed_time += elapsed_time
 
         # Check for memory error
@@ -1022,28 +1026,28 @@ def _extract_event_with_llm_retry(
         if event:
             if not isinstance(event, (list, tuple)):
                 event = [event,]
-            if isinstance(event, (list, tuple)):
-                processed_events = []
-                for single_event in event:
+            #if isinstance(event, (list, tuple)):
+            processed_events = []
+            for single_event in event:
+                if args.verbose:
+                    print(f"Single event: {single_event}")
+                if isinstance(single_event, dict):
+                    single_event = process_event_data(single_event, original_content)
+                    single_event = adjust_event_times(single_event)
+                    processed_events.append(single_event)
                     if args.verbose:
-                        print(f"Single event: {single_event}")
-                    if isinstance(single_event, dict):
-                        single_event = process_event_data(single_event, original_content)
-                        single_event = adjust_event_times(single_event)
-                        processed_events.append(single_event)
-                        if args.verbose:
-                            print(f"Proc event: {processed_events}")
-                event = processed_events if processed_events else None
-            else:
-                event = process_event_data(event, original_content)
-                event = adjust_event_times(event)
+                        print(f"Proc event: {processed_events}")
+            event = processed_events if processed_events else None
+            # else:
+            #     event = process_event_data(event, original_content)
+            #     event = adjust_event_times(event)
 
             # Success - break out of fallback loop
             break
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
+        write_file(f"log/{post_identifier}.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
 
 
         if not args.interactive:
@@ -1072,12 +1076,12 @@ def _extract_event_with_llm_retry(
         if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
             for idx, event_vcal in enumerate(vcal_json, start=1):
                 print(f"Id: {post_identifier}")
-                write_file(f"{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal))
+                write_file(f"log/{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal))
         else:
             for idx in range(1, len(event) + 1):
-                write_file(f"{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
+                write_file(f"log/{post_identifier}_{idx}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
     else:
-        write_file(f"{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
+        write_file(f"log/{post_identifier}.vcal", json.dumps(vcal_json) if isinstance(vcal_json, (dict, list)) else str(vcal_json))
 
     # If the LLM returned multiple events, skip single-event validation and return them directly
     if isinstance(event, (list, tuple)):
@@ -1346,6 +1350,7 @@ def _process_event_with_llm_and_calendar(
     """
     # Initialize result variables
     post_identifier = _normalize_post_identifier(post_identifier)
+    # FIXME. Do we need this?
     event = None
     calendar_result = None
     success = False
@@ -1399,7 +1404,7 @@ def _process_event_with_llm_and_calendar(
                             for idx, single_event in enumerate(events, start=1):
                                 single_event = adjust_event_times(single_event)
                                 write_file(
-                                    f"{post_identifier}_{idx}.json", json.dumps(single_event)
+                                    f"log/{post_identifier}_{idx}.json", json.dumps(single_event)
                                 )
 
 
@@ -1438,7 +1443,7 @@ def _process_event_with_llm_and_calendar(
                                             print("Calendar event created")
                                             success = True
                                             write_file(
-                                                f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                                f"log/{post_identifier}_{idx}_times.json", json.dumps(single_event)
                                             )
                                         except googleapiclient.errors.HttpError as e:
                                             logging.error(f"Error creating calendar event: {e}")
@@ -1454,13 +1459,15 @@ def _process_event_with_llm_and_calendar(
                                                     print("Calendar event created after timezone correction")
                                                     success = True
                                                     write_file(
-                                                        f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                                        f"log/{post_identifier}_{idx}_times.json", json.dumps(single_event)
                                                     )
                                                 except Exception as retry_e:
                                                     logging.error(f"Retry after timezone correction failed: {retry_e}")
                                     else:
+                                        file_name_res = f"{model}/{post_identifier}_{idx}_times"
+                                        logging.info(f"File name: {file_name_res}")
                                         write_file(
-                                            f"{post_identifier}_{idx}_times.json", json.dumps(single_event)
+                                            f"log/{file_name_res}_times.json", json.dumps(single_event)
                                         )
                                         calendar_results.append(f"{post_identifier}_{idx}_times.json")
                                         print(f"File {post_identifier}_{idx}_times.json created")
@@ -1471,7 +1478,9 @@ def _process_event_with_llm_and_calendar(
                             return None, None
                     else:
                         event = adjust_event_times(event)
-                        write_file(f"{post_identifier}.json", json.dumps(event))  # Save event JSON
+                        file_name_res = f"{model}/{post_identifier}"
+                        logging.info(f"File name: {file_name_res}")
+                        write_file(f"{file_name_res}.json", json.dumps(event))  # Save event JSON
 
                         _display_event_info(event, subject_for_print, elapsed_time)
 
@@ -1751,14 +1760,13 @@ def _process_common_flow(
             continue
 
         # 4. Save & Print (Common)
-        is_txt = False
-        if isinstance(post_id, Path):
-            is_txt = post_id.suffix.endswith("txt")
-        elif isinstance(post_id, str):
-            is_txt = post_id.endswith(".txt")
+        # is_txt = False
+        # if isinstance(post_id, Path):
+        #     is_txt = post_id.suffix.endswith("txt")
+        # elif isinstance(post_id, str):
+        #     is_txt = post_id.endswith(".txt")
 
-        if not is_txt:
-            write_file(f"{post_id}.txt", content_text)
+        write_file(f"log/{post_id}_text.txt", content_text)
         print_first_10_lines(content_text, "content")
 
         # 5. Process with LLM
@@ -1824,18 +1832,23 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             #FIXME is this ok?
             date = datetime.datetime.today()
 
-            logging.debug(f"Extracted date: {date}")
             if 'Subject: ' in lines_txt:
-                title = lines_txt[1][len("Subject: "):]
+                title = next((i for i, s in enumerate(lines_txt) if 'Subject: ' in s), -1)
             else:
                 title = lines_txt[0]
+            logging.info(f"Extracted info. PostId: {post_id} Title: {title} Date: {date}")
             return post_id, title, date
 
         def content_extractor(post, i, post_date_time, post_title):
             lines_txt = post[1].split('\n')
-            post_title = lines_txt[1][len("Subject: "):]
+            if 'Subject: ' in lines_txt:
+                post_title = next((i for i, s in enumerate(lines_txt) if 'Subject: ' in s), -1)
+            else:
+                post_title = lines_txt[0]
             full_email_content = "".join(lines_txt[3:-1])
             date_message = lines_txt[-1].split(' ')[-1]
+            #FIXME is this ok?
+            date_message = datetime.datetime.today()
             return (
                 f"Subject: {post_title}\n"
                 f"Message: {full_email_content}\n"
