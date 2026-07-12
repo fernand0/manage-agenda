@@ -148,8 +148,13 @@ class OllamaClient(LLMClient):
             response: ChatResponse = chat(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
-                options={"num_ctx": len(prompt)},
+                options={"num_ctx": len(prompt),
+                },
+                keep_alive = 0,
             )
+            # To unload a model from memory in Ollama, you must use the
+            # keep_alive parameter with a value of 0 via the API. 
+            # curl http://localhost:11434/api/generate -d '{"model": "llama3.2", "keep_alive": 0}'   
             return response.message.content
         except Exception as e:
             logging.error(f"Error generating text with Ollama: {e}")
