@@ -473,7 +473,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
-    write_file(f"log/{post_id}_llm.txt", llm_response)
+    write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
     print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
@@ -501,7 +501,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
         try:
             import ast
             vcal_json = ast.literal_eval(extract_json(llm_response))
-            write_file(f"log/{post_id}_vcal_extracted.txt", llm_response)
+            write_file(f"log/{model.model_name}/{post_id}_vcal_extracted.txt", llm_response)
             if verbose:
                 print(f"Json:\n{vcal_json}")
             event = vcal_json
@@ -1074,7 +1074,7 @@ def _extract_event_with_llm_retry(
         return None, vcal_json, total_elapsed_time, False, False, False
 
     
-    write_file(f"log/{post_identifier}_event_processed.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
+    write_file(f"log/{model.model_name}/{post_identifier}_event_processed.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
     # Save final successful vCal data
     if isinstance(event, (list, tuple)):
         # if isinstance(vcal_json, (list, tuple)) and len(vcal_json) == len(event):
@@ -1083,7 +1083,7 @@ def _extract_event_with_llm_retry(
         #         write_file(f"log/{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal))
         # else:
         for idx in range(len(event)): 
-            write_file(f"log/{post_identifier}_{idx+1}.vcal", json.dumps(event[idx]) if isinstance(event[idx], (dict, list)) else str(event[idx]))
+            write_file(f"log/{model.model_name}/{post_identifier}_{idx+1}.vcal", json.dumps(event[idx]) if isinstance(event[idx], (dict, list)) else str(event[idx]))
     else:
         write_file(f"log/{post_identifier}.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
 
@@ -1411,7 +1411,7 @@ def _process_event_with_llm_and_calendar(
                             for idx, single_event in enumerate(events, start=1):
                                 single_event = adjust_event_times(single_event)
                                 write_file(
-                                    f"log/{post_identifier}_{idx}.json", json.dumps(single_event)
+                                    f"log/{model.model_name}/{post_identifier}_{idx}.json", json.dumps(single_event)
                                 )
 
 
