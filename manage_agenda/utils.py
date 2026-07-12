@@ -1086,11 +1086,13 @@ def _extract_event_with_llm_retry(
             write_file(f"log/{post_identifier}_{idx+1}.vcal", json.dumps(event[idx]) if isinstance(event[idx], (dict, list)) else str(event[idx]))
     else:
         write_file(f"log/{post_identifier}.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
-    sys.exit()
 
     # If the LLM returned multiple events, skip single-event validation and return them directly
     if isinstance(event, (list, tuple)):
         return event, vcal_json, total_elapsed_time, True, False, False
+
+    print(f"Aquí")
+    sys.exit()
 
     # Now validate the event and handle interactive completion if needed
     validated_event, validated_vcal_json, need_restart, need_another_ai, new_content = (
@@ -1384,16 +1386,16 @@ def _process_event_with_llm_and_calendar(
             if not extraction_success:
                 should_process = False  # Indicate failure due to memory error or other issues
             else:
-                if getattr(args, "output", "calendar") == "calendar":
-                    api_dst_type = "gcalendar"
-                    title = event[0]['summary']
-                    api_dst = select_api_source(args, api_dst_type, title=title)
-                else:
-                    api_dst = None
-
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
+                    if getattr(args, "output", "calendar") == "calendar":
+                        api_dst_type = "gcalendar"
+                        title = event[0]['summary']
+                        api_dst = select_api_source(args, api_dst_type, title=title)
+                    else:
+                        api_dst = None
+
                     # --- Event Adjustment ---
                     if isinstance(event, (list, tuple)):
                         events = list(event)
@@ -1469,10 +1471,10 @@ def _process_event_with_llm_and_calendar(
                                                 except Exception as retry_e:
                                                     logging.error(f"Retry after timezone correction failed: {retry_e}")
                                     else:
-                                        file_name_res = f"{model}/{post_identifier}_{idx}_times"
+                                        file_name_res = f"log/{model.model_name}/{post_identifier}_{idx}_times"
                                         logging.info(f"File name: {file_name_res}")
                                         write_file(
-                                            f"log/{file_name_res}_times.json", json.dumps(single_event)
+                                            f"{file_name_res}.json", json.dumps(single_event)
                                         )
                                         calendar_results.append(f"{post_identifier}_{idx}_times.json")
                                         print(f"File {post_identifier}_{idx}_times.json created")

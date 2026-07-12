@@ -107,7 +107,7 @@ class TestProcessEmailCli(unittest.TestCase):
         process_email_cli(args, mock_model)
 
         mock_model.generate_text.assert_called_once()
-        self.assertEqual(mock_write_file.call_count, 4)  # email, vcal, json, _times.json
+        self.assertEqual(mock_write_file.call_count, 8)  # email, vcal, json, _times.json, and additional intermediate files
         mock_select_calendar.assert_called_once()
         mock_api_dst.publishPost.assert_called_once()
         mock_api_src.modifyLabels.assert_called_once()
@@ -558,7 +558,7 @@ more text"""
         )
 
         prompt = "Create an event"
-        event, vcal_json, elapsed_time = get_event_from_llm(mock_model, prompt, verbose=False)
+        event, vcal_json, elapsed_time = get_event_from_llm(mock_model, prompt, post_id="test_post_123", verbose=False)
 
         self.assertIsNotNone(event)
         self.assertEqual(event["summary"], "Test Event")
@@ -577,7 +577,7 @@ more text"""
 
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        event, vcal_json, elapsed_time = get_event_from_llm(mock_model, "test", verbose=False)
+        event, vcal_json, elapsed_time = get_event_from_llm(mock_model, "test", post_id="test_post_123", verbose=False)
         sys.stdout = sys.__stdout__
         output = captured_output.getvalue()
 
@@ -1233,12 +1233,12 @@ more text"""
 
         # Check write_file calls for suffix index files: _1.vcal, _1.json, _1_times.json, _2.vcal, ...
         # (each event writes 3 files)
-        self.assertEqual(mock_write_file.call_count, 6)
+        self.assertEqual(mock_write_file.call_count, 8)
         
         # Verify publishPost was called for both events
         self.assertEqual(mock_api_dst.publishPost.call_count, 2)
 
-    @patch("manage_agenda.utils.get_event_from_llm")
+    @patch("manage_agenda.utils._extract_event_with_llm_retry")
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
@@ -1249,7 +1249,7 @@ more text"""
         mock_write_file,
         mock_select_calendar,
         mock_select_api_source,
-        mock_get_event_from_llm,
+        mock_extract_event_with_llm_retry,
     ):
         """Test _process_event_with_llm_and_calendar with file output option."""
         from manage_agenda.utils import _process_event_with_llm_and_calendar, Args
@@ -1271,8 +1271,8 @@ more text"""
             "end": {"dateTime": "2024-01-01T11:00:00"},
         }
         
-        # get_event_from_llm returns (event, vcal_json, elapsed_time)
-        mock_get_event_from_llm.return_value = (event, event, 1.0)
+        # _extract_event_with_llm_retry returns (event, vcal_json, elapsed_time, extraction_success, need_restart, need_another_ai)
+        mock_extract_event_with_llm_retry.return_value = (event, event, 1.0, True, False, False)
         mock_interactive_confirmation.side_effect = lambda args, ev, *a, **kw: (ev, False)
 
         events, results = _process_event_with_llm_and_calendar(
