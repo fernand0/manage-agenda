@@ -1272,7 +1272,8 @@ more text"""
         }
         
         # _extract_event_with_llm_retry returns (event, vcal_json, elapsed_time, extraction_success, need_restart, need_another_ai)
-        mock_extract_event_with_llm_retry.return_value = (event, event, 1.0, True, False, False)
+        # event is always a list (enforced in _extract_event_with_llm_retry)
+        mock_extract_event_with_llm_retry.return_value = ([event], event, 1.0, True, False, False)
         mock_interactive_confirmation.side_effect = lambda args, ev, *a, **kw: (ev, False)
 
         events, results = _process_event_with_llm_and_calendar(
@@ -1284,8 +1285,8 @@ more text"""
             subject_for_print="Test Subject",
         )
 
-        self.assertEqual(events["summary"], "Meeting One")
-        self.assertEqual(results, "post_123_times.json")
+        self.assertEqual(events[0]["summary"], "Meeting One")
+        self.assertEqual(results, ["post_123_1_times.json"])
 
         # Verify select_api_source, select_calendar, and publishPost were not called
         mock_select_api_source.assert_not_called()

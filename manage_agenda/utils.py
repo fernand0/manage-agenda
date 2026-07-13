@@ -1399,134 +1399,122 @@ def _process_event_with_llm_and_calendar(
                         selected_calendar = None
 
                     # --- Event Adjustment ---
-                    if isinstance(event, (list, tuple)):
-                        events = list(event)
-                        calendar_results = []
-                        # if getattr(args, "output", "calendar") == "calendar":
-                        #     selected_calendar = select_calendar(api_dst, title=subject_for_print)
-                        # else:
-                        #     selected_calendar = None
+                    # TODO: event is always a list (enforced in _extract_event_with_llm_retry),
+                    # so the single-event else path below is dead code. Re-enable if needed.
+                    events = list(event)
+                    calendar_results = []
 
-                        if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
-                            print("No calendar selected, skipping event creation.")
-                        else:
-                            for idx, single_event in enumerate(events, start=1):
-                                single_event = adjust_event_times(single_event)
-                                write_file(
-                                    f"log/{model.model_name}/{post_identifier}_{idx}.json", 
-                                    json.dumps(single_event)
-                                )
-
-
-                                _display_event_info(single_event, subject_for_print, elapsed_time)
-
-                                retry_needed = False
-                                if args.interactive:
-                                    validation_result = _interactive_date_confirmation(
-                                        args,
-                                        single_event,
-                                        model,
-                                        content_text,
-                                        reference_date_time,
-                                        post_identifier,
-                                        subject_for_print,
-                                    )
-                                    if isinstance(validation_result, tuple):
-                                        single_event, retry_needed = validation_result
-                                    else:
-                                        single_event = validation_result
-                                        retry_needed = False
-
-                                if retry_needed and model and content_text and reference_date_time:
-                                    should_process = True
-                                    break
-
-                                if single_event is not None:
-                                    _add_ai_metadata_to_event(single_event, model, elapsed_time)
-                                    file_name = f"log/{post_identifier}_{idx}_times.json"
-                                    if getattr(args, "output", "calendar") == "calendar":
-                                        published, calendar_result = _publish_event_to_calendar(
-                                            api_dst, single_event, selected_calendar
-                                        )
-                                    else:
-                                        file_name_res = f"log/{model.model_name}/{post_identifier}_{idx}_times"
-                                        write_file(
-                                            f"{file_name_res}.json", json.dumps(single_event)
-                                        )
-                                        calendar_result = f"{post_identifier}_{idx}_times.json"
-                                        published = True
-
-                                    if published:
-                                        calendar_results.append(calendar_result)
-                                        if getattr(args, "output", "calendar") == "calendar":
-                                            print("Calendar event created")
-                                        else:
-                                            print(f"File {post_identifier}_{idx}_times.json created")
-                                        success = True
-                                        write_file(file_name, json.dumps(single_event))
-                        if success:
-                            return events, calendar_results
-                        else:
-                            return None, None
+                    if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
+                        print("No calendar selected, skipping event creation.")
                     else:
-                        event = adjust_event_times(event)
-                        file_name_res = f"{model}/{post_identifier}"
-                        logging.info(f"File name: {file_name_res}")
-                        write_file(f"{file_name_res}.json", json.dumps(event))  # Save event JSON
+                        for idx, single_event in enumerate(events, start=1):
+                            single_event = adjust_event_times(single_event)
+                            write_file(
+                                f"log/{model.model_name}/{post_identifier}_{idx}.json",
+                                json.dumps(single_event)
+                            )
 
-                        _display_event_info(event, subject_for_print, elapsed_time)
 
-                        # Check if user wants to retry with LLM from the beginning or make date
-                        # corrections Always call _interactive_date_confirmation, which handles
-                        # both interactive and non-interactive modes
-                        event, retry_needed = _interactive_date_confirmation(
-                            args,
-                            event,
-                            model,
-                            content_text,
-                            reference_date_time,
-                            post_identifier,
-                            subject_for_print,
-                        )
+                            _display_event_info(single_event, subject_for_print, elapsed_time)
 
-                        if not (retry_needed and model and content_text and reference_date_time):
-                            # Successful completion of main processing, proceed to calendar creation
-                            should_process = False
-
-                            # If we have an event, proceed with calendar creation
-                            if event is not None:
-                                # Add AI metadata to the event for tracking and transparency
-                                _add_ai_metadata_to_event(event, model, elapsed_time)
-
-                                if getattr(args, "output", "calendar") == "calendar":
-                                    selected_calendar = select_calendar(api_dst)
-                                    if selected_calendar:
-                                        published, calendar_result = _publish_event_to_calendar(
-                                            api_dst, event, selected_calendar
-                                        )
-                                        if published:
-                                            print("Calendar event created")
-                                            success = True
-                                    else:
-                                        print("No calendar selected, skipping event creation.")
+                            retry_needed = False
+                            if args.interactive:
+                                validation_result = _interactive_date_confirmation(
+                                    args,
+                                    single_event,
+                                    model,
+                                    content_text,
+                                    reference_date_time,
+                                    post_identifier,
+                                    subject_for_print,
+                                )
+                                if isinstance(validation_result, tuple):
+                                    single_event, retry_needed = validation_result
                                 else:
-                                    calendar_result = f"{post_identifier}_times.json"
-                                    print(f"File {post_identifier}_times.json created")
+                                    single_event = validation_result
+                                    retry_needed = False
+
+                            if retry_needed and model and content_text and reference_date_time:
+                                should_process = True
+                                break
+
+                            if single_event is not None:
+                                _add_ai_metadata_to_event(single_event, model, elapsed_time)
+                                file_name = f"log/{post_identifier}_{idx}_times.json"
+                                if getattr(args, "output", "calendar") == "calendar":
+                                    published, calendar_result = _publish_event_to_calendar(
+                                        api_dst, single_event, selected_calendar
+                                    )
+                                else:
+                                    file_name_res = f"log/{model.model_name}/{post_identifier}_{idx}_times"
+                                    write_file(
+                                        f"{file_name_res}.json", json.dumps(single_event)
+                                    )
+                                    calendar_result = f"{post_identifier}_{idx}_times.json"
+                                    published = True
+
+                                if published:
+                                    calendar_results.append(calendar_result)
+                                    if getattr(args, "output", "calendar") == "calendar":
+                                        print("Calendar event created")
+                                    else:
+                                        print(f"File {post_identifier}_{idx}_times.json created")
                                     success = True
+                                    write_file(file_name, json.dumps(single_event))
+                    if success:
+                        return events, calendar_results
+                    else:
+                        return None, None
+                    # # Dead code: single-event path (event is always a list)
+                    # else:
+                    #     event = adjust_event_times(event)
+                    #     file_name_res = f"{model}/{post_identifier}"
+                    #     logging.info(f"File name: {file_name_res}")
+                    #     write_file(f"{file_name_res}.json", json.dumps(event))
 
-                                write_file(
-                                    f"{post_identifier}_times.json", json.dumps(event)
-                                )  # Save event JSON (redundant, but existing)
+                    #     _display_event_info(event, subject_for_print, elapsed_time)
 
+                    #     event, retry_needed = _interactive_date_confirmation(
+                    #         args,
+                    #         event,
+                    #         model,
+                    #         content_text,
+                    #         reference_date_time,
+                    #         post_identifier,
+                    #         subject_for_print,
+                    #     )
 
+                    #     if not (retry_needed and model and content_text and reference_date_time):
+                    #         should_process = False
 
+                    #         if event is not None:
+                    #             _add_ai_metadata_to_event(event, model, elapsed_time)
 
+                    #             if getattr(args, "output", "calendar") == "calendar":
+                    #                 selected_calendar = select_calendar(api_dst)
+                    #                 if selected_calendar:
+                    #                     published, calendar_result = _publish_event_to_calendar(
+                    #                         api_dst, event, selected_calendar
+                    #                     )
+                    #                     if published:
+                    #                         print("Calendar event created")
+                    #                         success = True
+                    #                 else:
+                    #                     print("No calendar selected, skipping event creation.")
+                    #             else:
+                    #                 calendar_result = f"{post_identifier}_times.json"
+                    #                 print(f"File {post_identifier}_times.json created")
+                    #                 success = True
 
-    # Return appropriate values based on success
-    if success:
-        return event, calendar_result  # Return event and result for further processing
-    else:
-        return None, None
+                    #             write_file(
+                    #                 f"{post_identifier}_times.json", json.dumps(event)
+                    #             )
+
+    # # Dead code: trailing return from single-event path (unreachable after list path returns above)
+    # if success:
+    #     return event, calendar_result
+    # else:
+    #     return None, None
 
 
 def _publish_event_to_calendar(api_dst, event, selected_calendar):
