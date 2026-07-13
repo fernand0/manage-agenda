@@ -1089,52 +1089,53 @@ def _extract_event_with_llm_retry(
     else:
         write_file(f"log/{post_identifier}.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
 
-    # If the LLM returned multiple events, skip single-event validation and return them directly
-    if isinstance(event, (list, tuple)):
-        return event, vcal_json, total_elapsed_time, True, False, False
+    # TODO: event is always a list (enforced at line ~1031), so the
+    # `_validate_and_complete_event_interactively` path below is dead code.
+    # Re-enable if single-event validation is needed again.
+    return event, vcal_json, total_elapsed_time, True, False, False
 
-    # Now validate the event and handle interactive completion if needed
-    validated_event, validated_vcal_json, need_restart, need_another_ai, new_content = (
-        _validate_and_complete_event_interactively(
-            args,
-            event,
-            vcal_json,
-            total_elapsed_time,
-            post_identifier,
-            subject_for_print,
-            model,
-            prompt_content,
-            reference_date_time,
-        )
-    )
+    # # Now validate the event and handle interactive completion if needed
+    # validated_event, validated_vcal_json, need_restart, need_another_ai, new_content = (
+    #     _validate_and_complete_event_interactively(
+    #         args,
+    #         event,
+    #         vcal_json,
+    #         total_elapsed_time,
+    #         post_identifier,
+    #         subject_for_print,
+    #         model,
+    #         prompt_content,
+    #         reference_date_time,
+    #     )
+    # )
 
-    if need_another_ai:
-        prompt_content = new_content
-        # Restart the extraction loop with new content (snippet or original)
-        return _extract_event_with_llm_retry(
-            args, model, prompt_content, reference_date_time, post_identifier, subject_for_print
-        )
+    # if need_another_ai:
+    #     prompt_content = new_content
+    #     # Restart the extraction loop with new content (snippet or original)
+    #     return _extract_event_with_llm_retry(
+    #         args, model, prompt_content, reference_date_time, post_identifier, subject_for_print
+    #     )
 
-    # If validation failed completely
-    if validated_event is None:
-        return (
-            validated_event,
-            validated_vcal_json,
-            total_elapsed_time,
-            False,
-            need_restart,
-            need_another_ai,
-        )
+    # # If validation failed completely
+    # if validated_event is None:
+    #     return (
+    #         validated_event,
+    #         validated_vcal_json,
+    #         total_elapsed_time,
+    #         False,
+    #         need_restart,
+    #         need_another_ai,
+    #     )
 
-    # Success - return validated event
-    return (
-        validated_event,
-        validated_vcal_json,
-        total_elapsed_time,
-        True,
-        need_restart,
-        need_another_ai,
-    )
+    # # Success - return validated event
+    # return (
+    #     validated_event,
+    #     validated_vcal_json,
+    #     total_elapsed_time,
+    #     True,
+    #     need_restart,
+    #     need_another_ai,
+    # )
 
 
 def _validate_and_complete_event_interactively(
