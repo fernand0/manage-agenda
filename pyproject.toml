@@ -10,7 +10,7 @@ classifiers = []
 dependencies = [
     "click",
     "google-api-python-client",
-    "google.generativeai",
+    "google-genai",
     "mistralai",
     "ollama",
     "setuptools",

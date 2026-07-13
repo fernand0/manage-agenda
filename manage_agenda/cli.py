@@ -109,7 +109,7 @@ def evaluate(ctx, type_, output, prompt):
     if output == "files":
         output = "file"
     args = Args(
-        interactive=True,
+        interactive=False,
         delete=None,
         source=None,
         verbose=ctx.obj["VERBOSE"],

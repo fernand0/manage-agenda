@@ -7,7 +7,8 @@ import types
 # TODO: Migrate from google.generativeai to google-cloud-aiplatform due to deprecation
 # The google.generativeai package is deprecated. Need to migrate to Vertex AI SDK.
 try:
-    import google.generativeai as genai
+    #import google.generativeai as genai
+    from google import genai
 except Exception:
     genai = types.SimpleNamespace(
         configure=lambda *args, **kwargs: None,
@@ -153,8 +154,8 @@ class OllamaClient(LLMClient):
                 keep_alive = 0,
             )
             # To unload a model from memory in Ollama, you must use the
-            # keep_alive parameter with a value of 0 via the API. 
-            # curl http://localhost:11434/api/generate -d '{"model": "llama3.2", "keep_alive": 0}'   
+            # keep_alive parameter with a value of 0 via the API.
+            # curl http://localhost:11434/api/generate -d '{"model": "llama3.2", "keep_alive": 0}'
             return response.message.content
         except Exception as e:
             logging.error(f"Error generating text with Ollama: {e}")
@@ -176,7 +177,7 @@ class GeminiClient(LLMClient):
 
         super().__init__(name_class)
 
-        genai.configure(api_key=self.api_key)
+        self.client = genai.Client(api_key=self.api_key)
         if not model_name:
             # names = [el.name for el in genai.list_models()]
             models = self.list_models()
@@ -186,23 +187,29 @@ class GeminiClient(LLMClient):
                 selector="gemini",
                 default="models/gemini-2.0-flash",
             )
+            print(name)
             self.model_name = name.split("/")[1]
         else:
             self.model_name = model_name
 
-        self.client = genai.GenerativeModel(self.model_name)
+        #self.client = genai.GenerativeModel(self.model_name)
 
     def generate_text(self, prompt):
         try:
-            response = self.client.generate_content(prompt)
+            #response = self.client.generate_content(prompt)
+            response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt
+                    )
             return response.text
         except Exception as e:
             logging.error(f"Error generating text with Gemini: {e}")
             return None
 
-    @staticmethod
-    def list_models():
-        return list(genai.list_models())
+    #@staticmethod
+    def list_models(self):
+        #return list(genai.list_models())
+        return list(self.client.models.list())
 
 
 class MistralClient(LLMClient):

@@ -187,7 +187,8 @@ def _print_context_and_options(content: str, options_prompt: str) -> str:
             print(line)
             break
 
-    print_first_10_lines(content, "source text")
+    if args.verbose:
+        print_first_10_lines(content, "source text")
 
     return input(options_prompt).lower().strip()
 
@@ -469,14 +470,15 @@ def extract_json(text):
 
 def get_event_from_llm(model, prompt, post_id, verbose=False):
     """Gets event data from LLM, handling response and JSON parsing."""
-    print("Calling LLM")
+    print(f"Calling LLM {model.model_name}")
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
     write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
-    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+    if verbose:
+        print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
 
     memory_error_occurred = False
     json_error_occurred = True
@@ -1073,7 +1075,7 @@ def _extract_event_with_llm_retry(
         # Skip or invalid choice
         return None, vcal_json, total_elapsed_time, False, False, False
 
-    
+
     write_file(f"log/{model.model_name}/{post_identifier}_event_processed.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
     # Save final successful vCal data
     if isinstance(event, (list, tuple)):
@@ -1082,7 +1084,7 @@ def _extract_event_with_llm_retry(
         #         print(f"Id: {post_identifier}")
         #         write_file(f"log/{post_identifier}_{idx}.vcal", json.dumps(event_vcal) if isinstance(event_vcal, (dict, list)) else str(event_vcal))
         # else:
-        for idx in range(len(event)): 
+        for idx in range(len(event)):
             write_file(f"log/{model.model_name}/{post_identifier}_{idx+1}.vcal", json.dumps(event[idx]) if isinstance(event[idx], (dict, list)) else str(event[idx]))
     else:
         write_file(f"log/{post_identifier}.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
@@ -1090,9 +1092,6 @@ def _extract_event_with_llm_retry(
     # If the LLM returned multiple events, skip single-event validation and return them directly
     if isinstance(event, (list, tuple)):
         return event, vcal_json, total_elapsed_time, True, False, False
-
-    print(f"Aquí")
-    sys.exit()
 
     # Now validate the event and handle interactive completion if needed
     validated_event, validated_vcal_json, need_restart, need_another_ai, new_content = (
@@ -1774,7 +1773,8 @@ def _process_common_flow(
         #     is_txt = post_id.endswith(".txt")
 
         write_file(f"log/{post_id}_text.txt", content_text)
-        print_first_10_lines(content_text, "content")
+        if args.verbose:
+            print_first_10_lines(content_text, "content")
 
         # 5. Process with LLM
         processed_event, calendar_result = _process_event_with_llm_and_calendar(
