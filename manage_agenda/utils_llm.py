@@ -13,6 +13,7 @@ except Exception:
     genai = types.SimpleNamespace(
         configure=lambda *args, **kwargs: None,
         GenerativeModel=lambda *args, **kwargs: None,
+        Client=lambda *args, **kwargs: None,
         list_models=lambda: [],
     )
 try:
@@ -198,7 +199,7 @@ class GeminiClient(LLMClient):
         try:
             #response = self.client.generate_content(prompt)
             response = self.client.models.generate_content(
-                    model=self.model,
+                    model=self.model_name,
                     contents=prompt
                     )
             return response.text
