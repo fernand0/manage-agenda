@@ -1309,7 +1309,7 @@ def _format_datetime_for_display(dt_value):
         return dt_string
 
 
-def _display_event_info(event, subject_for_print, elapsed_time=None):
+def _display_event_info(event, subject_for_print, elapsed_time=None, model=None):
     """
     Display event information consistently across the application.
 
@@ -1335,6 +1335,7 @@ def _display_event_info(event, subject_for_print, elapsed_time=None):
     print(f"Subject: {event_summary}")
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
+    print(f"Model: {model.model_name}")
 
     if elapsed_time is not None:
         print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
@@ -1415,7 +1416,7 @@ def _process_event_with_llm_and_calendar(
                             )
 
 
-                            _display_event_info(single_event, subject_for_print, elapsed_time)
+                            _display_event_info(single_event, subject_for_print, elapsed_time, model)
 
                             retry_needed = False
                             if args.interactive:
