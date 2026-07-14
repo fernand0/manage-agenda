@@ -1462,6 +1462,8 @@ def _process_event_with_llm_and_calendar(
                                     success = True
                                     write_file(file_name, json.dumps(single_event))
                     if success:
+                        print(f"Events: {events}")
+                        print(f"Results: {calendar_results}")
                         return events, calendar_results
                     else:
                         return None, None
