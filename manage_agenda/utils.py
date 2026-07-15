@@ -544,10 +544,11 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
 
             # Determine source based on interactive mode
             # FIXME: what if we have another model?
-            source = None if args.interactive else "gemini"
+            source = None if args.interactive else model.model_name #"gemini"
             if not args.interactive:
                 # In non-interactive mode, try to switch to a lighter model automatically
                 print("Trying to switch to a lighter model automatically...")
+            print(f"Source: {source}")
 
             new_args = Args(
                 interactive=args.interactive,
@@ -1373,6 +1374,8 @@ def _process_event_with_llm_and_calendar(
             )
         )
 
+        print("1")
+
         # Handle restart case first
         if need_restart:
             # Loop will continue to restart the process
@@ -1387,6 +1390,7 @@ def _process_event_with_llm_and_calendar(
             if not extraction_success:
                 should_process = False  # Indicate failure due to memory error or other issues
             else:
+                print("2")
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
@@ -1408,6 +1412,7 @@ def _process_event_with_llm_and_calendar(
                     if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
                         print("No calendar selected, skipping event creation.")
                     else:
+                        print("3")
                         for idx, single_event in enumerate(events, start=1):
                             single_event = adjust_event_times(single_event)
                             write_file(
@@ -1462,6 +1467,7 @@ def _process_event_with_llm_and_calendar(
                                         print(f"File {post_identifier}_{idx}_times.json created")
                                     success = True
                                     write_file(file_name, json.dumps(single_event))
+                    print(f"Success: {success}")
                     if success:
                         print(f"Events: {events}")
                         print(f"Results: {calendar_results}")
