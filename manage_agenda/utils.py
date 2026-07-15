@@ -485,7 +485,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
 
     if not llm_response:
         print("Failed to get response from LLM.")
-    elif "Memory" in llm_response:
+    elif "more system memory" in llm_response:
         print(
             "LLM failed due to insufficient memory. Model requires more"
             "system memory than available."
@@ -498,12 +498,13 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
             print("End Reply")
 
         #llm_response = llm_response.replace("\\", "").replace("\n", " ")
-        llm_response = llm_response.replace("\n", " ")
+        response = llm_response.replace("\n", " ")
+        llm_response = response
 
         try:
             import ast
             vcal_json = ast.literal_eval(extract_json(llm_response))
-            write_file(f"log/{model.model_name}/{post_id}_vcal_extracted.txt", llm_response)
+            write_file(f"log/{model.model_name}/{post_id}_vcal_extracted.txt", vcal_json)
             if verbose:
                 print(f"Json:\n{vcal_json}")
             event = vcal_json
@@ -521,7 +522,10 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     # Return appropriate values based on whether memory error occurred
     if memory_error_occurred or json_error_occurred:
         event = None
-        vcal_json = "MemoryError"
+        if memory_error_occurred:
+            vcal_json = "MemoryError"
+        else:
+            vcal_json = "JsonError"
     return event, vcal_json, elapsed_time
 
 
@@ -764,7 +768,7 @@ def _create_llm_prompt(*args):
         # Fallback to the original prompt if file is not found
         prompt_template = (
             "Extract event information from the provided text and fill in the JSON structure below.\n\n"
-            f"JSON structure to fill:\n{event}\n\n"
+            f"JSON structure to fill:\n'{event}'\n\n"
             "INSTRUCTIONS:\n"
             "1. Extract event details from the message body ('Message:') and subject ('Subject:').\n"
             "2. Use the reference date marked with 'Message date:' when interpreting relative dates (e.g., 'next Thursday').\n"
@@ -1374,8 +1378,6 @@ def _process_event_with_llm_and_calendar(
             )
         )
 
-        print("1")
-
         # Handle restart case first
         if need_restart:
             # Loop will continue to restart the process
@@ -1390,7 +1392,6 @@ def _process_event_with_llm_and_calendar(
             if not extraction_success:
                 should_process = False  # Indicate failure due to memory error or other issues
             else:
-                print("2")
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
@@ -1412,7 +1413,6 @@ def _process_event_with_llm_and_calendar(
                     if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
                         print("No calendar selected, skipping event creation.")
                     else:
-                        print("3")
                         for idx, single_event in enumerate(events, start=1):
                             single_event = adjust_event_times(single_event)
                             write_file(
