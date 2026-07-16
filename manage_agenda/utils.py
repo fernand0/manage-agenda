@@ -595,8 +595,8 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
                 else:
                     print("Could not switch to a lighter model. Skipping event processing.")
                 memory_error_occurred = True
-        if vcal_json == "RetryError":
-                print("Number of retries exceeded. Skipping event processing.")
+        if  retries >= max_retries:
+            vcal_json = "RetryError":
         # For other types of failures (no event and not memory error), the loop continues naturally
         # due to the while condition "while not event and not memory_error_occurred"
         # No explicit action needed here
