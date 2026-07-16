@@ -1474,6 +1474,7 @@ def _process_event_with_llm_and_calendar(
                         return events, calendar_results
                     else:
                         return None, None
+        return None, None
                     # # Dead code: single-event path (event is always a list)
                     # else:
                     #     event = adjust_event_times(event)
