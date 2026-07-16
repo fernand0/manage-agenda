@@ -504,7 +504,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
         try:
             import ast
             vcal_json = ast.literal_eval(extract_json(llm_response))
-            write_file(f"log/{model.model_name}/{post_id}_vcal_extracted.txt", vcal_json)
+            write_file(f"log/{model.model_name}/{post_id}_vcal_extracted.txt", json.dumps(vcal_json))
             if verbose:
                 print(f"Json:\n{vcal_json}")
             event = vcal_json
