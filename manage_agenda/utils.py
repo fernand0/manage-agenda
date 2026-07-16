@@ -485,7 +485,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
 
     if not llm_response:
         print("Failed to get response from LLM.")
-    elif "more system memory" in llm_response:
+    elif "model requires more system memory" in llm_response:
         print(
             "LLM failed due to insufficient memory. Model requires more"
             "system memory than available."
