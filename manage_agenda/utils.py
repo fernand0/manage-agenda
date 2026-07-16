@@ -473,7 +473,18 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     print(f"Calling LLM {model.model_name}")
     event, vcal_json = None, None
     start_time = time.time()
-    llm_response = model.generate_text(prompt)
+    #llm_response = model.generate_text(prompt)
+    llm_response = """
+    JSON:
+```json
+{
+    "summary": "Memory forensics 2.0: Challenges and Solutions",
+    "timestamp": "2026-07-16 11:09:15.251697",
+    "topics": [
+        "Challenges of memory forensics",
+        "Solutions to overcome the challenges",
+        "Examples and applications of memory forensics 2. "
+        """
     write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
