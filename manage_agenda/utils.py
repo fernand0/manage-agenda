@@ -1038,10 +1038,11 @@ def _extract_event_with_llm_retry(
         total_elapsed_time += elapsed_time
 
         # Check for memory error
+        print(f"Event: {event}")
         memory_error = event is None and vcal_json == "MemoryError"
         retry_error = event is None and vcal_json == "RetryError"
 
-        if memory_error:
+        if memory_error or retry_error:
             return event, vcal_json, total_elapsed_time, False, False, False
             # Not successful, don't restart, don't need another AI
 
