@@ -368,8 +368,8 @@ def adjust_event_times(event):
     end = event["end"]
 
     # Process start time
-    start_time_str = start.get("dateTime")
-    input_start_tz_name = start.get("timeZone")
+    start_time_str = start.get("dateTime") if isinstance(start, dict) else None
+    input_start_tz_name = start.get("timeZone") if isinstance(start, dict) else None
     processed_start_time, start_success = _process_single_time_field(
         start_time_str, input_start_tz_name, "Start"
     )
@@ -473,18 +473,18 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     print(f"Calling LLM {model.model_name}")
     event, vcal_json = None, None
     start_time = time.time()
-    #llm_response = model.generate_text(prompt)
-    llm_response = """
-    JSON:
-```json
-{
-    "summary": "Memory forensics 2.0: Challenges and Solutions",
-    "timestamp": "2026-07-16 11:09:15.251697",
-    "topics": [
-        "Challenges of memory forensics",
-        "Solutions to overcome the challenges",
-        "Examples and applications of memory forensics 2. "
-        """
+    llm_response = model.generate_text(prompt)
+#    llm_response = """
+#    JSON:
+#```json
+#{
+#    "summary": "Memory forensics 2.0: Challenges and Solutions",
+#    "timestamp": "2026-07-16 11:09:15.251697",
+#    "topics": [
+#        "Challenges of memory forensics",
+#        "Solutions to overcome the challenges",
+#        "Examples and applications of memory forensics 2. "
+#        """
     write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
@@ -514,6 +514,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
 
         try:
             import ast
+            # If there are several comma-separated jsons it creates a tuple
             vcal_json = ast.literal_eval(extract_json(llm_response))
             write_file(f"log/{model.model_name}/{post_id}_vcal_extracted.txt", json.dumps(vcal_json))
             if verbose:
@@ -595,7 +596,7 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
                 else:
                     print("Could not switch to a lighter model. Skipping event processing.")
                 memory_error_occurred = True
-    if  retries >= max_retries:
+    if  not event and retries >= max_retries:
         vcal_json = "RetryError"
         print("Max retries reached. Skipping event processing.")
         # For other types of failures (no event and not memory error), the loop continues naturally
@@ -1353,13 +1354,14 @@ def _display_event_info(event, subject_for_print, elapsed_time=None, model=None)
     event_summary = safe_get(event, ["summary"]) or subject_for_print
 
     print("=====================================")
-    print(f"Subject: {event_summary}")
+    print(f"Summary: {event_summary}")
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
     print(f"Model: {model.model_name}")
 
     if elapsed_time is not None:
-        print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+        print(f"Time: {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+    # FIXME we should add the number of retries
 
     print("=====================================")
 
@@ -1455,6 +1457,7 @@ def _process_event_with_llm_and_calendar(
                                 else:
                                     single_event = validation_result
                                     retry_needed = False
+                            #FIXME: we need some sort of validation for the result in non-interactive mode
 
                             if retry_needed and model and content_text and reference_date_time:
                                 should_process = True
