@@ -17,6 +17,8 @@ dependencies = [
     "social-modules @ git+https://github.com/fernand0/socialModules.git",
     "note-taker @ git+https://github.com/fernand0/another-note-taking-app.git",
     "beautifulsoup4",
+    "playwright",
+    "pytest-playwright",
 ]
 
 [build-system]
@@ -80,4 +82,3 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --cov=manage_agenda --cov-report=term-missing --cov-report=html"
-

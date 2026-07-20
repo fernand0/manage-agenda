@@ -217,7 +217,7 @@ def select_calendar(calendar_api, title=""):
         if not eligible_calendars:
             raise CalendarError("No writable calendars found. Check your calendar permissions.")
 
-        selection, cal = select_from_list(eligible_calendars, "summary", title=title)
+        selection, cal = select_from_list(eligible_calendars, title)
 
         if selection < 0 or selection >= len(eligible_calendars):
             raise CalendarError(f"Invalid calendar selection: {selection}")
@@ -645,7 +645,7 @@ def select_source_by_type(args, source_type, rules=None, title=""):
             return selected_source
         else:
             # For API sources and others
-            api_src = rules.selectRuleInteractive(source_type, title=title)
+            api_src = rules.selectRuleInteractive(source_type) #, title=title)
             return api_src
     else:
         if not sources:
@@ -1482,8 +1482,10 @@ def _process_event_with_llm_and_calendar(
                 else:
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
+                        print(f"E: {event}")
                         title = event[0]['summary']
-                        api_dst = select_api_source(args, api_dst_type, title=title)
+                        print(f"Tit: {title}")
+                        api_dst = select_api_source(args, api_dst_type)
                         selected_calendar = select_calendar(api_dst, title=subject_for_print)
                     else:
                         api_dst = None

@@ -1,5 +1,8 @@
 import click
 import os
+import sys
+
+from runpy import run_module
 
 # Import auxiliary functions and classes from utils.py
 from .utils import (
@@ -495,3 +498,28 @@ def update_status(ctx, interactive, source, text):
     )
 
     update_event_status_cli(args)
+
+BROWSERS = ("chromium", "firefox", "webkit", "chrome", "chrome-beta")
+
+@cli.command()
+@click.option(
+    "--browser",
+    "-b",
+    default="firefox",
+    type=click.Choice(BROWSERS, case_sensitive=False),
+    help="Which browser to install",
+)
+def install(browser):
+    """
+    Install the Playwright browser needed by this tool.
+
+    Usage:
+
+        manage-agenda install
+
+    Or for browsers other than the Firefox default:
+
+        manage-agenda install -b chromium
+    """
+    sys.argv = ["playwright", "install", browser]
+    run_module("playwright", run_name="__main__")
