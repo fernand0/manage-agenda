@@ -217,7 +217,7 @@ def select_calendar(calendar_api, title=""):
         if not eligible_calendars:
             raise CalendarError("No writable calendars found. Check your calendar permissions.")
 
-        selection, cal = select_from_list(eligible_calendars, title)
+        selection, cal = select_from_list(eligible_calendars, "summary")
 
         if selection < 0 or selection >= len(eligible_calendars):
             raise CalendarError(f"Invalid calendar selection: {selection}")
@@ -474,6 +474,24 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
+#     llm_response = """
+# ```json
+# {
+# 'summary': 'Charla invitada de Davide Balzarotti sobre Memory Forensics 2.0',
+# 'location': 'Sala de Microsoft Teams',
+# 'description': 'In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics. Una excelente oportunidad para conocer investigaciones punteras enciberseguridad aplicada a forense de memoria.',
+# 'start': {
+# 'dateTime': '2026-07-16 09:00:00',
+# 'timeZone': 'CET'
+# },
+# 'end': {
+# 'dateTime': '2026-07-16 10:00:00',
+# 'timeZone': 'CET'
+# },
+# 'recurrence': []
+# }
+# ```
+# """
 #     llm_response = """
 #     JSON:
 # ```json
@@ -1101,7 +1119,8 @@ def _extract_event_with_llm_retry(
         total_elapsed_time += elapsed_time
 
         # Check for memory error
-        print(f"Event: {event}")
+        if args.verbose:
+            print(f"Event: {event}")
         memory_error = event is None and vcal_json == "MemoryError"
         retry_error = event is None and vcal_json == "RetryError"
 
@@ -1545,7 +1564,7 @@ def _process_event_with_llm_and_calendar(
                             if single_event is not None:
                                 _add_ai_metadata_to_event(single_event, model, elapsed_time)
                                 file_name = f"log/{post_identifier}_{idx}_times.json"
-                                if getattr(args, "output", "calendar") == "calendar":
+                                if getattr(args, "output", "calendar") == "calendar": 
                                     published, calendar_result = _publish_event_to_calendar(
                                         api_dst, single_event, selected_calendar
                                     )
@@ -1567,8 +1586,9 @@ def _process_event_with_llm_and_calendar(
                                     write_file(file_name, json.dumps(single_event))
                     print(f"Success: {success}")
                     if success:
-                        print(f"Events: {events}")
-                        print(f"Results: {calendar_results}")
+                        if args.verbose:
+                            print(f"Events: {events}")
+                            print(f"Results: {calendar_results}")
                         return events, calendar_results
                     else:
                         return None, None
