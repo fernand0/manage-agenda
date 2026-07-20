@@ -1482,9 +1482,7 @@ def _process_event_with_llm_and_calendar(
                 else:
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
-                        print(f"E: {event}")
                         title = event[0]['summary']
-                        print(f"Tit: {title}")
                         api_dst = select_api_source(args, api_dst_type)
                         selected_calendar = select_calendar(api_dst, title=subject_for_print)
                     else:
@@ -2076,10 +2074,10 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
             if not url_to_notes:
                 print("No links found in ~/notes.")
                 return False
-            print(f"Found {url_to_notes} links in notes.")
+            print(f"Found notes: {url_to_notes}")
             urls = list(url_to_notes.keys())
-            print(f"Found {len(urls)} links in notes.")
-            print(f"Found {urls} links in notes.")
+            print(f"Found total of links: {len(urls)}")
+            print(f"Found links: {urls}")
         else:
             urls = urls_input
 
