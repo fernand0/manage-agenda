@@ -2108,10 +2108,13 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
             # Replace unsafe characters with underscores
             safe_id = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
 
+            hash_value = hash(urls[i])
+
             # Truncate to a safe length (e.g., 150 chars) to avoid "File name
             # too long" errors
-            if len(safe_id) > 150:
-                safe_id = safe_id[:150]
+            if len(safe_id) > 130:
+                safe_id = safe_id[:130]
+            safe_id = f"{safe_id}_{hash_value}"
 
             return safe_id, title, datetime.datetime.now()
 
