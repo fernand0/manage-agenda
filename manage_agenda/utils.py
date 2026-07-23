@@ -398,85 +398,85 @@ def adjust_event_times(event):
     if not end.get("dateTime") and start.get("dateTime"):
         _infer_missing_time(start["dateTime"], end, "end")
 
-    # Ensure end time is after start time
-    if start.get("dateTime") and end.get("dateTime"):
-        try:
-            start_dt = datetime.datetime.fromisoformat(start["dateTime"])
-            end_dt = datetime.datetime.fromisoformat(end["dateTime"])
+        # Ensure end time is after start time
+        if start.get("dateTime") and end.get("dateTime"):
+            try:
+                start_dt = datetime.datetime.fromisoformat(start["dateTime"])
+                end_dt = datetime.datetime.fromisoformat(end["dateTime"])
 
-            if end_dt <= start_dt:
-                print("Validation Warning: End time is not after start time. Adjusting end time.")
-                end_dt = start_dt + timedelta(minutes=30)
-                end["dateTime"] = end_dt.isoformat()
-                end["timeZone"] = "UTC"  # Ensure timezone is set if adjusted
-        except ValueError:
-            print("Error comparing start and end times. Skipping adjustment.")
+                if end_dt <= start_dt:
+                    print("Validation Warning: End time is not after start time. Adjusting end time.")
+                    end_dt = start_dt + timedelta(minutes=30)
+                    end["dateTime"] = end_dt.isoformat()
+                    end["timeZone"] = "UTC"  # Ensure timezone is set if adjusted
+            except ValueError:
+                print("Error comparing start and end times. Skipping adjustment.")
 
-    return event
-
-
-def _ensure_valid_event_timezones(event, fallback_tz="UTC"):
-    """Ensure both start and end have valid timeZone values."""
-    if not isinstance(event, dict):
         return event
 
-    for when in ("start", "end"):
-        field = event.setdefault(when, {})
-        tz_name = field.get("timeZone")
-        if not tz_name:
-            field["timeZone"] = fallback_tz
-            continue
 
-        try:
-            pytz.timezone(tz_name)
-        except Exception:
-            logging.warning(
-                f"Invalid timezone '{tz_name}' for event {when}; using fallback '{fallback_tz}'."
-            )
-            field["timeZone"] = fallback_tz
+    def _ensure_valid_event_timezones(event, fallback_tz="UTC"):
+        """Ensure both start and end have valid timeZone values."""
+        if not isinstance(event, dict):
+            return event
 
-    return event
+        for when in ("start", "end"):
+            field = event.setdefault(when, {})
+            tz_name = field.get("timeZone")
+            if not tz_name:
+                field["timeZone"] = fallback_tz
+                continue
 
+            try:
+                pytz.timezone(tz_name)
+            except Exception:
+                logging.warning(
+                    f"Invalid timezone '{tz_name}' for event {when}; using fallback '{fallback_tz}'."
+                )
+                field["timeZone"] = fallback_tz
 
-# def list_models_cli(args):
-#     """Lists available LLMs."""
-#     "Not used. Maybe interesting?"
-#     if args.source == "ollama":
-#         models = OllamaClient.list_models()
-#         for i, model in enumerate(models):
-#             print(f"{i}) {model['model']}")
-#     elif args.source == "gemini":
-#         models = GeminiClient.list_models()
-#         for i, model in enumerate(models):
-#             if "gemini" in model.name:
-#                 print(f"{i}) {model.name}")
-#     else:
-#         print("Model listing not supported for this source.")
+        return event
 
 
-def extract_json(text):
-    # extract json (assuming response contains json within backticks)
+    # def list_models_cli(args):
+    #     """Lists available LLMs."""
+    #     "Not used. Maybe interesting?"
+    #     if args.source == "ollama":
+    #         models = OllamaClient.list_models()
+    #         for i, model in enumerate(models):
+    #             print(f"{i}) {model['model']}")
+    #     elif args.source == "gemini":
+    #         models = GeminiClient.list_models()
+    #         for i, model in enumerate(models):
+    #             if "gemini" in model.name:
+    #                 print(f"{i}) {model.name}")
+    #     else:
+    #         print("Model listing not supported for this source.")
 
-    if not text.startswith("{"):
-        pos = text.find("{")
-        if pos != -1:
-            text = text[pos:]
-    if not text.endswith("}"):
-        pos = text.rfind("}")
-        if pos != -1:
-            text = text[: pos + 1]
-    vcal_json = text
 
-    return vcal_json
+    def extract_json(text):
+        # extract json (assuming response contains json within backticks)
+
+        if not text.startswith("{"):
+            pos = text.find("{")
+            if pos != -1:
+                text = text[pos:]
+        if not text.endswith("}"):
+            pos = text.rfind("}")
+            if pos != -1:
+                text = text[: pos + 1]
+        vcal_json = text
+
+        return vcal_json
 
 
-def get_event_from_llm(model, prompt, post_id, verbose=False):
-    """Gets event data from LLM, handling response and JSON parsing."""
-    print(f"Calling LLM {model.model_name}")
-    event, vcal_json = None, None
-    start_time = time.time()
-    llm_response = model.generate_text(prompt)
-#    llm_response = """
+    def get_event_from_llm(model, prompt, post_id, verbose=False):
+        """Gets event data from LLM, handling response and JSON parsing."""
+        print(f"Calling LLM {model.model_name}")
+        event, vcal_json = None, None
+        start_time = time.time()
+        llm_response = model.generate_text(prompt)
+    #    llmresponse = """
 #<think>
 #Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
 #
@@ -599,10 +599,11 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
     vcal_json = None
     elapsed_time = 0
     memory_error_occurred = False
+    json_error_occurred = False
     retries = 0
     max_retries = 3
 
-    while not event and not memory_error_occurred and retries < max_retries:
+    while not event and not memory_error_occurred and not json_error_occurred and retries < max_retries:
         event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, post_id, args.verbose)
         retries += 1
 
@@ -648,6 +649,13 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
                 else:
                     print("Could not switch to a lighter model. Skipping event processing.")
                 memory_error_occurred = True
+        elif vcal_json == "JsonError":
+            event = None
+            vcal_json = None
+            json_error_occurred = False
+            print("Error in generated Json...")
+
+
     if  not event and retries >= max_retries:
         vcal_json = "RetryError"
         print("Max retries reached. Skipping event processing.")
@@ -1094,25 +1102,25 @@ def _modify_single_component(dt, component, time_label):
         return dt
 
 
-def _normalize_post_identifier(post_identifier):
-    """Strip file extensions (e.g. '.txt') from post_identifier.
-
-    When reprocessing saved .txt files, the post_identifier arrives with a
-    .txt suffix.  Stripping it here lets all downstream code (file writes,
-    calendar creation) use the same paths regardless of where the input came
-    from.
-
-    Returns:
-        The post_identifier with any file extension removed, preserving its
-        original type (str or Path).
-    """
-    if isinstance(post_identifier, PosixPath) and post_identifier.suffix:
-        result = post_identifier.with_suffix("")
-    elif isinstance(post_identifier, str) and "." in post_identifier.rsplit("/", 1)[-1]:
-        result = str(Path(post_identifier).with_suffix(""))
-    else:
-        result = post_identifier
-    return result
+# def _normalize_post_identifier(post_identifier):
+#     """Strip file extensions (e.g. '.txt') from post_identifier.
+# 
+#     When reprocessing saved .txt files, the post_identifier arrives with a
+#     .txt suffix.  Stripping it here lets all downstream code (file writes,
+#     calendar creation) use the same paths regardless of where the input came
+#     from.
+# 
+#     Returns:
+#         The post_identifier with any file extension removed, preserving its
+#         original type (str or Path).
+#     """
+#     if isinstance(post_identifier, PosixPath) and post_identifier.suffix:
+#         result = post_identifier.with_suffix("")
+#     elif isinstance(post_identifier, str) and "." in post_identifier.rsplit("/", 1)[-1]:
+#         result = str(Path(post_identifier).with_suffix(""))
+#     else:
+#         result = post_identifier
+#     return result
 
 
 def _extract_event_with_llm_retry(
@@ -1134,8 +1142,7 @@ def _extract_event_with_llm_retry(
         need_another_ai) where success_flag indicates if extraction was
         successful and need_restart indicates if the whole process should
         restart"""
-    # post_identifier = _normalize_post_identifier(post_identifier)
-    # Again?
+
     original_content = content_text
     prompt_content = content_text
     total_elapsed_time = 0
@@ -1494,8 +1501,6 @@ def _process_event_with_llm_and_calendar(
     Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
     """
     # Initialize result variables
-    post_identifier = _normalize_post_identifier(post_identifier)
-    # FIXME. Do we need this?
     event = None
     calendar_result = None
     success = False
@@ -1506,7 +1511,8 @@ def _process_event_with_llm_and_calendar(
     # Process until success or definitive failure
     while should_process and not success:
         if date_validation_retries >= max_date_validation_retries:
-            print(f"Max date validation retries ({max_date_validation_retries}) reached for {post_identifier}. Skipping event processing.")
+            print(f"Max date validation retries ({max_date_validation_retries}) "
+                  f"reached for {post_identifier}. Skipping event processing.")
             should_process = False
             break
         # Extract event with LLM and validate it
@@ -1923,12 +1929,6 @@ def _process_common_flow(
             continue
 
         # 4. Save & Print (Common)
-        # is_txt = False
-        # if isinstance(post_id, Path):
-        #     is_txt = post_id.suffix.endswith("txt")
-        # elif isinstance(post_id, str):
-        #     is_txt = post_id.endswith(".txt")
-
         write_file(f"log/{post_id}_text.txt", content_text)
         if args.verbose:
             print_first_10_lines(content_text, "content")
@@ -1971,6 +1971,10 @@ def process_txt_cli(args, model, source_name=None, rules=None):
                 post_id = api_src.getPostIdM(post)
             else:
                 post_id = post[0]
+
+            # print(f"Post id: {post_id}")
+            # post_id = _normalize_post_identifier(post_id)
+            # print(f"Post id: {post_id}")
             lines_txt = post[1].split('\n')
             import re
             date = ""
@@ -1993,8 +1997,8 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             if ' ' in date:
                 date = date.split(' ')[0]
 
-            #FIXME is this ok?
-            date = datetime.datetime.today()
+            if not args.interactive:
+                date = datetime.datetime.today()
 
             if 'Subject: ' in lines_txt:
                 title = next((i for i, s in enumerate(lines_txt) if 'Subject: ' in s), -1)
