@@ -474,38 +474,38 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
-    llmresponse = """
-<think>
-Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
-
-First, I need to parse the source text carefully. The subject line mentions a charla invitada (invited lecture) by Davide Balzarotti about memory forensics. The message body has more details. 
-
-Looking at the message, the main event is a lecture scheduled for the next Wednesday, July 16th, 2025, at 09:00 - 10:00. The location is a Microsoft Teams meeting with the given ID and passcode. The description includes the talk's content about memory forensics challenges and future directions.
-
-I need to check the instructions. The reference date is July 23, 2026, but the event is on July 16, 2025, which is in the past relative to the reference date. However, the user says to use explicit dates over the reference date. Since the text explicitly states July 16, 2025, that's the correct date. 
-
-The timezone isn't mentioned, so default to CET. The start and end times are 09:00 and 10:00. The summary should be the main event title: "Memory Forensics 2.0" lecture by Davide Balzarotti. The location is the Teams meeting details. The description includes the provided text about the talk's content. 
-
-I need to format the dateTime fields in ISO 8601. Start is 2025-07-16 09:00:00 and end is 2025-07-16 10:00:00. Recurrence is empty since there's no mention of a series. Also, replace any quotes with single quotes. Make sure all fields are in double quotes and the JSON is valid. 
-
-Double-checking the instructions: no translations, use original language, no extra info. The final JSON should have all the required fields filled correctly.
-</think>
-
-{
-  "summary": "Memory Forensics 2.0",
-  "location": "Sala de Microsoft Teams [1] (Meeting ID: 326 077 603 487, Passcode: S686Fo6V)",
-  "description": "In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics.",
-  "start": {
-    "dateTime": "2025-07-16 09:00:00",
-    "timeZone": "CET"
-  },
-  "end": {
-    "dateTime": "2025-07-16 10:00:00",
-    "timeZone": "CET"
-  },
-  "recurrence": []
-}
-"""
+#    llmresponse = """
+#<think>
+#Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
+#
+#First, I need to parse the source text carefully. The subject line mentions a charla invitada (invited lecture) by Davide Balzarotti about memory forensics. The message body has more details. 
+#
+#Looking at the message, the main event is a lecture scheduled for the next Wednesday, July 16th, 2025, at 09:00 - 10:00. The location is a Microsoft Teams meeting with the given ID and passcode. The description includes the talk's content about memory forensics challenges and future directions.
+#
+#I need to check the instructions. The reference date is July 23, 2026, but the event is on July 16, 2025, which is in the past relative to the reference date. However, the user says to use explicit dates over the reference date. Since the text explicitly states July 16, 2025, that's the correct date. 
+#
+#The timezone isn't mentioned, so default to CET. The start and end times are 09:00 and 10:00. The summary should be the main event title: "Memory Forensics 2.0" lecture by Davide Balzarotti. The location is the Teams meeting details. The description includes the provided text about the talk's content. 
+#
+#I need to format the dateTime fields in ISO 8601. Start is 2025-07-16 09:00:00 and end is 2025-07-16 10:00:00. Recurrence is empty since there's no mention of a series. Also, replace any quotes with single quotes. Make sure all fields are in double quotes and the JSON is valid. 
+#
+#Double-checking the instructions: no translations, use original language, no extra info. The final JSON should have all the required fields filled correctly.
+#</think>
+#
+#{
+#  "summary": "Memory Forensics 2.0",
+#  "location": "Sala de Microsoft Teams [1] (Meeting ID: 326 077 603 487, Passcode: S686Fo6V)",
+#  "description": "In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics.",
+#  "start": {
+#    "dateTime": "2025-07-16 09:00:00",
+#    "timeZone": "CET"
+#  },
+#  "end": {
+#    "dateTime": "2025-07-16 10:00:00",
+#    "timeZone": "CET"
+#  },
+#  "recurrence": []
+#}
+#"""
 #     llm_response = """
 # ```json
 # {
@@ -597,10 +597,11 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
     vcal_json = None
     elapsed_time = 0
     memory_error_occurred = False
+    json_error_occurred = False
     retries = 0
     max_retries = 3
 
-    while not event and not memory_error_occurred and retries < max_retries:
+    while not event and not memory_error_occurred and not json_error_occurred and retries < max_retries:
         event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, post_id, args.verbose)
         retries += 1
 
@@ -646,6 +647,13 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
                 else:
                     print("Could not switch to a lighter model. Skipping event processing.")
                 memory_error_occurred = True
+        elif vcal_json == "JsonError":
+            event = None
+            vcal_json = None
+            json_error_occurred = False
+            print("Error in generated Json...")
+
+
     if  not event and retries >= max_retries:
         vcal_json = "RetryError"
         print("Max retries reached. Skipping event processing.")
@@ -1092,25 +1100,25 @@ def _modify_single_component(dt, component, time_label):
         return dt
 
 
-def _normalize_post_identifier(post_identifier):
-    """Strip file extensions (e.g. '.txt') from post_identifier.
-
-    When reprocessing saved .txt files, the post_identifier arrives with a
-    .txt suffix.  Stripping it here lets all downstream code (file writes,
-    calendar creation) use the same paths regardless of where the input came
-    from.
-
-    Returns:
-        The post_identifier with any file extension removed, preserving its
-        original type (str or Path).
-    """
-    if isinstance(post_identifier, PosixPath) and post_identifier.suffix:
-        result = post_identifier.with_suffix("")
-    elif isinstance(post_identifier, str) and "." in post_identifier.rsplit("/", 1)[-1]:
-        result = str(Path(post_identifier).with_suffix(""))
-    else:
-        result = post_identifier
-    return result
+# def _normalize_post_identifier(post_identifier):
+#     """Strip file extensions (e.g. '.txt') from post_identifier.
+# 
+#     When reprocessing saved .txt files, the post_identifier arrives with a
+#     .txt suffix.  Stripping it here lets all downstream code (file writes,
+#     calendar creation) use the same paths regardless of where the input came
+#     from.
+# 
+#     Returns:
+#         The post_identifier with any file extension removed, preserving its
+#         original type (str or Path).
+#     """
+#     if isinstance(post_identifier, PosixPath) and post_identifier.suffix:
+#         result = post_identifier.with_suffix("")
+#     elif isinstance(post_identifier, str) and "." in post_identifier.rsplit("/", 1)[-1]:
+#         result = str(Path(post_identifier).with_suffix(""))
+#     else:
+#         result = post_identifier
+#     return result
 
 
 def _extract_event_with_llm_retry(
@@ -1132,8 +1140,7 @@ def _extract_event_with_llm_retry(
         need_another_ai) where success_flag indicates if extraction was
         successful and need_restart indicates if the whole process should
         restart"""
-    # post_identifier = _normalize_post_identifier(post_identifier)
-    # Again?
+
     original_content = content_text
     prompt_content = content_text
     total_elapsed_time = 0
@@ -1492,8 +1499,6 @@ def _process_event_with_llm_and_calendar(
     Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
     """
     # Initialize result variables
-    post_identifier = _normalize_post_identifier(post_identifier)
-    # FIXME. Do we need this?
     event = None
     calendar_result = None
     success = False
@@ -1504,7 +1509,8 @@ def _process_event_with_llm_and_calendar(
     # Process until success or definitive failure
     while should_process and not success:
         if date_validation_retries >= max_date_validation_retries:
-            print(f"Max date validation retries ({max_date_validation_retries}) reached for {post_identifier}. Skipping event processing.")
+            print(f"Max date validation retries ({max_date_validation_retries}) "
+                  f"reached for {post_identifier}. Skipping event processing.")
             should_process = False
             break
         # Extract event with LLM and validate it
@@ -1921,12 +1927,6 @@ def _process_common_flow(
             continue
 
         # 4. Save & Print (Common)
-        # is_txt = False
-        # if isinstance(post_id, Path):
-        #     is_txt = post_id.suffix.endswith("txt")
-        # elif isinstance(post_id, str):
-        #     is_txt = post_id.endswith(".txt")
-
         write_file(f"log/{post_id}_text.txt", content_text)
         if args.verbose:
             print_first_10_lines(content_text, "content")
@@ -1969,6 +1969,10 @@ def process_txt_cli(args, model, source_name=None, rules=None):
                 post_id = api_src.getPostIdM(post)
             else:
                 post_id = post[0]
+
+            # print(f"Post id: {post_id}")
+            # post_id = _normalize_post_identifier(post_id)
+            # print(f"Post id: {post_id}")
             lines_txt = post[1].split('\n')
             import re
             date = ""
@@ -1991,8 +1995,8 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             if ' ' in date:
                 date = date.split(' ')[0]
 
-            #FIXME is this ok?
-            date = datetime.datetime.today()
+            if not args.interactive:
+                date = datetime.datetime.today()
 
             if 'Subject: ' in lines_txt:
                 title = next((i for i, s in enumerate(lines_txt) if 'Subject: ' in s), -1)
