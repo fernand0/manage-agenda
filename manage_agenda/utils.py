@@ -1539,6 +1539,7 @@ def _process_event_with_llm_and_calendar(
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
+                    events = list(event)
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
                         title = event[0]['summary']
@@ -1551,7 +1552,6 @@ def _process_event_with_llm_and_calendar(
                     # --- Event Adjustment ---
                     # TODO: event is always a list (enforced in _extract_event_with_llm_retry),
                     # so the single-event else path below is dead code. Re-enable if needed.
-                    events = list(event)
                     calendar_results = []
 
                     if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
