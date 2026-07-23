@@ -415,68 +415,68 @@ def adjust_event_times(event):
         return event
 
 
-    def _ensure_valid_event_timezones(event, fallback_tz="UTC"):
-        """Ensure both start and end have valid timeZone values."""
-        if not isinstance(event, dict):
-            return event
-
-        for when in ("start", "end"):
-            field = event.setdefault(when, {})
-            tz_name = field.get("timeZone")
-            if not tz_name:
-                field["timeZone"] = fallback_tz
-                continue
-
-            try:
-                pytz.timezone(tz_name)
-            except Exception:
-                logging.warning(
-                    f"Invalid timezone '{tz_name}' for event {when}; using fallback '{fallback_tz}'."
-                )
-                field["timeZone"] = fallback_tz
-
+def _ensure_valid_event_timezones(event, fallback_tz="UTC"):
+    """Ensure both start and end have valid timeZone values."""
+    if not isinstance(event, dict):
         return event
 
+    for when in ("start", "end"):
+        field = event.setdefault(when, {})
+        tz_name = field.get("timeZone")
+        if not tz_name:
+            field["timeZone"] = fallback_tz
+            continue
 
-    # def list_models_cli(args):
-    #     """Lists available LLMs."""
-    #     "Not used. Maybe interesting?"
-    #     if args.source == "ollama":
-    #         models = OllamaClient.list_models()
-    #         for i, model in enumerate(models):
-    #             print(f"{i}) {model['model']}")
-    #     elif args.source == "gemini":
-    #         models = GeminiClient.list_models()
-    #         for i, model in enumerate(models):
-    #             if "gemini" in model.name:
-    #                 print(f"{i}) {model.name}")
-    #     else:
-    #         print("Model listing not supported for this source.")
+        try:
+            pytz.timezone(tz_name)
+        except Exception:
+            logging.warning(
+                f"Invalid timezone '{tz_name}' for event {when}; using fallback '{fallback_tz}'."
+            )
+            field["timeZone"] = fallback_tz
 
-
-    def extract_json(text):
-        # extract json (assuming response contains json within backticks)
-
-        if not text.startswith("{"):
-            pos = text.find("{")
-            if pos != -1:
-                text = text[pos:]
-        if not text.endswith("}"):
-            pos = text.rfind("}")
-            if pos != -1:
-                text = text[: pos + 1]
-        vcal_json = text
-
-        return vcal_json
+    return event
 
 
-    def get_event_from_llm(model, prompt, post_id, verbose=False):
-        """Gets event data from LLM, handling response and JSON parsing."""
-        print(f"Calling LLM {model.model_name}")
-        event, vcal_json = None, None
-        start_time = time.time()
-        llm_response = model.generate_text(prompt)
-    #    llmresponse = """
+# def list_models_cli(args):
+#     """Lists available LLMs."""
+#     "Not used. Maybe interesting?"
+#     if args.source == "ollama":
+#         models = OllamaClient.list_models()
+#         for i, model in enumerate(models):
+#             print(f"{i}) {model['model']}")
+#     elif args.source == "gemini":
+#         models = GeminiClient.list_models()
+#         for i, model in enumerate(models):
+#             if "gemini" in model.name:
+#                 print(f"{i}) {model.name}")
+#     else:
+#         print("Model listing not supported for this source.")
+
+
+def extract_json(text):
+    # extract json (assuming response contains json within backticks)
+
+    if not text.startswith("{"):
+        pos = text.find("{")
+        if pos != -1:
+            text = text[pos:]
+    if not text.endswith("}"):
+        pos = text.rfind("}")
+        if pos != -1:
+            text = text[: pos + 1]
+    vcal_json = text
+
+    return vcal_json
+
+
+def get_event_from_llm(model, prompt, post_id, verbose=False):
+    """Gets event data from LLM, handling response and JSON parsing."""
+    print(f"Calling LLM {model.model_name}")
+    event, vcal_json = None, None
+    start_time = time.time()
+    llm_response = model.generate_text(prompt)
+#    llmresponse = """
 #<think>
 #Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
 #
