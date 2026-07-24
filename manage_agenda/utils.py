@@ -217,7 +217,7 @@ def select_calendar(calendar_api, title=""):
         if not eligible_calendars:
             raise CalendarError("No writable calendars found. Check your calendar permissions.")
 
-        selection, cal = select_from_list(eligible_calendars, "summary")
+        selection, cal = select_from_list(eligible_calendars, "summary", title=title)
 
         if selection < 0 or selection >= len(eligible_calendars):
             raise CalendarError(f"Invalid calendar selection: {selection}")
@@ -247,7 +247,7 @@ def create_event_dict():
     }
 
 
-def process_event_data(event, content):
+def add_message_to_event_description(event, content):
     """Processes event data, adding the email content to the description.
 
     Args:
@@ -362,12 +362,12 @@ def adjust_event_times(event):
             print(f"Error inferring {infer_type} time from existing time.")
 
     # Ensure start and end are dictionaries
-    print(f"Event: {event}")
+    # print(f"Event: {event}")
     event.setdefault("start", {})
     event.setdefault("end", {})
     start = event["start"]
     end = event["end"]
-    print(f"EEvent: {event}")
+    # print(f"EEvent: {event}")
 
     # Process start time
     start_time_str = start.get("dateTime") if isinstance(start, dict) else None
@@ -540,8 +540,8 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
-    if verbose:
-        print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+    #if verbose:
+    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
 
     memory_error_occurred = False
     json_error_occurred = True
@@ -701,7 +701,7 @@ def select_source_by_type(args, source_type, rules=None, title=""):
 
     if args.interactive:
         if source_type == "email":
-            selected_source, _ = select_from_list(sources)
+            selected_source, _ = select_from_list(sources, title=title)
             return selected_source
         else:
             # For API sources and others
@@ -1179,23 +1179,18 @@ def _extract_event_with_llm_retry(
                 if args.verbose:
                     print(f"Single event: {single_event}")
                 if isinstance(single_event, dict):
-                    single_event = process_event_data(single_event, original_content)
+                    single_event = add_message_to_event_description(single_event, original_content)
                     single_event = adjust_event_times(single_event)
                     processed_events.append(single_event)
-                    if args.verbose:
-                        print(f"Proc event: {processed_events}")
             event = processed_events if processed_events else None
-            # else:
-            #     event = process_event_data(event, original_content)
-            #     event = adjust_event_times(event)
-
-            # Success - break out of fallback loop
+            if args.verbose:
+                print(f"Proc event: {processed_events}")
             break
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        write_file(f"log/{post_identifier}_fail.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
-
+        write_file(f"log/{post_identifier}_fail.vcal", 
+                   json.dumps(vcal_json) if vcal_json else "Failed extraction")
 
         if not args.interactive:
             return None, vcal_json, total_elapsed_time, False, False, False
@@ -1539,9 +1534,10 @@ def _process_event_with_llm_and_calendar(
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
+                    events = list(event)
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
-                        title = event[0]['summary']
+                        title = events[0]['summary']
                         api_dst = select_api_source(args, api_dst_type)
                         selected_calendar = select_calendar(api_dst, title=subject_for_print)
                     else:
@@ -1551,7 +1547,6 @@ def _process_event_with_llm_and_calendar(
                     # --- Event Adjustment ---
                     # TODO: event is always a list (enforced in _extract_event_with_llm_retry),
                     # so the single-event else path below is dead code. Re-enable if needed.
-                    events = list(event)
                     calendar_results = []
 
                     if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
