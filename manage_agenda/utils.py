@@ -475,7 +475,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     print(f"Calling LLM {model.model_name}")
     event, vcal_json = None, None
     start_time = time.time()
-#    llm_response = model.generate_text(prompt)
+    llm_response = model.generate_text(prompt)
 #    llmresponse = """
 #<think>
 #Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
@@ -508,24 +508,24 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
 #  "recurrence": []
 #}
 #"""
-    llm_response = """
-```json
-{
-'summary': 'Charla invitada de Davide Balzarotti sobre Memory Forensics 2.0',
-'location': 'Sala de Microsoft Teams',
-'description': 'In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics. Una excelente oportunidad para conocer investigaciones punteras enciberseguridad aplicada a forense de memoria.',
-'start': {
-'dateTime': '2026-07-16 09:00:00',
-'timeZone': 'CET'
-},
-'end': {
-'dateTime': '2026-07-16 10:00:00',
-'timeZone': 'CET'
-},
-'recurrence': []
-}
-```
-"""
+#     llm_response = """
+# ```json
+# {
+# 'summary': 'Charla invitada de Davide Balzarotti sobre Memory Forensics 2.0',
+# 'location': 'Sala de Microsoft Teams',
+# 'description': 'In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics. Una excelente oportunidad para conocer investigaciones punteras enciberseguridad aplicada a forense de memoria.',
+# 'start': {
+# 'dateTime': '2026-07-16 09:00:00',
+# 'timeZone': 'CET'
+# },
+# 'end': {
+# 'dateTime': '2026-07-16 10:00:00',
+# 'timeZone': 'CET'
+# },
+# 'recurrence': []
+# }
+# ```
+# """
 #     llm_response = """
 #     JSON:
 # ```json
