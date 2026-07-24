@@ -16,7 +16,7 @@ from manage_agenda.utils import (
     list_emails_folder,
     list_events_folder,
     process_email_cli,
-    process_event_data,
+    add_message_to_event_description,
     safe_get,
     select_api_source,
     select_calendar,
@@ -212,10 +212,10 @@ more text"""
         expected_json = '{"key": "value"}'
         self.assertEqual(extract_json(text), expected_json)
 
-    def test_process_event_data(self):
+    def test_add_message_to_event_description(self):
         event = {"description": "Original description"}
         content = "Email content"
-        result = process_event_data(event, content)
+        result = add_message_to_event_description(event, content)
         self.assertIn("Email content", result["description"])
 
     def test_adjust_event_times_both_present(self):
