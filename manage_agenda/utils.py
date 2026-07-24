@@ -475,7 +475,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     print(f"Calling LLM {model.model_name}")
     event, vcal_json = None, None
     start_time = time.time()
-    llm_response = model.generate_text(prompt)
+#    llm_response = model.generate_text(prompt)
 #    llmresponse = """
 #<think>
 #Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
@@ -508,24 +508,24 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
 #  "recurrence": []
 #}
 #"""
-#     llm_response = """
-# ```json
-# {
-# 'summary': 'Charla invitada de Davide Balzarotti sobre Memory Forensics 2.0',
-# 'location': 'Sala de Microsoft Teams',
-# 'description': 'In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics. Una excelente oportunidad para conocer investigaciones punteras enciberseguridad aplicada a forense de memoria.',
-# 'start': {
-# 'dateTime': '2026-07-16 09:00:00',
-# 'timeZone': 'CET'
-# },
-# 'end': {
-# 'dateTime': '2026-07-16 10:00:00',
-# 'timeZone': 'CET'
-# },
-# 'recurrence': []
-# }
-# ```
-# """
+    llm_response = """
+```json
+{
+'summary': 'Charla invitada de Davide Balzarotti sobre Memory Forensics 2.0',
+'location': 'Sala de Microsoft Teams',
+'description': 'In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics. Una excelente oportunidad para conocer investigaciones punteras enciberseguridad aplicada a forense de memoria.',
+'start': {
+'dateTime': '2026-07-16 09:00:00',
+'timeZone': 'CET'
+},
+'end': {
+'dateTime': '2026-07-16 10:00:00',
+'timeZone': 'CET'
+},
+'recurrence': []
+}
+```
+"""
 #     llm_response = """
 #     JSON:
 # ```json
@@ -705,7 +705,7 @@ def select_source_by_type(args, source_type, rules=None, title=""):
             return selected_source
         else:
             # For API sources and others
-            api_src = rules.selectRuleInteractive(source_type) #, title=title)
+            api_src = rules.selectRuleInteractive(source_type, title=title)
             return api_src
     else:
         if not sources:
@@ -1538,8 +1538,8 @@ def _process_event_with_llm_and_calendar(
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
                         title = events[0]['summary']
-                        api_dst = select_api_source(args, api_dst_type)
-                        selected_calendar = select_calendar(api_dst, title=subject_for_print)
+                        api_dst = select_api_source(args, api_dst_type, title=title)
+                        selected_calendar = select_calendar(api_dst, title=title)
                     else:
                         api_dst = None
                         selected_calendar = None
@@ -2196,48 +2196,28 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
     return False  # Default return if something went wrong before the main logic
 
 
-
 def select_llm(args):
     """Selects and initializes the appropriate LLM client."""
     if args.interactive:
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
-            args = Args(
-                interactive=args.interactive,
-                delete=args.delete,
-                source="ollama",
-                verbose=args.verbose,
-                destination=args.destination,
-                text=args.text,
-            )
+            source="ollama"
         elif selection == "m":
-            args = Args(
-                interactive=args.interactive,
-                delete=args.delete,
-                source="mistral",
-                verbose=args.verbose,
-                destination=args.destination,
-                text=args.text,
-            )
+            source="mistral"
         else:
-            args = Args(
-                interactive=args.interactive,
-                delete=args.delete,
-                source="gemini",
-                verbose=args.verbose,
-                destination=args.destination,
-                text=args.text,
-            )
+            source="gemini"
     else:
         # In non-interactive mode the system currently always uses Gemini.
-        args = Args(
-            interactive=args.interactive,
-            delete=args.delete,
-            source="gemini",
-            verbose=args.verbose,
-            destination=args.destination,
-            text=args.text,
-        )
+        source="gemini"
+    print(f"Source: {source}")
+    args = Args(
+        interactive=args.interactive,
+        delete=args.delete,
+        source=source,
+        verbose=args.verbose,
+        destination=args.destination,
+        text=args.text,
+    )
 
     if args.source == "ollama":
         if args.interactive:

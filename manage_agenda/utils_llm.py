@@ -138,7 +138,7 @@ class OllamaClient(LLMClient):
         iss = isinstance(model_name,int)
         if not iss and not model_name:
             models = self.list_models()
-            _, self.model_name = select_from_list(models, identifier="model")
+            _, self.model_name = select_from_list(models, identifier="model", title="Available models")
         else:
             if isinstance(model_name,int):
                 self.model_name = self.list_models()[0].model
