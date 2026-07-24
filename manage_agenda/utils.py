@@ -412,7 +412,7 @@ def adjust_event_times(event):
             except ValueError:
                 print("Error comparing start and end times. Skipping adjustment.")
 
-        return event
+    return event
 
 
 def _ensure_valid_event_timezones(event, fallback_tz="UTC"):
