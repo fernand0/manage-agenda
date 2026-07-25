@@ -367,7 +367,6 @@ def adjust_event_times(event):
     event.setdefault("end", {})
     start = event["start"]
     end = event["end"]
-    # print(f"EEvent: {event}")
 
     # Process start time
     start_time_str = start.get("dateTime") if isinstance(start, dict) else None
@@ -392,10 +391,10 @@ def adjust_event_times(event):
         end["timeZone"] = "UTC"
 
     # Inference logic
-    if not start.get("dateTime") and end.get("dateTime"):
+    if isinstance(start, dict) and not start.get("dateTime") and end_success and end.get("dateTime"):
         _infer_missing_time(end["dateTime"], start, "start")
 
-    if not end.get("dateTime") and start.get("dateTime"):
+    if isinstance(end, dict) and not end.get("dateTime") and start_success and start.get("dateTime"):
         _infer_missing_time(start["dateTime"], end, "end")
 
         # Ensure end time is after start time
@@ -476,7 +475,33 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
-#    llmresponse = """
+# # tinyllama:latest reply
+#     llm_response = """
+# Here's a sample JSON structure to fill in event information using the provided text as input:
+# 
+# ```json
+# {
+#     "summary": "",
+#     "location": "",
+#     "descripionation": "",
+#     "start": {
+#         "dateTime": "YYYY-MM-DD HH:MM:SS",
+#         "timeZone": ""
+#     },
+#     "end": [
+#         {
+#             "dateTime": "YYYY-MM-DD HH:MM:SS",
+#             "timeZone": ""
+#         }
+#     ],
+#     "recurrence": []
+# }
+# ```
+# 
+# Here, the `start` object has a `dateTime` property with YYYY-MM-DD HH:MM:SS format. The `end` array includes only one entry, which is a single date with YYYY-MM-DD HH:MM:SS format. For each `recurrence` entry, the date/time specifies when the event repeats.
+# 
+# Remember to normalize your dates in the text input by using ISO 8601 formats (e.g., "YYYY-MM-DD HH:MM:SS").
+# """
 #<think>
 #Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
 #

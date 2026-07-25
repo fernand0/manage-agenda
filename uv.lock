@@ -3177,7 +3177,7 @@ wheels = [
 [[package]]
 name = "social-modules"
 version = "0.3.0"
-source = { git = "https://github.com/fernand0/socialModules.git#be38f306b0ab9680f5c8b2971bc882d231973865" }
+source = { git = "https://github.com/fernand0/socialModules.git#ae510efe3b8502c35c202f4afcf58c1a518e0aab" }
 dependencies = [
     { name = "aiohttp" },
     { name = "atproto" },
