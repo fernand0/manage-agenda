@@ -4,6 +4,10 @@ import sys
 
 from runpy import run_module
 
+from socialModules.configMod import (
+    safe_get,
+    select_from_list,
+)
 # Import auxiliary functions and classes from utils.py
 from .utils import (
     Args,
@@ -30,37 +34,37 @@ from .utils_llm import (
 )
 
 
-def select_from_list(options, identifier="", selector="", default=""):
-    """
-    Presents a list of options to the user and returns the selected option.
-    """
-    for i, option in enumerate(options):
-        display = option.get(identifier, option) if isinstance(option, dict) else option
-        print(f"{i}) {display}")
-
-    while True:
-        try:
-            selection = input("Select an option: ").strip()
-            if not selection:
-                continue
-            if selection.isdigit():
-                selection = int(selection)
-                if 0 <= selection < len(options):
-                    return selection, options[selection]
-            elif (selection.startswith("http") or ('.' in selection)):
-                # An URL or a filename containing a '.'
-                return len(options) - 1, selection
-            else:
-                for i, option in enumerate(options):
-                    option_str = option.get(identifier, str(option)) if isinstance(option, dict) else str(option)
-                    if selection.lower() in option_str.lower():
-                        return i, option
-        except (ValueError, IndexError):
-            pass
-        except (KeyboardInterrupt, EOFError):
-            print("\nSelection cancelled.")
-            return None, None
-        print("Invalid selection. Please try again.")
+#def select_from_list(options, identifier="", selector="", default=""):
+#    """
+#    Presents a list of options to the user and returns the selected option.
+#    """
+#    for i, option in enumerate(options):
+#        display = option.get(identifier, option) if isinstance(option, dict) else option
+#        print(f"{i}) {display}")
+#
+#    while True:
+#        try:
+#            selection = input("Select an option: ").strip()
+#            if not selection:
+#                continue
+#            if selection.isdigit():
+#                selection = int(selection)
+#                if 0 <= selection < len(options):
+#                    return selection, options[selection]
+#            elif (selection.startswith("http") or ('.' in selection)):
+#                # An URL or a filename containing a '.'
+#                return len(options) - 1, selection
+#            else:
+#                for i, option in enumerate(options):
+#                    option_str = option.get(identifier, str(option)) if isinstance(option, dict) else str(option)
+#                    if selection.lower() in option_str.lower():
+#                        return i, option
+#        except (ValueError, IndexError):
+#            pass
+#        except (KeyboardInterrupt, EOFError):
+#            print("\nSelection cancelled.")
+#            return None, None
+#        print("Invalid selection. Please try again.")
 
 
 @click.group()
@@ -176,11 +180,11 @@ def add(ctx, interactive, source, force_refresh, output):
     model = select_llm(args)
 
     if verbose:
-        print(f"Model: {model}")
+        click.echo(f"Selected model: {model.model_name}")
 
     if interactive:
         sources = get_add_sources(rules=rules)
-        sel, selected = select_from_list(sources)
+        sel, selected = select_from_list(sources, title="Sources of information")
 
         if selected is None:
             return

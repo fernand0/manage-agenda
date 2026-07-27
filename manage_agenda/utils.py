@@ -217,7 +217,7 @@ def select_calendar(calendar_api, title=""):
         if not eligible_calendars:
             raise CalendarError("No writable calendars found. Check your calendar permissions.")
 
-        selection, cal = select_from_list(eligible_calendars, title)
+        selection, cal = select_from_list(eligible_calendars, "summary", title=title)
 
         if selection < 0 or selection >= len(eligible_calendars):
             raise CalendarError(f"Invalid calendar selection: {selection}")
@@ -247,7 +247,7 @@ def create_event_dict():
     }
 
 
-def process_event_data(event, content):
+def add_message_to_event_description(event, content):
     """Processes event data, adding the email content to the description.
 
     Args:
@@ -362,6 +362,7 @@ def adjust_event_times(event):
             print(f"Error inferring {infer_type} time from existing time.")
 
     # Ensure start and end are dictionaries
+    # print(f"Event: {event}")
     event.setdefault("start", {})
     event.setdefault("end", {})
     start = event["start"]
@@ -379,8 +380,8 @@ def adjust_event_times(event):
         start["timeZone"] = "UTC"
 
     # Process end time
-    end_time_str = end.get("dateTime")
-    input_end_tz_name = end.get("timeZone")
+    end_time_str = end.get("dateTime") if isinstance(end, dict) else None
+    input_end_tz_name = end.get("timeZone") if isinstance(end, dict) else None
     processed_end_time, end_success = _process_single_time_field(
         end_time_str, input_end_tz_name, "End"
     )
@@ -390,25 +391,26 @@ def adjust_event_times(event):
         end["timeZone"] = "UTC"
 
     # Inference logic
-    if not start.get("dateTime") and end.get("dateTime"):
+    if isinstance(start, dict) and not start.get("dateTime") and end_success and end.get("dateTime"):
         _infer_missing_time(end["dateTime"], start, "start")
 
-    if not end.get("dateTime") and start.get("dateTime"):
+    if isinstance(end, dict) and not end.get("dateTime") and start_success and start.get("dateTime"):
         _infer_missing_time(start["dateTime"], end, "end")
 
     # Ensure end time is after start time
-    if start.get("dateTime") and end.get("dateTime"):
-        try:
-            start_dt = datetime.datetime.fromisoformat(start["dateTime"])
-            end_dt = datetime.datetime.fromisoformat(end["dateTime"])
+    if isinstance(end, dict) and isinstance(end, dict):
+        if start.get("dateTime") and end.get("dateTime"):
+            try:
+                start_dt = datetime.datetime.fromisoformat(start["dateTime"])
+                end_dt = datetime.datetime.fromisoformat(end["dateTime"])
 
-            if end_dt <= start_dt:
-                print("Validation Warning: End time is not after start time. Adjusting end time.")
-                end_dt = start_dt + timedelta(minutes=30)
-                end["dateTime"] = end_dt.isoformat()
-                end["timeZone"] = "UTC"  # Ensure timezone is set if adjusted
-        except ValueError:
-            print("Error comparing start and end times. Skipping adjustment.")
+                if end_dt <= start_dt:
+                    print("Validation Warning: End time is not after start time. Adjusting end time.")
+                    end_dt = start_dt + timedelta(minutes=30)
+                    end["dateTime"] = end_dt.isoformat()
+                    end["timeZone"] = "UTC"  # Ensure timezone is set if adjusted
+            except ValueError:
+                print("Error comparing start and end times. Skipping adjustment.")
 
     return event
 
@@ -474,6 +476,82 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
+# # tinyllama:latest reply
+#     llm_response = """
+# Here's a sample JSON structure to fill in event information using the provided text as input:
+# 
+# ```json
+# {
+#     "summary": "",
+#     "location": "",
+#     "descripionation": "",
+#     "start": {
+#         "dateTime": "YYYY-MM-DD HH:MM:SS",
+#         "timeZone": ""
+#     },
+#     "end": [
+#         {
+#             "dateTime": "YYYY-MM-DD HH:MM:SS",
+#             "timeZone": ""
+#         }
+#     ],
+#     "recurrence": []
+# }
+# ```
+# 
+# Here, the `start` object has a `dateTime` property with YYYY-MM-DD HH:MM:SS format. The `end` array includes only one entry, which is a single date with YYYY-MM-DD HH:MM:SS format. For each `recurrence` entry, the date/time specifies when the event repeats.
+# 
+# Remember to normalize your dates in the text input by using ISO 8601 formats (e.g., "YYYY-MM-DD HH:MM:SS").
+# """
+#<think>
+#Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
+#
+#First, I need to parse the source text carefully. The subject line mentions a charla invitada (invited lecture) by Davide Balzarotti about memory forensics. The message body has more details. 
+#
+#Looking at the message, the main event is a lecture scheduled for the next Wednesday, July 16th, 2025, at 09:00 - 10:00. The location is a Microsoft Teams meeting with the given ID and passcode. The description includes the talk's content about memory forensics challenges and future directions.
+#
+#I need to check the instructions. The reference date is July 23, 2026, but the event is on July 16, 2025, which is in the past relative to the reference date. However, the user says to use explicit dates over the reference date. Since the text explicitly states July 16, 2025, that's the correct date. 
+#
+#The timezone isn't mentioned, so default to CET. The start and end times are 09:00 and 10:00. The summary should be the main event title: "Memory Forensics 2.0" lecture by Davide Balzarotti. The location is the Teams meeting details. The description includes the provided text about the talk's content. 
+#
+#I need to format the dateTime fields in ISO 8601. Start is 2025-07-16 09:00:00 and end is 2025-07-16 10:00:00. Recurrence is empty since there's no mention of a series. Also, replace any quotes with single quotes. Make sure all fields are in double quotes and the JSON is valid. 
+#
+#Double-checking the instructions: no translations, use original language, no extra info. The final JSON should have all the required fields filled correctly.
+#</think>
+#
+#{
+#  "summary": "Memory Forensics 2.0",
+#  "location": "Sala de Microsoft Teams [1] (Meeting ID: 326 077 603 487, Passcode: S686Fo6V)",
+#  "description": "In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics.",
+#  "start": {
+#    "dateTime": "2025-07-16 09:00:00",
+#    "timeZone": "CET"
+#  },
+#  "end": {
+#    "dateTime": "2025-07-16 10:00:00",
+#    "timeZone": "CET"
+#  },
+#  "recurrence": []
+#}
+#"""
+#     llm_response = """
+# ```json
+# {
+# 'summary': 'Charla invitada de Davide Balzarotti sobre Memory Forensics 2.0',
+# 'location': 'Sala de Microsoft Teams',
+# 'description': 'In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics. Una excelente oportunidad para conocer investigaciones punteras enciberseguridad aplicada a forense de memoria.',
+# 'start': {
+# 'dateTime': '2026-07-16 09:00:00',
+# 'timeZone': 'CET'
+# },
+# 'end': {
+# 'dateTime': '2026-07-16 10:00:00',
+# 'timeZone': 'CET'
+# },
+# 'recurrence': []
+# }
+# ```
+# """
 #     llm_response = """
 #     JSON:
 # ```json
@@ -488,8 +566,8 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
-    if verbose:
-        print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+    #if verbose:
+    print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
 
     memory_error_occurred = False
     json_error_occurred = True
@@ -547,10 +625,11 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
     vcal_json = None
     elapsed_time = 0
     memory_error_occurred = False
+    json_error_occurred = False
     retries = 0
     max_retries = 3
 
-    while not event and not memory_error_occurred and retries < max_retries:
+    while not event and not memory_error_occurred and not json_error_occurred and retries < max_retries:
         event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, post_id, args.verbose)
         retries += 1
 
@@ -596,6 +675,13 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
                 else:
                     print("Could not switch to a lighter model. Skipping event processing.")
                 memory_error_occurred = True
+        elif vcal_json == "JsonError":
+            event = None
+            vcal_json = None
+            json_error_occurred = False
+            print("Error in generated Json...")
+
+
     if  not event and retries >= max_retries:
         vcal_json = "RetryError"
         print("Max retries reached. Skipping event processing.")
@@ -641,11 +727,11 @@ def select_source_by_type(args, source_type, rules=None, title=""):
 
     if args.interactive:
         if source_type == "email":
-            selected_source, _ = select_from_list(sources)
+            selected_source, _ = select_from_list(sources, title=title)
             return selected_source
         else:
             # For API sources and others
-            api_src = rules.selectRuleInteractive(source_type) #, title=title)
+            api_src = rules.selectRuleInteractive(source_type, title=title)
             return api_src
     else:
         if not sources:
@@ -1042,25 +1128,25 @@ def _modify_single_component(dt, component, time_label):
         return dt
 
 
-def _normalize_post_identifier(post_identifier):
-    """Strip file extensions (e.g. '.txt') from post_identifier.
-
-    When reprocessing saved .txt files, the post_identifier arrives with a
-    .txt suffix.  Stripping it here lets all downstream code (file writes,
-    calendar creation) use the same paths regardless of where the input came
-    from.
-
-    Returns:
-        The post_identifier with any file extension removed, preserving its
-        original type (str or Path).
-    """
-    if isinstance(post_identifier, PosixPath) and post_identifier.suffix:
-        result = post_identifier.with_suffix("")
-    elif isinstance(post_identifier, str) and "." in post_identifier.rsplit("/", 1)[-1]:
-        result = str(Path(post_identifier).with_suffix(""))
-    else:
-        result = post_identifier
-    return result
+# def _normalize_post_identifier(post_identifier):
+#     """Strip file extensions (e.g. '.txt') from post_identifier.
+# 
+#     When reprocessing saved .txt files, the post_identifier arrives with a
+#     .txt suffix.  Stripping it here lets all downstream code (file writes,
+#     calendar creation) use the same paths regardless of where the input came
+#     from.
+# 
+#     Returns:
+#         The post_identifier with any file extension removed, preserving its
+#         original type (str or Path).
+#     """
+#     if isinstance(post_identifier, PosixPath) and post_identifier.suffix:
+#         result = post_identifier.with_suffix("")
+#     elif isinstance(post_identifier, str) and "." in post_identifier.rsplit("/", 1)[-1]:
+#         result = str(Path(post_identifier).with_suffix(""))
+#     else:
+#         result = post_identifier
+#     return result
 
 
 def _extract_event_with_llm_retry(
@@ -1082,8 +1168,7 @@ def _extract_event_with_llm_retry(
         need_another_ai) where success_flag indicates if extraction was
         successful and need_restart indicates if the whole process should
         restart"""
-    # post_identifier = _normalize_post_identifier(post_identifier)
-    # Again?
+
     original_content = content_text
     prompt_content = content_text
     total_elapsed_time = 0
@@ -1101,7 +1186,8 @@ def _extract_event_with_llm_retry(
         total_elapsed_time += elapsed_time
 
         # Check for memory error
-        print(f"Event: {event}")
+        if args.verbose:
+            print(f"Event: {event}")
         memory_error = event is None and vcal_json == "MemoryError"
         retry_error = event is None and vcal_json == "RetryError"
 
@@ -1119,23 +1205,18 @@ def _extract_event_with_llm_retry(
                 if args.verbose:
                     print(f"Single event: {single_event}")
                 if isinstance(single_event, dict):
-                    single_event = process_event_data(single_event, original_content)
+                    single_event = add_message_to_event_description(single_event, original_content)
                     single_event = adjust_event_times(single_event)
                     processed_events.append(single_event)
-                    if args.verbose:
-                        print(f"Proc event: {processed_events}")
             event = processed_events if processed_events else None
-            # else:
-            #     event = process_event_data(event, original_content)
-            #     event = adjust_event_times(event)
-
-            # Success - break out of fallback loop
+            if args.verbose:
+                print(f"Proc event: {processed_events}")
             break
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        write_file(f"log/{post_identifier}_fail.vcal", json.dumps(vcal_json) if vcal_json else "Failed extraction")
-
+        write_file(f"log/{post_identifier}_fail.vcal", 
+                   json.dumps(vcal_json) if vcal_json else "Failed extraction")
 
         if not args.interactive:
             return None, vcal_json, total_elapsed_time, False, False, False
@@ -1441,8 +1522,6 @@ def _process_event_with_llm_and_calendar(
     Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
     """
     # Initialize result variables
-    post_identifier = _normalize_post_identifier(post_identifier)
-    # FIXME. Do we need this?
     event = None
     calendar_result = None
     success = False
@@ -1453,7 +1532,8 @@ def _process_event_with_llm_and_calendar(
     # Process until success or definitive failure
     while should_process and not success:
         if date_validation_retries >= max_date_validation_retries:
-            print(f"Max date validation retries ({max_date_validation_retries}) reached for {post_identifier}. Skipping event processing.")
+            print(f"Max date validation retries ({max_date_validation_retries}) "
+                  f"reached for {post_identifier}. Skipping event processing.")
             should_process = False
             break
         # Extract event with LLM and validate it
@@ -1480,11 +1560,12 @@ def _process_event_with_llm_and_calendar(
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
+                    events = list(event)
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
-                        title = event[0]['summary']
-                        api_dst = select_api_source(args, api_dst_type)
-                        selected_calendar = select_calendar(api_dst, title=subject_for_print)
+                        title = events[0]['summary']
+                        api_dst = select_api_source(args, api_dst_type, title=title)
+                        selected_calendar = select_calendar(api_dst, title=title)
                     else:
                         api_dst = None
                         selected_calendar = None
@@ -1492,7 +1573,6 @@ def _process_event_with_llm_and_calendar(
                     # --- Event Adjustment ---
                     # TODO: event is always a list (enforced in _extract_event_with_llm_retry),
                     # so the single-event else path below is dead code. Re-enable if needed.
-                    events = list(event)
                     calendar_results = []
 
                     if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
@@ -1545,7 +1625,7 @@ def _process_event_with_llm_and_calendar(
                             if single_event is not None:
                                 _add_ai_metadata_to_event(single_event, model, elapsed_time)
                                 file_name = f"log/{post_identifier}_{idx}_times.json"
-                                if getattr(args, "output", "calendar") == "calendar":
+                                if getattr(args, "output", "calendar") == "calendar": 
                                     published, calendar_result = _publish_event_to_calendar(
                                         api_dst, single_event, selected_calendar
                                     )
@@ -1567,8 +1647,9 @@ def _process_event_with_llm_and_calendar(
                                     write_file(file_name, json.dumps(single_event))
                     print(f"Success: {success}")
                     if success:
-                        print(f"Events: {events}")
-                        print(f"Results: {calendar_results}")
+                        if args.verbose:
+                            print(f"Events: {events}")
+                            print(f"Results: {calendar_results}")
                         return events, calendar_results
                     else:
                         return None, None
@@ -1869,12 +1950,6 @@ def _process_common_flow(
             continue
 
         # 4. Save & Print (Common)
-        # is_txt = False
-        # if isinstance(post_id, Path):
-        #     is_txt = post_id.suffix.endswith("txt")
-        # elif isinstance(post_id, str):
-        #     is_txt = post_id.endswith(".txt")
-
         write_file(f"log/{post_id}_text.txt", content_text)
         if args.verbose:
             print_first_10_lines(content_text, "content")
@@ -1917,6 +1992,10 @@ def process_txt_cli(args, model, source_name=None, rules=None):
                 post_id = api_src.getPostIdM(post)
             else:
                 post_id = post[0]
+
+            # print(f"Post id: {post_id}")
+            # post_id = _normalize_post_identifier(post_id)
+            # print(f"Post id: {post_id}")
             lines_txt = post[1].split('\n')
             import re
             date = ""
@@ -1939,8 +2018,8 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             if ' ' in date:
                 date = date.split(' ')[0]
 
-            #FIXME is this ok?
-            date = datetime.datetime.today()
+            if not args.interactive:
+                date = datetime.datetime.today()
 
             if 'Subject: ' in lines_txt:
                 title = next((i for i, s in enumerate(lines_txt) if 'Subject: ' in s), -1)
@@ -2146,48 +2225,28 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
     return False  # Default return if something went wrong before the main logic
 
 
-
 def select_llm(args):
     """Selects and initializes the appropriate LLM client."""
     if args.interactive:
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
-            args = Args(
-                interactive=args.interactive,
-                delete=args.delete,
-                source="ollama",
-                verbose=args.verbose,
-                destination=args.destination,
-                text=args.text,
-            )
+            source="ollama"
         elif selection == "m":
-            args = Args(
-                interactive=args.interactive,
-                delete=args.delete,
-                source="mistral",
-                verbose=args.verbose,
-                destination=args.destination,
-                text=args.text,
-            )
+            source="mistral"
         else:
-            args = Args(
-                interactive=args.interactive,
-                delete=args.delete,
-                source="gemini",
-                verbose=args.verbose,
-                destination=args.destination,
-                text=args.text,
-            )
+            source="gemini"
     else:
         # In non-interactive mode the system currently always uses Gemini.
-        args = Args(
-            interactive=args.interactive,
-            delete=args.delete,
-            source="gemini",
-            verbose=args.verbose,
-            destination=args.destination,
-            text=args.text,
-        )
+        source="gemini"
+    print(f"Source: {source}")
+    args = Args(
+        interactive=args.interactive,
+        delete=args.delete,
+        source=source,
+        verbose=args.verbose,
+        destination=args.destination,
+        text=args.text,
+    )
 
     if args.source == "ollama":
         if args.interactive:
