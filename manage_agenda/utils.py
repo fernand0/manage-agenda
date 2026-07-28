@@ -893,10 +893,8 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
 
     current_start, current_end = _parse_event_times(event)
 
-    if current_start is None:
-        errors.append(f"{label}Event is missing a valid start dateTime")
-    if current_end is None:
-        errors.append(f"{label}Event is missing a valid end dateTime")
+    if current_start is None or current_end is None:
+        errors.append(f"{label}Event is missing valid start or end dateTime")
 
     now = datetime.datetime.now(datetime.timezone.utc)
     reasonable_past = now - timedelta(days=730)  # 2 years ago
