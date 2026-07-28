@@ -841,7 +841,7 @@ def _process_date_modification(event, confirmation, current_start, current_end):
     return event
 
 
-def _interactive_date_confirmation(
+def _confirm_event_dates_interactive(
     args,
     event,
     model=None,
@@ -1035,7 +1035,7 @@ def _extract_event_with_llm_retry(
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        write_file(f"log/{post_identifier}_fail.vcal", 
+        write_file(f"log/{post_identifier}_fail.vcal",
                    json.dumps(vcal_json) if vcal_json else "Failed extraction")
 
         if not args.interactive:
@@ -1228,7 +1228,7 @@ def _process_event_with_llm_and_calendar(
 
                             retry_needed = False
                             if args.interactive:
-                                validation_result = _interactive_date_confirmation(
+                                validation_result = _confirm_event_dates__interactive(
                                     args,
                                     single_event,
                                     model,
@@ -1263,7 +1263,7 @@ def _process_event_with_llm_and_calendar(
                             if single_event is not None:
                                 _add_ai_metadata_to_event(single_event, model, elapsed_time)
                                 file_name = f"log/{post_identifier}_{idx}_times.json"
-                                if getattr(args, "output", "calendar") == "calendar": 
+                                if getattr(args, "output", "calendar") == "calendar":
                                     published, calendar_result = _publish_event_to_calendar(
                                         api_dst, single_event, selected_calendar
                                     )
