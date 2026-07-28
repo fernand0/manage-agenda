@@ -841,15 +841,7 @@ def _process_date_modification(event, confirmation, current_start, current_end):
     return event
 
 
-def _validate_event_dates_interactive(
-    args,
-    event,
-    model=None,
-    content_text=None,
-    reference_date_time=None,
-    post_identifier=None,
-    subject_for_print=None,
-):
+def _validate_event_dates_interactive(event):
     """Interactively confirms and corrects event dates."""
     current_start, current_end = _parse_event_times(event)
 
@@ -1228,14 +1220,8 @@ def _process_event_with_llm_and_calendar(
 
                             retry_needed = False
                             if args.interactive:
-                                validation_result = _validate_event_dates__interactive(
-                                    args,
+                                validation_result = _validate_event_dates_interactive(
                                     single_event,
-                                    model,
-                                    content_text,
-                                    reference_date_time,
-                                    post_identifier,
-                                    subject_for_print,
                                 )
                                 if isinstance(validation_result, tuple):
                                     single_event, retry_needed = validation_result
