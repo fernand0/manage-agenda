@@ -847,20 +847,23 @@ def _validate_event_dates_interactive(event, post_identifier=None):
     Returns:
         Tuple of (event, is_valid: bool, errors: list[str]).
     """
+
+    errors = []
+    is_valid = True
+
     current_start, current_end = _parse_event_times(event)
 
     label = f"[{post_identifier}] " if post_identifier else ""
     confirmation = input(f"{label}{DATE_CONFIRM_PROMPT}").lower()
 
     if confirmation == "r":
-        return event, False, []
+        is_valid = False
+    elif confirmation == "s":
+        pass
+    else:
+        event = _process_date_modification(event, confirmation, current_start, current_end)
 
-    if confirmation == "s":
-        return event, True, []
-
-    event = _process_date_modification(event, confirmation, current_start, current_end)
-
-    return event, True, []
+    return event, is_valid, errors
 
 
 def _validate_event_dates_non_interactive(event, post_identifier=None):
