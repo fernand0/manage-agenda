@@ -844,6 +844,10 @@ def _process_date_modification(event, confirmation, current_start, current_end):
 def _validate_event_dates_interactive(event, post_identifier=None):
     """Interactively confirms and corrects event dates.
 
+    Prompts the user in a loop until they accept ('s') or reject ('r')
+    the dates. After each modification the updated times are shown and
+    the user is prompted again.
+
     Returns:
         Tuple of (event, is_valid: bool, errors: list[str]).
     """
@@ -851,17 +855,22 @@ def _validate_event_dates_interactive(event, post_identifier=None):
     errors = []
     is_valid = True
 
-    current_start, current_end = _parse_event_times(event)
-
     label = f"[{post_identifier}] " if post_identifier else ""
-    confirmation = input(f"{label}{DATE_CONFIRM_PROMPT}").lower()
 
-    if confirmation == "r":
-        is_valid = False
-    elif confirmation == "s":
-        pass
-    else:
-        event = _process_date_modification(event, confirmation, current_start, current_end)
+    confirmed = False
+    while not confirmed:
+        current_start, current_end = _parse_event_times(event)
+        confirmation = input(f"{label}{DATE_CONFIRM_PROMPT}").lower()
+
+        if confirmation == "r":
+            is_valid = False
+            confirmed = True
+        elif confirmation in ("s", ""):
+            confirmed = True
+        else:
+            event = _process_date_modification(
+                event, confirmation, current_start, current_end
+            )
 
     return event, is_valid, errors
 
