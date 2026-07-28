@@ -1,13 +1,9 @@
 import configparser
 import logging
 import os
-import time
 import types
 
-# TODO: Migrate from google.generativeai to google-cloud-aiplatform due to deprecation
-# The google.generativeai package is deprecated. Need to migrate to Vertex AI SDK.
 try:
-    #import google.generativeai as genai
     from google import genai
 except Exception:
     genai = types.SimpleNamespace(
@@ -34,7 +30,6 @@ except Exception:
         def __init__(self, *args, **kwargs):
             raise RuntimeError("mistralai is not installed")
 
-# from manage_agenda.utils_base import select_from_list
 from socialModules.configMod import CONFIGDIR, select_from_list
 
 
