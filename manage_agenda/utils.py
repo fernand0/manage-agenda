@@ -1077,9 +1077,6 @@ def _extract_event_with_llm_retry(
     else:
         write_file(f"log/{post_identifier}.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
 
-    # TODO: event is always a list (enforced at line ~1031), so the
-    # `_validate_and_complete_event_interactively` path below is dead code.
-    # Re-enable if single-event validation is needed again.
     return event, vcal_json, total_elapsed_time, True, False, False
 
 
