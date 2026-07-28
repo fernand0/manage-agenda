@@ -1174,7 +1174,7 @@ more text"""
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
-    @patch("manage_agenda.utils._confirm_event_dates_interactive")
+    @patch("manage_agenda.utils._validate_event_dates_interactive")
     def test_process_event_with_llm_and_calendar_multiple_events(
         self,
         mock_interactive_confirmation,
@@ -1242,7 +1242,7 @@ more text"""
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
-    @patch("manage_agenda.utils._confirm_event_dates_interactive")
+    @patch("manage_agenda.utils._validate_event_dates_interactive")
     def test_process_event_with_llm_and_calendar_file_output(
         self,
         mock_interactive_confirmation,

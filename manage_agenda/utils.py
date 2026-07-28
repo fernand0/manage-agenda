@@ -841,7 +841,7 @@ def _process_date_modification(event, confirmation, current_start, current_end):
     return event
 
 
-def _confirm_event_dates_interactive(
+def _validate_event_dates_interactive(
     args,
     event,
     model=None,
@@ -1228,7 +1228,7 @@ def _process_event_with_llm_and_calendar(
 
                             retry_needed = False
                             if args.interactive:
-                                validation_result = _confirm_event_dates__interactive(
+                                validation_result = _validate_event_dates__interactive(
                                     args,
                                     single_event,
                                     model,
