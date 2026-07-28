@@ -851,22 +851,21 @@ def _interactive_date_confirmation(
     subject_for_print=None,
 ):
     """Interactively confirms and corrects event dates."""
-    if args.interactive:
-        current_start, current_end = _parse_event_times(event)
+    current_start, current_end = _parse_event_times(event)
 
-        # Extended prompt with options for individual components (includes 'r' option for retry)
-        confirmation = input(DATE_CONFIRM_PROMPT).lower()
+    # Extended prompt with options for individual components (includes 'r' option for retry)
+    confirmation = input(DATE_CONFIRM_PROMPT).lower()
 
-        # Check if user wants to retry with LLM
-        if confirmation == "r":
-            return event, True  # Return event and True to indicate retry is needed
+    # Check if user wants to retry with LLM
+    if confirmation == "r":
+        return event, True  # Return event and True to indicate retry is needed
 
-        if confirmation == "s":
-            # Yes, dates are correct
-            return event, False  # No retry needed
+    if confirmation == "s":
+        # Yes, dates are correct
+        return event, False  # No retry needed
 
-        # Process date modification (full or individual component)
-        event = _process_date_modification(event, confirmation, current_start, current_end)
+    # Process date modification (full or individual component)
+    event = _process_date_modification(event, confirmation, current_start, current_end)
 
     # Return the event and flag indicating no retry needed
     return event, False
