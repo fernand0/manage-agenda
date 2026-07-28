@@ -842,25 +842,25 @@ def _process_date_modification(event, confirmation, current_start, current_end):
 
 
 def _validate_event_dates_interactive(event, post_identifier=None):
-    """Interactively confirms and corrects event dates."""
+    """Interactively confirms and corrects event dates.
+
+    Returns:
+        Tuple of (event, is_valid: bool, errors: list[str]).
+    """
     current_start, current_end = _parse_event_times(event)
 
     label = f"[{post_identifier}] " if post_identifier else ""
     confirmation = input(f"{label}{DATE_CONFIRM_PROMPT}").lower()
 
-    # Check if user wants to retry with LLM
     if confirmation == "r":
-        return event, True  # Return event and True to indicate retry is needed
+        return event, False, []
 
     if confirmation == "s":
-        # Yes, dates are correct
-        return event, False  # No retry needed
+        return event, True, []
 
-    # Process date modification (full or individual component)
     event = _process_date_modification(event, confirmation, current_start, current_end)
 
-    # Return the event and flag indicating no retry needed
-    return event, False
+    return event, True, []
 
 
 def _validate_event_dates_non_interactive(event, post_identifier=None):
@@ -876,7 +876,7 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
         post_identifier: Optional identifier for logging context.
 
     Returns:
-        Tuple of (is_valid: bool, errors: list[str]).
+        Tuple of (event, is_valid: bool, errors: list[str]).
     """
     errors = []
     warnings = []
@@ -909,7 +909,7 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
     for w in warnings:
         print(f"WARNING: {w}")
 
-    return len(errors) == 0, errors
+    return event, len(errors) == 0, errors
 
 
 
@@ -1220,17 +1220,12 @@ def _process_event_with_llm_and_calendar(
 
                             retry_needed = False
                             if args.interactive:
-                                validation_result = _validate_event_dates_interactive(
+                                single_event, is_valid, _ = _validate_event_dates_interactive(
                                     single_event, post_identifier
                                 )
-                                if isinstance(validation_result, tuple):
-                                    single_event, retry_needed = validation_result
-                                else:
-                                    single_event = validation_result
-                                    retry_needed = False
+                                retry_needed = not is_valid
                             else:
-                                # Non-interactive date validation: check dates exist and are reasonable
-                                is_valid, validation_errors = _validate_event_dates_non_interactive(
+                                single_event, is_valid, validation_errors = _validate_event_dates_non_interactive(
                                     single_event, post_identifier
                                 )
                                 if not is_valid:
