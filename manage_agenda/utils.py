@@ -287,6 +287,75 @@ def filter_events_by_title(api_cal, events, text_filter):
     return filtered_events
 
 
+def _parse_datetime_to_utc(dt_str, tz_name=None):
+    """Parse a datetime string, localize it if naive, and convert to UTC.
+
+    Args:
+        dt_str: Datetime string to parse (ISO format or DATETIME_FORMAT).
+        tz_name: Timezone name to localize naive datetimes with.
+
+    Returns:
+        datetime object in UTC, or None if parsing fails.
+    """
+    if not dt_str:
+        return None
+
+    if isinstance(dt_str, str):
+        normalized_str = dt_str.replace("Z", "+00:00")
+    else:
+        return None
+
+    try:
+        dt_obj = datetime.datetime.fromisoformat(normalized_str)
+    except ValueError:
+        try:
+            dt_obj = datetime.datetime.strptime(normalized_str, DATETIME_FORMAT)
+        except ValueError as parse_err:
+            logging.error(f"Invalid datetime format: '{dt_str}'. Error: {parse_err}")
+            return None
+
+    if dt_obj.tzinfo is None:  # Naive datetime
+        if tz_name:
+            try:
+                local_tz = pytz.timezone(tz_name)
+                dt_obj = local_tz.localize(dt_obj)
+            except pytz.exceptions.UnknownTimeZoneError:
+                logging.warning(
+                    f"Unknown timezone '{tz_name}'. "
+                    f"Using default timezone: {config.DEFAULT_TIMEZONE}"
+                )
+                dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
+        else:
+            dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
+
+    return dt_obj.astimezone(pytz.utc)
+
+
+def _parse_event_times(event):
+    """Parse start and end times from an event into UTC datetime objects.
+
+    Args:
+        event: The event dictionary containing start and end dateTime fields
+
+    Returns:
+        Tuple of (current_start, current_end) datetime objects in UTC, or None if parsing fails
+    """
+    start_str = safe_get(event, ["start", "dateTime"])
+    start_tz = safe_get(event, ["start", "timeZone"])
+    end_str = safe_get(event, ["end", "dateTime"])
+    end_tz = safe_get(event, ["end", "timeZone"])
+
+    current_start = _parse_datetime_to_utc(start_str, start_tz)
+    if start_str and current_start is None:
+        print("Could not parse start time, using empty value")
+
+    current_end = _parse_datetime_to_utc(end_str, end_tz)
+    if end_str and current_end is None:
+        print("Could not parse end time, using empty value")
+
+    return current_start, current_end
+
+
 def adjust_event_times(event):
     """Adjusts event start/end times, localizing naive times and converting to UTC.
 
@@ -295,121 +364,46 @@ def adjust_event_times(event):
 
     Returns:
         dict: Event with adjusted times in UTC.
-
-    Raises:
-        ValidationError: If datetime validation fails critically.
     """
-
-    def _process_single_time_field(time_str, input_tz_name, field_name_for_logging):
-        """
-        Processes a single datetime string, localizes it, and converts to UTC.
-        Returns (processed_iso_string, True if successful, False otherwise).
-        """
-        if not time_str:
-            return None, False
-
-        try:
-            dt_obj = datetime.datetime.fromisoformat(time_str)
-
-            if dt_obj.tzinfo is None:  # Naive datetime
-                if input_tz_name:
-                    try:
-                        local_tz = pytz.timezone(input_tz_name)
-                        dt_obj = local_tz.localize(dt_obj)
-                    except pytz.exceptions.UnknownTimeZoneError:
-                        logging.warning(
-                            f"Unknown timezone '{input_tz_name}' for {field_name_for_logging}. "
-                            f"Using default timezone: {config.DEFAULT_TIMEZONE}"
-                        )
-                        dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
-                else:
-                    dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
-
-            return dt_obj.astimezone(pytz.utc).isoformat(), True
-        except ValueError as e:
-            logging.error(
-                f"Invalid datetime format for {field_name_for_logging}: '{time_str}'. Error: {e}"
-            )
-            return None, False
-        except Exception as e:
-            logging.error(f"Unexpected error processing {field_name_for_logging}: {e}")
-            return None, False
-
-    def _infer_missing_time(existing_dt_iso, target_field_dict, infer_type):
-        """
-        Infers a missing start or end time based on an existing time.
-        existing_dt_iso: ISO formatted string of the existing datetime
-        (already UTC).  target_field_dict: The 'start' or 'end' dictionary to
-        update.  infer_type: 'start' to infer start from end, 'end' to infer
-        end from start.
-        """
-        if not existing_dt_iso:
-            return
-
-        try:
-            existing_dt = datetime.datetime.fromisoformat(existing_dt_iso)  # This is already UTC
-
-            if infer_type == "start":
-                inferred_dt = existing_dt - timedelta(minutes=30)
-            elif infer_type == "end":
-                inferred_dt = existing_dt + timedelta(minutes=30)
-            else:
-                return  # Should not happen
-
-            target_field_dict["dateTime"] = inferred_dt.isoformat()
-            target_field_dict["timeZone"] = "UTC"
-        except ValueError:
-            print(f"Error inferring {infer_type} time from existing time.")
-
     # Ensure start and end are dictionaries
-    event.setdefault("start", {})
-    event.setdefault("end", {})
+    if not isinstance(event.get("start"), dict):
+        event["start"] = {}
+    if not isinstance(event.get("end"), dict):
+        event["end"] = {}
     start = event["start"]
     end = event["end"]
 
-    # Process start time
-    start_time_str = start.get("dateTime") if isinstance(start, dict) else None
-    input_start_tz_name = start.get("timeZone") if isinstance(start, dict) else None
-    processed_start_time, start_success = _process_single_time_field(
-        start_time_str, input_start_tz_name, "Start"
-    )
+    # Parse start and end times using the shared parser
+    start_dt, end_dt = _parse_event_times(event)
 
-    if start_success:
-        start["dateTime"] = processed_start_time
+    # 1. Update start time if successfully parsed
+    if start_dt:
+        start["dateTime"] = start_dt.isoformat()
         start["timeZone"] = "UTC"
 
-    # Process end time
-    end_time_str = end.get("dateTime") if isinstance(end, dict) else None
-    input_end_tz_name = end.get("timeZone") if isinstance(end, dict) else None
-    processed_end_time, end_success = _process_single_time_field(
-        end_time_str, input_end_tz_name, "End"
-    )
-
-    if end_success:
-        end["dateTime"] = processed_end_time
+    # 2. Update end time if successfully parsed
+    if end_dt:
+        end["dateTime"] = end_dt.isoformat()
         end["timeZone"] = "UTC"
 
-    # Inference logic
-    if isinstance(start, dict) and not start.get("dateTime") and end_success and end.get("dateTime"):
-        _infer_missing_time(end["dateTime"], start, "start")
+    # 3. Inference logic if one of start_dt or end_dt is missing but the other is present
+    if not start_dt and end_dt:
+        start_dt = end_dt - timedelta(minutes=30)
+        start["dateTime"] = start_dt.isoformat()
+        start["timeZone"] = "UTC"
 
-    if isinstance(end, dict) and not end.get("dateTime") and start_success and start.get("dateTime"):
-        _infer_missing_time(start["dateTime"], end, "end")
+    if not end_dt and start_dt:
+        end_dt = start_dt + timedelta(minutes=30)
+        end["dateTime"] = end_dt.isoformat()
+        end["timeZone"] = "UTC"
 
-    # Ensure end time is after start time
-    if isinstance(end, dict) and isinstance(end, dict):
-        if start.get("dateTime") and end.get("dateTime"):
-            try:
-                start_dt = datetime.datetime.fromisoformat(start["dateTime"])
-                end_dt = datetime.datetime.fromisoformat(end["dateTime"])
-
-                if end_dt <= start_dt:
-                    print("Validation Warning: End time is not after start time. Adjusting end time.")
-                    end_dt = start_dt + timedelta(minutes=30)
-                    end["dateTime"] = end_dt.isoformat()
-                    end["timeZone"] = "UTC"  # Ensure timezone is set if adjusted
-            except ValueError:
-                print("Error comparing start and end times. Skipping adjustment.")
+    # 4. Ensure end time is after start time
+    if start_dt and end_dt:
+        if end_dt <= start_dt:
+            print("Validation Warning: End time is not after start time. Adjusting end time.")
+            end_dt = start_dt + timedelta(minutes=30)
+            end["dateTime"] = end_dt.isoformat()
+            end["timeZone"] = "UTC"
 
     return event
 
@@ -783,47 +777,7 @@ def _create_llm_prompt(*args):
     return prompt_template.format(event=event, content_text=content_text)
 
 
-def _parse_event_times(event):
-    """Parse start and end times from an event into datetime objects.
 
-    Args:
-        event: The event dictionary containing start and end dateTime fields
-
-    Returns:
-        Tuple of (current_start, current_end) datetime objects, or None if parsing fails
-    """
-    current_start_str = safe_get(event, ["start", "dateTime"])
-    current_end_str = safe_get(event, ["end", "dateTime"])
-
-    # Parse start time
-    if current_start_str:
-        try:
-            current_start = datetime.datetime.fromisoformat(
-                current_start_str.replace("Z", "+00:00")
-            )
-        except ValueError:
-            try:
-                current_start = datetime.datetime.strptime(current_start_str, DATETIME_FORMAT)
-            except ValueError:
-                current_start = None
-                print("Could not parse start time, using empty value")
-    else:
-        current_start = None
-
-    # Parse end time
-    if current_end_str:
-        try:
-            current_end = datetime.datetime.fromisoformat(current_end_str.replace("Z", "+00:00"))
-        except ValueError:
-            try:
-                current_end = datetime.datetime.strptime(current_end_str, DATETIME_FORMAT)
-            except ValueError:
-                current_end = None
-                print("Could not parse end time, using empty value")
-    else:
-        current_end = None
-
-    return current_start, current_end
 
 
 def _process_individual_component_modification(event, confirmation, current_start, current_end):
@@ -923,7 +877,6 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
 
     Performs basic sanity checks:
     - Start and end dateTime fields are present and parseable (hard error)
-    - End time is after start time (hard error)
     - Dates are not unreasonably far in the past (> 2 years ago) or future
       (> 5 years from now) — logged as warning, does not block processing
 
@@ -945,13 +898,6 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
     if current_end is None:
         errors.append(f"{label}Event is missing a valid end dateTime")
 
-    if current_start is not None and current_end is not None:
-        if current_end <= current_start:
-            errors.append(
-                f"{label}Event end ({current_end.strftime(DATETIME_FORMAT)}) "
-                f"is not after start ({current_start.strftime(DATETIME_FORMAT)})"
-            )
-
     now = datetime.datetime.now(datetime.timezone.utc)
     reasonable_past = now - timedelta(days=730)  # 2 years ago
     reasonable_future = now + timedelta(days=1825)  # 5 years from now
@@ -959,16 +905,14 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
     for field_name, dt in [("start", current_start), ("end", current_end)]:
         if dt is None:
             continue
-        # Make naive UTC for comparison if timezone-aware
-        dt_cmp = dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
-        if dt_cmp < reasonable_past.replace(tzinfo=None):
+        if dt < reasonable_past:
             warnings.append(
-                f"{label}Event {field_name} time ({dt_cmp.strftime(DATETIME_FORMAT)}) "
+                f"{label}Event {field_name} time ({dt.strftime(DATETIME_FORMAT)}) "
                 f"is unreasonably far in the past (> 2 years)"
             )
-        if dt_cmp > reasonable_future.replace(tzinfo=None):
+        if dt > reasonable_future:
             warnings.append(
-                f"{label}Event {field_name} time ({dt_cmp.strftime(DATETIME_FORMAT)}) "
+                f"{label}Event {field_name} time ({dt.strftime(DATETIME_FORMAT)}) "
                 f"is unreasonably far in the future (> 5 years)"
             )
 
@@ -977,6 +921,7 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
         print(f"WARNING: {w}")
 
     return len(errors) == 0, errors
+
 
 
 def _modify_single_component(dt, component, time_label):
