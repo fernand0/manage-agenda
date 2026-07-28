@@ -841,12 +841,12 @@ def _process_date_modification(event, confirmation, current_start, current_end):
     return event
 
 
-def _validate_event_dates_interactive(event):
+def _validate_event_dates_interactive(event, post_identifier=None):
     """Interactively confirms and corrects event dates."""
     current_start, current_end = _parse_event_times(event)
 
-    # Extended prompt with options for individual components (includes 'r' option for retry)
-    confirmation = input(DATE_CONFIRM_PROMPT).lower()
+    label = f"[{post_identifier}] " if post_identifier else ""
+    confirmation = input(f"{label}{DATE_CONFIRM_PROMPT}").lower()
 
     # Check if user wants to retry with LLM
     if confirmation == "r":
@@ -1221,7 +1221,7 @@ def _process_event_with_llm_and_calendar(
                             retry_needed = False
                             if args.interactive:
                                 validation_result = _validate_event_dates_interactive(
-                                    single_event,
+                                    single_event, post_identifier
                                 )
                                 if isinstance(validation_result, tuple):
                                     single_event, retry_needed = validation_result
