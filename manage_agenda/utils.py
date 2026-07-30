@@ -1473,7 +1473,7 @@ def _format_datetime_for_display(dt_value):
         return dt_string
 
 
-def _display_event_info(event, subject_for_print, elapsed_time=None, model=None):
+def _display_event_info(event, subject_for_print, elapsed_time=None, model=None, post_identifier=""):
     """
     Display event information consistently across the application.
 
@@ -1497,6 +1497,8 @@ def _display_event_info(event, subject_for_print, elapsed_time=None, model=None)
 
     print("=====================================")
     print(f"Summary: {event_summary}")
+    if post_identifier:
+        print(f"File: {post_identifier}")
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
     print(f"Model: {model.model_name}")
@@ -1586,7 +1588,7 @@ def _process_event_with_llm_and_calendar(
                             )
 
 
-                            _display_event_info(single_event, subject_for_print, elapsed_time, model)
+                            _display_event_info(single_event, subject_for_print, elapsed_time, model, post_identifier)
 
                             retry_needed = False
                             if args.interactive:
