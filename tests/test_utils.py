@@ -761,7 +761,7 @@ more text"""
             self.assertEqual(mock_api_src.deletePostId.call_count, 1)
             # deletePostId is called once on the new api_src object
             self.assertEqual(mock_new_api_src.deletePostId.call_count, 1)
-            
+
             # Check that the error message was logged
             mock_logging_error.assert_called_once_with("Could not delete email post123 after 2 attempts: Connection error 2")
 
@@ -1174,7 +1174,7 @@ more text"""
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
-    @patch("manage_agenda.utils._interactive_date_confirmation")
+    @patch("manage_agenda.utils._validate_event_dates_interactive")
     def test_process_event_with_llm_and_calendar_multiple_events(
         self,
         mock_interactive_confirmation,
@@ -1206,7 +1206,7 @@ more text"""
             "start": {"dateTime": "2024-01-02T12:00:00"},
             "end": {"dateTime": "2024-01-02T13:00:00"},
         }
-        
+
         # get_event_from_llm returns (event, vcal_json, elapsed_time)
         mock_get_event_from_llm.return_value = ((event1, event2), (event1, event2), 1.0)
 
@@ -1234,7 +1234,7 @@ more text"""
         # Check write_file calls for suffix index files: _1.vcal, _1.json, _1_times.json, _2.vcal, ...
         # (each event writes 3 files)
         self.assertEqual(mock_write_file.call_count, 8)
-        
+
         # Verify publishPost was called for both events
         self.assertEqual(mock_api_dst.publishPost.call_count, 2)
 
@@ -1242,7 +1242,7 @@ more text"""
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
-    @patch("manage_agenda.utils._interactive_date_confirmation")
+    @patch("manage_agenda.utils._validate_event_dates_interactive")
     def test_process_event_with_llm_and_calendar_file_output(
         self,
         mock_interactive_confirmation,
@@ -1270,7 +1270,7 @@ more text"""
             "start": {"dateTime": "2024-01-01T10:00:00"},
             "end": {"dateTime": "2024-01-01T11:00:00"},
         }
-        
+
         # _extract_event_with_llm_retry returns (event, vcal_json, elapsed_time, extraction_success, need_restart, need_another_ai)
         # event is always a list (enforced in _extract_event_with_llm_retry)
         mock_extract_event_with_llm_retry.return_value = ([event], event, 1.0, True, False, False)
@@ -1291,7 +1291,7 @@ more text"""
         # Verify select_api_source, select_calendar, and publishPost were not called
         mock_select_api_source.assert_not_called()
         mock_select_calendar.assert_not_called()
-        
+
         # Verify file write was called
         mock_write_file.assert_called()
 

@@ -5,7 +5,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from pathlib import Path, PosixPath
+from pathlib import Path
 from typing import Optional
 
 import dateparser
@@ -287,6 +287,75 @@ def filter_events_by_title(api_cal, events, text_filter):
     return filtered_events
 
 
+def _parse_datetime_to_utc(dt_str, tz_name=None):
+    """Parse a datetime string, localize it if naive, and convert to UTC.
+
+    Args:
+        dt_str: Datetime string to parse (ISO format or DATETIME_FORMAT).
+        tz_name: Timezone name to localize naive datetimes with.
+
+    Returns:
+        datetime object in UTC, or None if parsing fails.
+    """
+    if not dt_str:
+        return None
+
+    if isinstance(dt_str, str):
+        normalized_str = dt_str.replace("Z", "+00:00")
+    else:
+        return None
+
+    try:
+        dt_obj = datetime.datetime.fromisoformat(normalized_str)
+    except ValueError:
+        try:
+            dt_obj = datetime.datetime.strptime(normalized_str, DATETIME_FORMAT)
+        except ValueError as parse_err:
+            logging.error(f"Invalid datetime format: '{dt_str}'. Error: {parse_err}")
+            return None
+
+    if dt_obj.tzinfo is None:  # Naive datetime
+        if tz_name:
+            try:
+                local_tz = pytz.timezone(tz_name)
+                dt_obj = local_tz.localize(dt_obj)
+            except pytz.exceptions.UnknownTimeZoneError:
+                logging.warning(
+                    f"Unknown timezone '{tz_name}'. "
+                    f"Using default timezone: {config.DEFAULT_TIMEZONE}"
+                )
+                dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
+        else:
+            dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
+
+    return dt_obj.astimezone(pytz.utc)
+
+
+def _parse_event_times(event):
+    """Parse start and end times from an event into UTC datetime objects.
+
+    Args:
+        event: The event dictionary containing start and end dateTime fields
+
+    Returns:
+        Tuple of (current_start, current_end) datetime objects in UTC, or None if parsing fails
+    """
+    start_str = safe_get(event, ["start", "dateTime"])
+    start_tz = safe_get(event, ["start", "timeZone"])
+    end_str = safe_get(event, ["end", "dateTime"])
+    end_tz = safe_get(event, ["end", "timeZone"])
+
+    current_start = _parse_datetime_to_utc(start_str, start_tz)
+    if start_str and current_start is None:
+        print("Could not parse start time, using empty value")
+
+    current_end = _parse_datetime_to_utc(end_str, end_tz)
+    if end_str and current_end is None:
+        print("Could not parse end time, using empty value")
+
+    return current_start, current_end
+
+
 def adjust_event_times(event):
     """Adjusts event start/end times, localizing naive times and converting to UTC.
 
@@ -295,122 +364,46 @@ def adjust_event_times(event):
 
     Returns:
         dict: Event with adjusted times in UTC.
-
-    Raises:
-        ValidationError: If datetime validation fails critically.
     """
-
-    def _process_single_time_field(time_str, input_tz_name, field_name_for_logging):
-        """
-        Processes a single datetime string, localizes it, and converts to UTC.
-        Returns (processed_iso_string, True if successful, False otherwise).
-        """
-        if not time_str:
-            return None, False
-
-        try:
-            dt_obj = datetime.datetime.fromisoformat(time_str)
-
-            if dt_obj.tzinfo is None:  # Naive datetime
-                if input_tz_name:
-                    try:
-                        local_tz = pytz.timezone(input_tz_name)
-                        dt_obj = local_tz.localize(dt_obj)
-                    except pytz.exceptions.UnknownTimeZoneError:
-                        logging.warning(
-                            f"Unknown timezone '{input_tz_name}' for {field_name_for_logging}. "
-                            f"Using default timezone: {config.DEFAULT_TIMEZONE}"
-                        )
-                        dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
-                else:
-                    dt_obj = DEFAULT_NAIVE_TIMEZONE.localize(dt_obj)
-
-            return dt_obj.astimezone(pytz.utc).isoformat(), True
-        except ValueError as e:
-            logging.error(
-                f"Invalid datetime format for {field_name_for_logging}: '{time_str}'. Error: {e}"
-            )
-            return None, False
-        except Exception as e:
-            logging.error(f"Unexpected error processing {field_name_for_logging}: {e}")
-            return None, False
-
-    def _infer_missing_time(existing_dt_iso, target_field_dict, infer_type):
-        """
-        Infers a missing start or end time based on an existing time.
-        existing_dt_iso: ISO formatted string of the existing datetime
-        (already UTC).  target_field_dict: The 'start' or 'end' dictionary to
-        update.  infer_type: 'start' to infer start from end, 'end' to infer
-        end from start.
-        """
-        if not existing_dt_iso:
-            return
-
-        try:
-            existing_dt = datetime.datetime.fromisoformat(existing_dt_iso)  # This is already UTC
-
-            if infer_type == "start":
-                inferred_dt = existing_dt - timedelta(minutes=30)
-            elif infer_type == "end":
-                inferred_dt = existing_dt + timedelta(minutes=30)
-            else:
-                return  # Should not happen
-
-            target_field_dict["dateTime"] = inferred_dt.isoformat()
-            target_field_dict["timeZone"] = "UTC"
-        except ValueError:
-            print(f"Error inferring {infer_type} time from existing time.")
-
     # Ensure start and end are dictionaries
-    # print(f"Event: {event}")
-    event.setdefault("start", {})
-    event.setdefault("end", {})
+    if not isinstance(event.get("start"), dict):
+        event["start"] = {}
+    if not isinstance(event.get("end"), dict):
+        event["end"] = {}
     start = event["start"]
     end = event["end"]
 
-    # Process start time
-    start_time_str = start.get("dateTime") if isinstance(start, dict) else None
-    input_start_tz_name = start.get("timeZone") if isinstance(start, dict) else None
-    processed_start_time, start_success = _process_single_time_field(
-        start_time_str, input_start_tz_name, "Start"
-    )
+    # Parse start and end times using the shared parser
+    start_dt, end_dt = _parse_event_times(event)
 
-    if start_success:
-        start["dateTime"] = processed_start_time
+    # 1. Update start time if successfully parsed
+    if start_dt:
+        start["dateTime"] = start_dt.isoformat()
         start["timeZone"] = "UTC"
 
-    # Process end time
-    end_time_str = end.get("dateTime") if isinstance(end, dict) else None
-    input_end_tz_name = end.get("timeZone") if isinstance(end, dict) else None
-    processed_end_time, end_success = _process_single_time_field(
-        end_time_str, input_end_tz_name, "End"
-    )
-
-    if end_success:
-        end["dateTime"] = processed_end_time
+    # 2. Update end time if successfully parsed
+    if end_dt:
+        end["dateTime"] = end_dt.isoformat()
         end["timeZone"] = "UTC"
 
-    # Inference logic
-    if isinstance(start, dict) and not start.get("dateTime") and end_success and end.get("dateTime"):
-        _infer_missing_time(end["dateTime"], start, "start")
+    # 3. Inference logic if one of start_dt or end_dt is missing but the other is present
+    if not start_dt and end_dt:
+        start_dt = end_dt - timedelta(minutes=30)
+        start["dateTime"] = start_dt.isoformat()
+        start["timeZone"] = "UTC"
 
-    if isinstance(end, dict) and not end.get("dateTime") and start_success and start.get("dateTime"):
-        _infer_missing_time(start["dateTime"], end, "end")
+    if not end_dt and start_dt:
+        end_dt = start_dt + timedelta(minutes=30)
+        end["dateTime"] = end_dt.isoformat()
+        end["timeZone"] = "UTC"
 
-    # Ensure end time is after start time
-    if isinstance(end, dict) and isinstance(end, dict):
-        if start.get("dateTime") and end.get("dateTime"):
-            try:
-                start_dt = datetime.datetime.fromisoformat(start["dateTime"])
-                end_dt = datetime.datetime.fromisoformat(end["dateTime"])
-
-                if end_dt <= start_dt:
-                    print("Validation Warning: End time is not after start time. Adjusting end time.")
-                    end_dt = start_dt + timedelta(minutes=30)
-                    end["dateTime"] = end_dt.isoformat()
-                    end["timeZone"] = "UTC"  # Ensure timezone is set if adjusted
-            except ValueError:
-                print("Error comparing start and end times. Skipping adjustment.")
+    # 4. Ensure end time is after start time
+    if start_dt and end_dt:
+        if end_dt <= start_dt:
+            print("Validation Warning: End time is not after start time. Adjusting end time.")
+            end_dt = start_dt + timedelta(minutes=30)
+            end["dateTime"] = end_dt.isoformat()
+            end["timeZone"] = "UTC"
 
     return event
 
@@ -438,20 +431,7 @@ def _ensure_valid_event_timezones(event, fallback_tz="UTC"):
     return event
 
 
-# def list_models_cli(args):
-#     """Lists available LLMs."""
-#     "Not used. Maybe interesting?"
-#     if args.source == "ollama":
-#         models = OllamaClient.list_models()
-#         for i, model in enumerate(models):
-#             print(f"{i}) {model['model']}")
-#     elif args.source == "gemini":
-#         models = GeminiClient.list_models()
-#         for i, model in enumerate(models):
-#             if "gemini" in model.name:
-#                 print(f"{i}) {model.name}")
-#     else:
-#         print("Model listing not supported for this source.")
+
 
 
 def extract_json(text):
@@ -476,97 +456,9 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
-# # tinyllama:latest reply
-#     llm_response = """
-# Here's a sample JSON structure to fill in event information using the provided text as input:
-# 
-# ```json
-# {
-#     "summary": "",
-#     "location": "",
-#     "descripionation": "",
-#     "start": {
-#         "dateTime": "YYYY-MM-DD HH:MM:SS",
-#         "timeZone": ""
-#     },
-#     "end": [
-#         {
-#             "dateTime": "YYYY-MM-DD HH:MM:SS",
-#             "timeZone": ""
-#         }
-#     ],
-#     "recurrence": []
-# }
-# ```
-# 
-# Here, the `start` object has a `dateTime` property with YYYY-MM-DD HH:MM:SS format. The `end` array includes only one entry, which is a single date with YYYY-MM-DD HH:MM:SS format. For each `recurrence` entry, the date/time specifies when the event repeats.
-# 
-# Remember to normalize your dates in the text input by using ISO 8601 formats (e.g., "YYYY-MM-DD HH:MM:SS").
-# """
-#<think>
-#Okay, let's tackle this query step by step. The user wants me to extract event information from the provided text and fill in the specified JSON structure. 
-#
-#First, I need to parse the source text carefully. The subject line mentions a charla invitada (invited lecture) by Davide Balzarotti about memory forensics. The message body has more details. 
-#
-#Looking at the message, the main event is a lecture scheduled for the next Wednesday, July 16th, 2025, at 09:00 - 10:00. The location is a Microsoft Teams meeting with the given ID and passcode. The description includes the talk's content about memory forensics challenges and future directions.
-#
-#I need to check the instructions. The reference date is July 23, 2026, but the event is on July 16, 2025, which is in the past relative to the reference date. However, the user says to use explicit dates over the reference date. Since the text explicitly states July 16, 2025, that's the correct date. 
-#
-#The timezone isn't mentioned, so default to CET. The start and end times are 09:00 and 10:00. The summary should be the main event title: "Memory Forensics 2.0" lecture by Davide Balzarotti. The location is the Teams meeting details. The description includes the provided text about the talk's content. 
-#
-#I need to format the dateTime fields in ISO 8601. Start is 2025-07-16 09:00:00 and end is 2025-07-16 10:00:00. Recurrence is empty since there's no mention of a series. Also, replace any quotes with single quotes. Make sure all fields are in double quotes and the JSON is valid. 
-#
-#Double-checking the instructions: no translations, use original language, no extra info. The final JSON should have all the required fields filled correctly.
-#</think>
-#
-#{
-#  "summary": "Memory Forensics 2.0",
-#  "location": "Sala de Microsoft Teams [1] (Meeting ID: 326 077 603 487, Passcode: S686Fo6V)",
-#  "description": "In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics.",
-#  "start": {
-#    "dateTime": "2025-07-16 09:00:00",
-#    "timeZone": "CET"
-#  },
-#  "end": {
-#    "dateTime": "2025-07-16 10:00:00",
-#    "timeZone": "CET"
-#  },
-#  "recurrence": []
-#}
-#"""
-#     llm_response = """
-# ```json
-# {
-# 'summary': 'Charla invitada de Davide Balzarotti sobre Memory Forensics 2.0',
-# 'location': 'Sala de Microsoft Teams',
-# 'description': 'In this talk I discuss the challenges of memory forensics and the way they had been addressed by past and current solutions. I will then present some of our recent contributions in this area and use them to introduce my view on the future of memory forensics. Una excelente oportunidad para conocer investigaciones punteras enciberseguridad aplicada a forense de memoria.',
-# 'start': {
-# 'dateTime': '2026-07-16 09:00:00',
-# 'timeZone': 'CET'
-# },
-# 'end': {
-# 'dateTime': '2026-07-16 10:00:00',
-# 'timeZone': 'CET'
-# },
-# 'recurrence': []
-# }
-# ```
-# """
-#     llm_response = """
-#     JSON:
-# ```json
-# {
-#     "summary": "Memory forensics 2.0: Challenges and Solutions",
-#     "timestamp": "2026-07-16 11:09:15.251697",
-#     "topics": [
-#         "Challenges of memory forensics",
-#         "Solutions to overcome the challenges",
-#         "Examples and applications of memory forensics 2. "
-#         """
     write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
-    #if verbose:
     print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
 
     memory_error_occurred = False
@@ -586,7 +478,6 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
             print(f"Reply:\n{llm_response}")
             print("End Reply")
 
-        #llm_response = llm_response.replace("\\", "").replace("\n", " ")
         response = llm_response.replace("\n", " ")
         llm_response = response
 
@@ -761,7 +652,6 @@ def list_events_folder(args, api_src, calendar=""):
         api_src.setPosts()
         if api_src.getPosts():
             for i, post in enumerate(api_src.getPosts()):
-                post_date = api_src.getPostDate(post)
                 post_title = api_src.getPostTitle(post)
                 print(f"{i}) {post_title}")
     else:
@@ -769,7 +659,7 @@ def list_events_folder(args, api_src, calendar=""):
 
 def _get_msgs_from_folder(args, source_name, rules=None):
     """Helper function to get posts stored in some folder."""
-    "FIXME: maybe a folder argument?"
+    # FIXME: maybe a folder argument?
 
     if source_name and isinstance(source_name, list):
         txt_files = source_name
@@ -844,7 +734,7 @@ def list_emails_folder(args, rules=None):
 
 def _create_llm_prompt(*args):
     """Constructs the LLM prompt for event extraction."""
-    from pathlib import Path, PosixPath
+    from pathlib import Path
 
     if len(args) == 2:
         content_text, reference_date_time = args
@@ -887,47 +777,7 @@ def _create_llm_prompt(*args):
     return prompt_template.format(event=event, content_text=content_text)
 
 
-def _parse_event_times(event):
-    """Parse start and end times from an event into datetime objects.
 
-    Args:
-        event: The event dictionary containing start and end dateTime fields
-
-    Returns:
-        Tuple of (current_start, current_end) datetime objects, or None if parsing fails
-    """
-    current_start_str = safe_get(event, ["start", "dateTime"])
-    current_end_str = safe_get(event, ["end", "dateTime"])
-
-    # Parse start time
-    if current_start_str:
-        try:
-            current_start = datetime.datetime.fromisoformat(
-                current_start_str.replace("Z", "+00:00")
-            )
-        except ValueError:
-            try:
-                current_start = datetime.datetime.strptime(current_start_str, DATETIME_FORMAT)
-            except ValueError:
-                current_start = None
-                print("Could not parse start time, using empty value")
-    else:
-        current_start = None
-
-    # Parse end time
-    if current_end_str:
-        try:
-            current_end = datetime.datetime.fromisoformat(current_end_str.replace("Z", "+00:00"))
-        except ValueError:
-            try:
-                current_end = datetime.datetime.strptime(current_end_str, DATETIME_FORMAT)
-            except ValueError:
-                current_end = None
-                print("Could not parse end time, using empty value")
-    else:
-        current_end = None
-
-    return current_start, current_end
 
 
 def _process_individual_component_modification(event, confirmation, current_start, current_end):
@@ -991,35 +841,38 @@ def _process_date_modification(event, confirmation, current_start, current_end):
     return event
 
 
-def _interactive_date_confirmation(
-    args,
-    event,
-    model=None,
-    content_text=None,
-    reference_date_time=None,
-    post_identifier=None,
-    subject_for_print=None,
-):
-    """Interactively confirms and corrects event dates."""
-    if args.interactive:
+def _validate_event_dates_interactive(event, post_identifier=None):
+    """Interactively confirms and corrects event dates.
+
+    Prompts the user in a loop until they accept ('s') or reject ('r')
+    the dates. After each modification the updated times are shown and
+    the user is prompted again.
+
+    Returns:
+        Tuple of (event, is_valid: bool, errors: list[str]).
+    """
+
+    errors = []
+    is_valid = True
+
+    label = f"[{post_identifier}] " if post_identifier else ""
+
+    confirmed = False
+    while not confirmed:
         current_start, current_end = _parse_event_times(event)
+        confirmation = input(f"{label}{DATE_CONFIRM_PROMPT}").lower()
 
-        # Extended prompt with options for individual components (includes 'r' option for retry)
-        confirmation = input(DATE_CONFIRM_PROMPT).lower()
-
-        # Check if user wants to retry with LLM
         if confirmation == "r":
-            return event, True  # Return event and True to indicate retry is needed
+            is_valid = False
+            confirmed = True
+        elif confirmation in ("s", ""):
+            confirmed = True
+        else:
+            event = _process_date_modification(
+                event, confirmation, current_start, current_end
+            )
 
-        if confirmation == "s":
-            # Yes, dates are correct
-            return event, False  # No retry needed
-
-        # Process date modification (full or individual component)
-        event = _process_date_modification(event, confirmation, current_start, current_end)
-
-    # Return the event and flag indicating no retry needed
-    return event, False
+    return event, is_valid, errors
 
 
 def _validate_event_dates_non_interactive(event, post_identifier=None):
@@ -1027,7 +880,6 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
 
     Performs basic sanity checks:
     - Start and end dateTime fields are present and parseable (hard error)
-    - End time is after start time (hard error)
     - Dates are not unreasonably far in the past (> 2 years ago) or future
       (> 5 years from now) — logged as warning, does not block processing
 
@@ -1036,7 +888,7 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
         post_identifier: Optional identifier for logging context.
 
     Returns:
-        Tuple of (is_valid: bool, errors: list[str]).
+        Tuple of (event, is_valid: bool, errors: list[str]).
     """
     errors = []
     warnings = []
@@ -1044,17 +896,8 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
 
     current_start, current_end = _parse_event_times(event)
 
-    if current_start is None:
-        errors.append(f"{label}Event is missing a valid start dateTime")
-    if current_end is None:
-        errors.append(f"{label}Event is missing a valid end dateTime")
-
-    if current_start is not None and current_end is not None:
-        if current_end <= current_start:
-            errors.append(
-                f"{label}Event end ({current_end.strftime(DATETIME_FORMAT)}) "
-                f"is not after start ({current_start.strftime(DATETIME_FORMAT)})"
-            )
+    if current_start is None or current_end is None:
+        errors.append(f"{label}Event is missing valid start or end dateTime")
 
     now = datetime.datetime.now(datetime.timezone.utc)
     reasonable_past = now - timedelta(days=730)  # 2 years ago
@@ -1063,16 +906,14 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
     for field_name, dt in [("start", current_start), ("end", current_end)]:
         if dt is None:
             continue
-        # Make naive UTC for comparison if timezone-aware
-        dt_cmp = dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
-        if dt_cmp < reasonable_past.replace(tzinfo=None):
+        if dt < reasonable_past:
             warnings.append(
-                f"{label}Event {field_name} time ({dt_cmp.strftime(DATETIME_FORMAT)}) "
+                f"{label}Event {field_name} time ({dt.strftime(DATETIME_FORMAT)}) "
                 f"is unreasonably far in the past (> 2 years)"
             )
-        if dt_cmp > reasonable_future.replace(tzinfo=None):
+        if dt > reasonable_future:
             warnings.append(
-                f"{label}Event {field_name} time ({dt_cmp.strftime(DATETIME_FORMAT)}) "
+                f"{label}Event {field_name} time ({dt.strftime(DATETIME_FORMAT)}) "
                 f"is unreasonably far in the future (> 5 years)"
             )
 
@@ -1080,7 +921,8 @@ def _validate_event_dates_non_interactive(event, post_identifier=None):
     for w in warnings:
         print(f"WARNING: {w}")
 
-    return len(errors) == 0, errors
+    return event, len(errors) == 0, errors
+
 
 
 def _modify_single_component(dt, component, time_label):
@@ -1128,25 +970,7 @@ def _modify_single_component(dt, component, time_label):
         return dt
 
 
-# def _normalize_post_identifier(post_identifier):
-#     """Strip file extensions (e.g. '.txt') from post_identifier.
-# 
-#     When reprocessing saved .txt files, the post_identifier arrives with a
-#     .txt suffix.  Stripping it here lets all downstream code (file writes,
-#     calendar creation) use the same paths regardless of where the input came
-#     from.
-# 
-#     Returns:
-#         The post_identifier with any file extension removed, preserving its
-#         original type (str or Path).
-#     """
-#     if isinstance(post_identifier, PosixPath) and post_identifier.suffix:
-#         result = post_identifier.with_suffix("")
-#     elif isinstance(post_identifier, str) and "." in post_identifier.rsplit("/", 1)[-1]:
-#         result = str(Path(post_identifier).with_suffix(""))
-#     else:
-#         result = post_identifier
-#     return result
+
 
 
 def _extract_event_with_llm_retry(
@@ -1215,7 +1039,7 @@ def _extract_event_with_llm_retry(
 
         # If we got here, extraction failed (event is None)
         # Save whatever we got for debugging
-        write_file(f"log/{post_identifier}_fail.vcal", 
+        write_file(f"log/{post_identifier}_fail.vcal",
                    json.dumps(vcal_json) if vcal_json else "Failed extraction")
 
         if not args.interactive:
@@ -1253,192 +1077,7 @@ def _extract_event_with_llm_retry(
     else:
         write_file(f"log/{post_identifier}.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
 
-    # TODO: event is always a list (enforced at line ~1031), so the
-    # `_validate_and_complete_event_interactively` path below is dead code.
-    # Re-enable if single-event validation is needed again.
     return event, vcal_json, total_elapsed_time, True, False, False
-
-    # # Now validate the event and handle interactive completion if needed
-    # validated_event, validated_vcal_json, need_restart, need_another_ai, new_content = (
-    #     _validate_and_complete_event_interactively(
-    #         args,
-    #         event,
-    #         vcal_json,
-    #         total_elapsed_time,
-    #         post_identifier,
-    #         subject_for_print,
-    #         model,
-    #         prompt_content,
-    #         reference_date_time,
-    #     )
-    # )
-
-    # if need_another_ai:
-    #     prompt_content = new_content
-    #     # Restart the extraction loop with new content (snippet or original)
-    #     return _extract_event_with_llm_retry(
-    #         args, model, prompt_content, reference_date_time, post_identifier, subject_for_print
-    #     )
-
-    # # If validation failed completely
-    # if validated_event is None:
-    #     return (
-    #         validated_event,
-    #         validated_vcal_json,
-    #         total_elapsed_time,
-    #         False,
-    #         need_restart,
-    #         need_another_ai,
-    #     )
-
-    # # Success - return validated event
-    # return (
-    #     validated_event,
-    #     validated_vcal_json,
-    #     total_elapsed_time,
-    #     True,
-    #     need_restart,
-    #     need_another_ai,
-    # )
-
-
-def _validate_and_complete_event_interactively(
-    args,
-    event,
-    vcal_json,
-    elapsed_time,
-    post_identifier,
-    subject_for_print,
-    model,
-    content_text,
-    reference_date_time,
-):
-    """
-    Validate the event and handle interactive completion if needed.
-
-    Args:
-        args: Arguments object
-        event: Event dictionary to validate
-        vcal_json: vCal JSON data
-        elapsed_time: Time taken for AI processing
-        post_identifier: Identifier for the post
-        subject_for_print: Subject/title to display
-        model: Current LLM model
-        content_text: Content text
-        reference_date_time: Reference date/time
-
-    Returns:
-        tuple: (event, vcal_json, need_restart, need_another_ai, new_content_text)
-               where need_restart indicates if the whole process should restart,
-               need_another_ai indicates if another AI call is needed,
-               and new_content_text is updated content if provided.
-    """
-    # --- LLM Response Validation/Retry Loop ---
-    retries = 0
-    max_retries = 3  # Limit AI retries
-    data_complete = False
-    should_skip = False
-    need_restart = False
-    need_another_ai = False
-    new_content_text = content_text
-
-    # Process until completion or termination condition
-    while (
-        not data_complete
-        and retries <= max_retries
-        and not should_skip
-        and not need_restart
-        and not need_another_ai
-    ):
-        summary = event.get("summary")
-        start_datetime = event.get("start", {}).get("dateTime")
-
-        if not summary:
-            print("- Summary")
-            summary = subject_for_print
-            if summary:
-                event["summary"] = summary
-
-        if summary and start_datetime:
-            data_complete = True
-        else:
-            if args.interactive:
-                print("\nMissing event information:")
-                if not summary:
-                    print("- Summary")
-                if not start_datetime:
-                    print("- Start Date/Time")
-
-                choice = _print_context_and_options(
-                    content_text,
-                    "Options: (m)anual input, (a)nother AI, (p)rovide snippet, (s)kip item, (r)estart: ",
-                )
-
-                if choice == "m":
-                    if not summary:
-                        new_summary = input("Enter Summary: ")
-                        if new_summary:
-                            event["summary"] = new_summary
-                    if not start_datetime:
-                        new_start_datetime_str = _get_datetime_input("start")
-                        if new_start_datetime_str:
-                            try:
-                                new_start_datetime = datetime.datetime.strptime(
-                                    new_start_datetime_str, DATETIME_FORMAT
-                                )
-                                event.setdefault("start", {})[
-                                    "dateTime"
-                                ] = new_start_datetime.isoformat()
-                                # Removed event['start'].setdefault('timeZone', 'Europe/Madrid') as adjust_event_times handles it
-                            except ValueError:
-                                print("Invalid date/time format. Please use YYYY-MM-DD HH:MM:SS.")
-                                # Just continue with the loop, but don't mark as complete
-                                # We'll continue to the next iteration by not setting data_complete = True
-                    data_complete = True
-                elif choice == "a":
-                    retries += 1
-                    if retries > max_retries:
-                        print("Max AI retries reached. Skipping item.")  # Generalized message
-                        should_skip = True
-                    else:
-                        need_another_ai = True
-                        data_complete = True
-                elif choice == "p":
-                    snippet = _get_text_snippet(content_text)
-                    if snippet:
-                        new_content_text = snippet
-                        need_another_ai = True
-                        data_complete = True
-                    else:
-                        print("No snippet provided. Continuing with current options.")
-                elif choice == "s":
-                    should_skip = True
-                elif choice == "r":  # User wants to restart from the beginning
-                    need_restart = True
-                else:
-                    print("Invalid choice. Please try again.")
-                    retries += 1
-                    # Just continue with the loop
-            else:  # Non-interactive mode
-                if not summary or not start_datetime:
-                    logging.warning(
-                        f"Missing summary or start_datetime for {post_identifier}. Skipping."
-                    )
-                    should_skip = True
-                else:
-                    data_complete = True
-
-    # Determine return values based on flags
-    if should_skip or not data_complete:
-        return None, None, need_restart, need_another_ai, new_content_text  # Return flags
-    else:
-        return (
-            event,
-            vcal_json,
-            need_restart,
-            need_another_ai,
-            new_content_text,
-        )  # Return validated event and flags
 
 
 def _format_datetime_for_display(dt_value):
@@ -1592,23 +1231,12 @@ def _process_event_with_llm_and_calendar(
 
                             retry_needed = False
                             if args.interactive:
-                                validation_result = _interactive_date_confirmation(
-                                    args,
-                                    single_event,
-                                    model,
-                                    content_text,
-                                    reference_date_time,
-                                    post_identifier,
-                                    subject_for_print,
+                                single_event, is_valid, _ = _validate_event_dates_interactive(
+                                    single_event, post_identifier
                                 )
-                                if isinstance(validation_result, tuple):
-                                    single_event, retry_needed = validation_result
-                                else:
-                                    single_event = validation_result
-                                    retry_needed = False
+                                retry_needed = not is_valid
                             else:
-                                # Non-interactive date validation: check dates exist and are reasonable
-                                is_valid, validation_errors = _validate_event_dates_non_interactive(
+                                single_event, is_valid, validation_errors = _validate_event_dates_non_interactive(
                                     single_event, post_identifier
                                 )
                                 if not is_valid:
@@ -1627,7 +1255,7 @@ def _process_event_with_llm_and_calendar(
                             if single_event is not None:
                                 _add_ai_metadata_to_event(single_event, model, elapsed_time)
                                 file_name = f"log/{post_identifier}_{idx}_times.json"
-                                if getattr(args, "output", "calendar") == "calendar": 
+                                if getattr(args, "output", "calendar") == "calendar":
                                     published, calendar_result = _publish_event_to_calendar(
                                         api_dst, single_event, selected_calendar
                                     )
@@ -1656,57 +1284,6 @@ def _process_event_with_llm_and_calendar(
                     else:
                         return None, None
         return None, None
-                    # # Dead code: single-event path (event is always a list)
-                    # else:
-                    #     event = adjust_event_times(event)
-                    #     file_name_res = f"{model}/{post_identifier}"
-                    #     logging.info(f"File name: {file_name_res}")
-                    #     write_file(f"{file_name_res}.json", json.dumps(event))
-
-                    #     _display_event_info(event, subject_for_print, elapsed_time)
-
-                    #     event, retry_needed = _interactive_date_confirmation(
-                    #         args,
-                    #         event,
-                    #         model,
-                    #         content_text,
-                    #         reference_date_time,
-                    #         post_identifier,
-                    #         subject_for_print,
-                    #     )
-
-                    #     if not (retry_needed and model and content_text and reference_date_time):
-                    #         should_process = False
-
-                    #         if event is not None:
-                    #             _add_ai_metadata_to_event(event, model, elapsed_time)
-
-                    #             if getattr(args, "output", "calendar") == "calendar":
-                    #                 selected_calendar = select_calendar(api_dst)
-                    #                 if selected_calendar:
-                    #                     published, calendar_result = _publish_event_to_calendar(
-                    #                         api_dst, event, selected_calendar
-                    #                     )
-                    #                     if published:
-                    #                         print("Calendar event created")
-                    #                         success = True
-                    #                 else:
-                    #                     print("No calendar selected, skipping event creation.")
-                    #             else:
-                    #                 calendar_result = f"{post_identifier}_times.json"
-                    #                 print(f"File {post_identifier}_times.json created")
-                    #                 success = True
-
-                    #             write_file(
-                    #                 f"{post_identifier}_times.json", json.dumps(event)
-                    #             )
-
-    # # Dead code: trailing return from single-event path (unreachable after list path returns above)
-    # if success:
-    #     return event, calendar_result
-    # else:
-    #     return None, None
-    return None, None
 
 
 def _publish_event_to_calendar(api_dst, event, selected_calendar):
@@ -1786,7 +1363,7 @@ def _add_ai_metadata_to_event(event, model, elapsed_time, confidence_score=None)
     event.setdefault("extendedProperties", {}).setdefault("private", {}).update(
         {
             "ai_model_used": model_name,
-            "processing_timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "processing_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
             "processing_elapsed_time_seconds": f"{elapsed_time:.2f}",
         }
     )
@@ -1996,7 +1573,6 @@ def process_txt_cli(args, model, source_name=None, rules=None):
                 post_id = post[0]
 
             # print(f"Post id: {post_id}")
-            # post_id = _normalize_post_identifier(post_id)
             # print(f"Post id: {post_id}")
             lines_txt = post[1].split('\n')
             import re
@@ -2189,10 +1765,13 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
             # Replace unsafe characters with underscores
             safe_id = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
 
+            hash_value = hash(urls[i])
+
             # Truncate to a safe length (e.g., 150 chars) to avoid "File name
             # too long" errors
-            if len(safe_id) > 150:
-                safe_id = safe_id[:150]
+            if len(safe_id) > 130:
+                safe_id = safe_id[:130]
+            safe_id = f"{safe_id}_{hash_value}"
 
             return safe_id, title, datetime.datetime.now()
 
@@ -2374,7 +1953,7 @@ def process_calendar_events(
     api_cal.setActive(my_calendar)
 
     today = datetime.datetime.now()
-    today = pytz.utc.localize(datetime.datetime.utcnow())
+    today = datetime.datetime.now(datetime.timezone.utc)
 
     # Fetch events from calendar using socialModules methods
     all_posts = []
@@ -2385,29 +1964,9 @@ def process_calendar_events(
     except Exception:
         all_posts = []
 
-    ## Fall back to the raw Google Calendar API if api_cal.getPosts() does not return a list
-    #if not isinstance(all_posts, (list, tuple)):
-    #    try:
-    #        time_min = today.isoformat(timespec="seconds") + "Z"
-    #        res = (
-    #            api_cal.getClient()
-    #            .events()
-    #            .list(
-    #                calendarId=my_calendar,
-    #                timeMin=time_min,
-    #                singleEvents=True,
-    #                orderBy="startTime",
-    #            )
-    #            .execute()
-    #        )
-    #        all_posts = res.get("items", []) if isinstance(res, dict) else []
-    #    except Exception:
-    #        all_posts = []
-
-    # print(all_posts)
 
     today = datetime.datetime.now()
-    today = pytz.utc.localize(datetime.datetime.utcnow())
+    today = datetime.datetime.now(datetime.timezone.utc)
 
     # If interactive, present all fetched posts (tests expect interactive flows
     # to show items regardless of date)
@@ -2557,12 +2116,9 @@ def update_event_status_cli(args):
         event["transparency"] = "transparent"
 
         # Perform the update
-        updated_event = (
-            api_cal.getClient()
-            .events()
-            .update(calendarId=my_calendar, eventId=event["id"], body=event)
-            .execute()
-        )
+        api_cal.getClient().events().update(
+            calendarId=my_calendar, eventId=event["id"], body=event
+        ).execute()
 
         title = api_cal.getPostTitle(event) or "No Title"
         print(f"Updated event status to available: {title}")

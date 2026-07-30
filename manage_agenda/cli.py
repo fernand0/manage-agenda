@@ -1,14 +1,10 @@
-import click
 import os
 import sys
-
 from runpy import run_module
 
-from socialModules.configMod import (
-    safe_get,
-    select_from_list,
-)
-# Import auxiliary functions and classes from utils.py
+import click
+from socialModules.configMod import select_from_list
+
 from .utils import (
     Args,
     authorize,
@@ -20,51 +16,14 @@ from .utils import (
     list_events_folder,
     move_events_cli,
     process_email_cli,
-    process_web_cli,
     process_txt_cli,
+    process_web_cli,
     select_api_source,
     select_llm,
     update_event_status_cli,
 )
-from .utils_base import (
-    setup_logging,
-)
-from .utils_llm import (
-    evaluate_models,
-)
-
-
-#def select_from_list(options, identifier="", selector="", default=""):
-#    """
-#    Presents a list of options to the user and returns the selected option.
-#    """
-#    for i, option in enumerate(options):
-#        display = option.get(identifier, option) if isinstance(option, dict) else option
-#        print(f"{i}) {display}")
-#
-#    while True:
-#        try:
-#            selection = input("Select an option: ").strip()
-#            if not selection:
-#                continue
-#            if selection.isdigit():
-#                selection = int(selection)
-#                if 0 <= selection < len(options):
-#                    return selection, options[selection]
-#            elif (selection.startswith("http") or ('.' in selection)):
-#                # An URL or a filename containing a '.'
-#                return len(options) - 1, selection
-#            else:
-#                for i, option in enumerate(options):
-#                    option_str = option.get(identifier, str(option)) if isinstance(option, dict) else str(option)
-#                    if selection.lower() in option_str.lower():
-#                        return i, option
-#        except (ValueError, IndexError):
-#            pass
-#        except (KeyboardInterrupt, EOFError):
-#            print("\nSelection cancelled.")
-#            return None, None
-#        print("Invalid selection. Please try again.")
+from .utils_base import setup_logging
+from .utils_llm import evaluate_models
 
 
 @click.group()
@@ -192,13 +151,12 @@ def add(ctx, interactive, source, force_refresh, output):
         # if "Web" in selected_source:  # Check if "Web" is in the selected source string
         print(f"\nSelected: {selected}")
         if isinstance(selected, str) and (("Web" in selected) or selected.startswith("http")):
-            url = None
             if selected.startswith("http"):
                 process_web_cli(args, model, urls=selected.split(" "), force_refresh=force_refresh)
             else:
                 process_web_cli(args, model, force_refresh=force_refresh)
         elif isinstance(selected, str) and (("Text" in selected) or os.path.exists(selected)):
-            if '.' in selected:
+            if "." in selected:
                 process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
             else:
                 process_txt_cli(args, model, rules=rules)
@@ -230,7 +188,6 @@ def auth(ctx, interactive):
     )
     if verbose:
         print(f"Args: {args}")
-    # api_src = select_account(args, api_src_type="g")
     api_src = authorize(args)
     if not api_src.getClient():
         msg = (
