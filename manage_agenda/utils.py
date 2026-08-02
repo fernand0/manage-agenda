@@ -845,6 +845,10 @@ def _process_date_modification(event, confirmation, current_start, current_end):
 def _validate_event_dates_interactive(event, post_identifier=None):
     """Interactively confirms and corrects event dates.
 
+    Prompts the user in a loop until they accept ('s') or reject ('r')
+    the dates. After each modification the updated times are shown and
+    the user is prompted again.
+
     Returns:
         Tuple of (event, is_valid: bool, errors: list[str]).
     """
@@ -852,17 +856,22 @@ def _validate_event_dates_interactive(event, post_identifier=None):
     errors = []
     is_valid = True
 
-    current_start, current_end = _parse_event_times(event)
-
     label = f"[{post_identifier}] " if post_identifier else ""
-    confirmation = input(f"{label}{DATE_CONFIRM_PROMPT}").lower()
 
-    if confirmation == "r":
-        is_valid = False
-    elif confirmation == "s":
-        pass
-    else:
-        event = _process_date_modification(event, confirmation, current_start, current_end)
+    confirmed = False
+    while not confirmed:
+        current_start, current_end = _parse_event_times(event)
+        confirmation = input(f"{label}{DATE_CONFIRM_PROMPT}").lower()
+
+        if confirmation == "r":
+            is_valid = False
+            confirmed = True
+        elif confirmation in ("s", ""):
+            confirmed = True
+        else:
+            event = _process_date_modification(
+                event, confirmation, current_start, current_end
+            )
 
     return event, is_valid, errors
 
@@ -1069,9 +1078,6 @@ def _extract_event_with_llm_retry(
     else:
         write_file(f"log/{post_identifier}.vcal", json.dumps(event) if isinstance(event, (dict, list)) else str(event))
 
-    # TODO: event is always a list (enforced at line ~1031), so the
-    # `_validate_and_complete_event_interactively` path below is dead code.
-    # Re-enable if single-event validation is needed again.
     return event, vcal_json, total_elapsed_time, True, False, False
 
 
@@ -1107,7 +1113,7 @@ def _format_datetime_for_display(dt_value):
         return dt_string
 
 
-def _display_event_info(event, subject_for_print, elapsed_time=None, model=None):
+def _display_event_info(event, subject_for_print, elapsed_time=None, model=None, post_identifier=""):
     """
     Display event information consistently across the application.
 
@@ -1131,6 +1137,8 @@ def _display_event_info(event, subject_for_print, elapsed_time=None, model=None)
 
     print("=====================================")
     print(f"Summary: {event_summary}")
+    if post_identifier:
+        print(f"File: {post_identifier}")
     print(f"Start: {start_time_local}")
     print(f"End: {end_time_local}")
     print(f"Model: {model.model_name}")
@@ -1220,7 +1228,7 @@ def _process_event_with_llm_and_calendar(
                             )
 
 
-                            _display_event_info(single_event, subject_for_print, elapsed_time, model)
+                            _display_event_info(single_event, subject_for_print, elapsed_time, model, post_identifier)
 
                             retry_needed = False
                             if args.interactive:
