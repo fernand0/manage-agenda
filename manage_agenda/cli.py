@@ -96,9 +96,9 @@ def evaluate(ctx, type_, output, prompt):
     help="Running in interactive mode",
 )
 @click.option(
-    "-s",
-    "--source",
-    default="gemini",
+    "-a",
+    "--ai",
+    default="ollama",
     help="Select LLM",
 )
 @click.option(
@@ -109,6 +109,13 @@ def evaluate(ctx, type_, output, prompt):
     help="Force refresh web content to bypass cache",
 )
 @click.option(
+    "-s",
+    "--source",
+    type=click.Choice(["gmail", "imap", "web", "text"]),
+    default="gmail",
+    help="Source of data: gmail, imap, web, or files",
+)
+@click.option(
     "-o",
     "--output",
     type=click.Choice(["calendar", "file", "files"]),
@@ -116,7 +123,7 @@ def evaluate(ctx, type_, output, prompt):
     help="Output destination: calendar, file, or files",
 )
 @click.pass_context
-def add(ctx, interactive, source, force_refresh, output):
+def add(ctx, interactive, source, ai, force_refresh, output):
     """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
     if output == "files":
@@ -125,6 +132,7 @@ def add(ctx, interactive, source, force_refresh, output):
         interactive=interactive,
         delete=None,
         source=source,
+        ai=ai,
         verbose=verbose,
         destination=None,
         text=None,
@@ -140,6 +148,7 @@ def add(ctx, interactive, source, force_refresh, output):
 
     if verbose:
         click.echo(f"Selected model: {model.model_name}")
+
 
     if interactive:
         sources = get_add_sources(rules=rules)

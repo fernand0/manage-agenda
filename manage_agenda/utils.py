@@ -106,6 +106,7 @@ class Args:
     interactive: bool = False
     delete: Optional[bool] = None
     source: Optional[str] = None
+    ai: Optional[str] = None
     verbose: bool = False
     destination: Optional[str] = None
     text: Optional[str] = None
@@ -1807,7 +1808,7 @@ def select_llm(args):
             source="gemini"
     else:
         # In non-interactive mode the system currently always uses Gemini.
-        source="gemini"
+        source="ollama"
     print(f"Source: {source}")
     args = Args(
         interactive=args.interactive,
@@ -1818,23 +1819,23 @@ def select_llm(args):
         text=args.text,
     )
 
-    if args.source == "ollama":
+    if args.ai == "ollama":
         if args.interactive:
             model = OllamaClient()
         else:
             model = OllamaClient(0)
         return model
-    elif args.source == "gemini":
+    elif args.ai == "gemini":
         if args.interactive:
             model = GeminiClient()
         else:
             model = GeminiClient("gemini-2.5-flash")
         return model
-    elif args.source == "mistral":
+    elif args.ai == "mistral":
         model = MistralClient()
         return model
     else:
-        logging.error(f"Invalid LLM source: {args.source}")
+        logging.error(f"Invalid LLM source: {args.ai}")
         return None
 
 
@@ -1936,8 +1937,8 @@ def process_calendar_events(
     # Initialize API and calendar
     api_cal = select_api_source(args, api_src_type)
 
-    if args.source:
-        my_calendar = args.source
+    if args.output:
+        my_calendar = args.output
     else:
         my_calendar = select_calendar(api_cal)
 
@@ -2056,8 +2057,8 @@ def update_event_status_cli(args):
     """Update event status from busy to available for selected events."""
     api_cal = select_api_source(args, "gcalendar")
 
-    if args.source:
-        my_calendar = args.source
+    if args.output:
+        my_calendar = args.output
     else:
         my_calendar = select_calendar(api_cal)
 
@@ -2120,8 +2121,8 @@ def clean_events_cli(args):
     """Combined command to clean calendar entries (select between copy or delete)."""
     api_cal = select_api_source(args, "gcalendar")
 
-    if args.source:
-        my_calendar = args.source
+    if args.output:
+        my_calendar = args.output
     else:
         my_calendar = select_calendar(api_cal)
 
