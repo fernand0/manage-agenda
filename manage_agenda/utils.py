@@ -194,7 +194,7 @@ def _print_context_and_options(content: str, options_prompt: str) -> str:
     return input(options_prompt).lower().strip()
 
 
-def select_calendar(calendar_api, title=""):
+def select_calendar(calendar_api, title="", args=None):
     """Selects a Google Calendar.
 
     Args:
@@ -218,7 +218,13 @@ def select_calendar(calendar_api, title=""):
         if not eligible_calendars:
             raise CalendarError("No writable calendars found. Check your calendar permissions.")
 
-        selection, cal = select_from_list(eligible_calendars, "summary", title=title)
+        if (args and args.interactive) or not args:
+            selection, cal = select_from_list(eligible_calendars, "summary", title=title)
+        else: 
+            term = 'kkk'
+            matches = [item for item in eligible_calendars if term in item['summary']]
+            cal = matches[0] if matches else None
+            selection = eligible_calendars.index(cal)
 
         if selection < 0 or selection >= len(eligible_calendars):
             raise CalendarError(f"Invalid calendar selection: {selection}")
@@ -521,7 +527,16 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
     retries = 0
     max_retries = 3
 
-    while not event and not memory_error_occurred and not json_error_occurred and retries < max_retries:
+    event_old = create_event_dict()
+    #while not event and not memory_error_occurred and not json_error_occurred and retries < max_retries:
+    while ((args.interactive and 
+            not event and not memory_error_occurred and not json_error_occurred and retries < max_retries)
+           or
+           (not args.interactive 
+            and ((event and (event['start']['dateTime'] != event_old['start']['dateTime']) and retries < 2)
+                 or not event))):
+        if event and not args.interactive:
+            event_old = event
         event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, post_id, args.verbose)
         retries += 1
 
@@ -572,7 +587,8 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
             vcal_json = None
             json_error_occurred = False
             print("Error in generated Json...")
-
+    if event and (event['start']['dateTime'] != event_old['start']['dateTime']):
+        print("Events matching")
 
     if  not event and retries >= max_retries:
         vcal_json = "RetryError"
@@ -731,7 +747,6 @@ def list_emails_folder(args, rules=None):
             # post_date = api_src.getPostDate(post)
             post_title = api_src.getPostTitle(post)
             print(f"{i}) {post_title}")
-
 
 def _create_llm_prompt(*args):
     """Constructs the LLM prompt for event extraction."""
@@ -970,10 +985,6 @@ def _modify_single_component(dt, component, time_label):
         # User pressed Enter, keep original value
         return dt
 
-
-
-
-
 def _extract_event_with_llm_retry(
     args, model, content_text, reference_date_time, post_identifier, subject_for_print
 ):
@@ -1207,7 +1218,7 @@ def _process_event_with_llm_and_calendar(
                         api_dst_type = "gcalendar"
                         title = events[0]['summary']
                         api_dst = select_api_source(args, api_dst_type, title=title)
-                        selected_calendar = select_calendar(api_dst, title=title)
+                        selected_calendar = select_calendar(api_dst, title=title, args=args)
                     else:
                         api_dst = None
                         selected_calendar = None
@@ -1809,19 +1820,17 @@ def select_llm(args):
     if args.interactive:
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
-            source="ollama"
+            ai="ollama"
         elif selection == "m":
-            source="mistral"
+            ai="mistral"
         else:
-            source="gemini"
-    else:
-        # In non-interactive mode the system currently always uses Gemini.
-        source="ollama"
-    print(f"Source: {source}")
+            ai="gemini"
+    print(f"Selected AI: {args.ai}") if args.ai else ai
     args = Args(
         interactive=args.interactive,
         delete=args.delete,
-        source=source,
+        source=args.source,
+        ai=args.ai,
         verbose=args.verbose,
         destination=args.destination,
         text=args.text,

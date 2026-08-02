@@ -149,30 +149,37 @@ def add(ctx, interactive, source, ai, force_refresh, output):
     if verbose:
         click.echo(f"Selected model: {model.model_name}")
 
-
+    sources = get_add_sources(rules=rules)
+    print(f"Sources: {sources}")
     if interactive:
-        sources = get_add_sources(rules=rules)
         sel, selected = select_from_list(sources, title="Sources of information")
+    else: 
+        print(f"Selecting: {args.source}")
+        # Check for equality, not membership
+        matches = [item for item in sources if args.source in item]
+        selected = matches[0] if matches else None
+        # We are supposing that the last added one is the most interesting
+        print(f"Selected: {selected}")
+    if selected is None:
+        return
 
-        if selected is None:
-            return
-
-        # if "Web" in selected_source:  # Check if "Web" is in the selected source string
-        print(f"\nSelected: {selected}")
-        if isinstance(selected, str) and (("Web" in selected) or selected.startswith("http")):
-            if selected.startswith("http"):
-                process_web_cli(args, model, urls=selected.split(" "), force_refresh=force_refresh)
-            else:
-                process_web_cli(args, model, force_refresh=force_refresh)
-        elif isinstance(selected, str) and (("Text" in selected) or os.path.exists(selected)):
-            if "." in selected:
-                process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
-            else:
-                process_txt_cli(args, model, rules=rules)
+    # if "web" in selected_source:  
+    # Check if "web" is in the selected source string
+    print(f"\nSelected source: {selected}")
+    if isinstance(selected, str) and (("web" in selected) or selected.startswith("http")):
+        if selected.startswith("http"):
+            process_web_cli(args, model, urls=selected.split(" "), force_refresh=force_refresh)
         else:
-            process_email_cli(args, model, source_name=selected, rules=rules)
+            process_web_cli(args, model, force_refresh=force_refresh)
+    elif isinstance(selected, str) and (("text" in selected) or os.path.exists(selected)):
+        if "." in selected:
+            process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
+        else:
+            process_txt_cli(args, model, rules=rules)
     else:
-        process_email_cli(args, model, rules=rules)
+        process_email_cli(args, model, source_name=selected, rules=rules)
+    # else:
+    #     process_email_cli(args, model, rules=rules)
 
 
 @cli.command()
