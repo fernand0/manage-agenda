@@ -1873,8 +1873,7 @@ def select_llm(args):
         if args.interactive:
             model = OllamaClient()
         else:
-            #model = OllamaClient('granite4:latest')
-            model = OllamaClient(0)
+            model = OllamaClient('granite4:latest')
         return model
     elif args.ai == "gemini":
         if args.interactive:
