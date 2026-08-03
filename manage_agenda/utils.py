@@ -1820,17 +1820,19 @@ def select_llm(args):
     if args.interactive:
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
-            ai="ollama"
+            ai = "ollama"
         elif selection == "m":
-            ai="mistral"
+            ai = "mistral"
         else:
-            ai="gemini"
-    print(f"Selected AI: {args.ai}") if args.ai else ai
+            ai = "gemini"
+    else:
+        ai = getattr(args, 'ai', None) or "gemini"
+    print(f"Selected AI: {ai}")
     args = Args(
         interactive=args.interactive,
         delete=args.delete,
         source=args.source,
-        ai=args.ai,
+        ai=ai,
         verbose=args.verbose,
         destination=args.destination,
         text=args.text,
