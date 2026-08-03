@@ -1988,14 +1988,15 @@ def process_calendar_events(
     """
     # Initialize API and calendar
     api_cal = select_api_source(args, api_src_type)
+    selected_calendar = select_calendar(api_cal, title="Select calendar", args=args)
 
-    if args.output:
-        my_calendar = args.output
+    if args.destination:
+        my_calendar = args.destination
     else:
         my_calendar = select_calendar(api_cal)
 
     # Set the active calendar using socialModules method
-    api_cal.setActive(my_calendar)
+    api_cal.setActive(selected_calendar)
 
     today = datetime.datetime.now()
     today = datetime.datetime.now(datetime.timezone.utc)
@@ -2008,8 +2009,7 @@ def process_calendar_events(
         all_posts = api_cal.getPosts()
     except Exception:
         all_posts = []
-
-
+    
     today = datetime.datetime.now()
     today = datetime.datetime.now(datetime.timezone.utc)
 

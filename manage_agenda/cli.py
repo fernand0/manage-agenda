@@ -116,8 +116,8 @@ def evaluate(ctx, type_, output, prompt):
     help="Source of data: gmail, imap, web, or files",
 )
 @click.option(
-    "-o",
-    "--output",
+    "-d",
+    "--destination",
     type=click.Choice(["calendar", "file", "files"]),
     default="calendar",
     help="Output destination: calendar, file, or files",
