@@ -106,8 +106,8 @@ class TestProcessEmailCli(unittest.TestCase):
 
         process_email_cli(args, mock_model)
 
-        mock_model.generate_text.assert_called_once()
-        self.assertEqual(mock_write_file.call_count, 8)  # email, vcal, json, _times.json, and additional intermediate files
+        self.assertEqual(mock_model.generate_text.call_count, 2)
+        self.assertEqual(mock_write_file.call_count, 10)
         mock_select_calendar.assert_called_once()
         mock_api_dst.publishPost.assert_called_once()
         mock_api_src.modifyLabels.assert_called_once()
