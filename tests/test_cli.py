@@ -38,7 +38,7 @@ class TestCliCommands(unittest.TestCase):
         from manage_agenda import cli
 
         self.cli = cli
-        self.llm_name = "gemini"
+        self.llm_name = "ollama"
         self.Args = namedtuple(
             "args",
             ["interactive", "delete", "source", "verbose", "destination", "text"],
@@ -107,7 +107,7 @@ class TestCliCommands(unittest.TestCase):
 
     def test_add_non_interactive(self):
         # All necessary mocks are set up in setUp
-        result = self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name])
+        result = self.runner.invoke(self.cli.cli, ["add", "-s", "gmail"])
         self.assertEqual(result.exit_code, 0)
         self.mock_process_email_cli.assert_called_once() # Now using self.mock_process_email_cli
 
@@ -124,7 +124,7 @@ class TestCliCommands(unittest.TestCase):
             mock_rules_instance_inner.more.get.return_value = {"key": "value"}
             mock_rules_instance_inner.readConfigSrc.return_value = mock_api_src
 
-            result = self.runner.invoke(self.cli.cli, ["add", "-s", self.llm_name])
+            result = self.runner.invoke(self.cli.cli, ["add", "-s", "gmail"])
             self.assertEqual(result.exit_code, 0)
             self.mock_process_email_cli.assert_called_once()
 
@@ -135,7 +135,7 @@ class TestCliCommands(unittest.TestCase):
 
     def test_add_verbose_flag(self):
         # All necessary mocks are set up in setUp
-        result = self.runner.invoke(self.cli.cli, ["-v", "add", "-s", self.llm_name])
+        result = self.runner.invoke(self.cli.cli, ["-v", "add", "-s", "gmail"])
         self.assertEqual(result.exit_code, 0)
         self.mock_process_email_cli.assert_called_once()
 
@@ -143,7 +143,7 @@ class TestCliCommands(unittest.TestCase):
     def test_add_interactive_web(self):
         """Test add command in interactive mode selecting web source."""
         # Configure select_from_list for this specific test
-        self.mock_select_from_list.return_value = (2, "Web (Enter URL)")
+        self.mock_select_from_list.return_value = (2, "web (Enter URL)")
 
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
