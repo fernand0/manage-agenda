@@ -130,7 +130,7 @@ def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     rules = ensure_rules(rules)
     email_sources = _get_email_sources(rules)
-    return email_sources + ["Web (Enter URLs or leave empty)"] + ["Text (enter filenames or leave empty)"]
+    return email_sources + ["web (Enter URLs or leave empty)"] + ["text (enter filenames or leave empty)"]
 
 
 def print_first_10_lines(content, content_type="content"):
@@ -1766,9 +1766,11 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
     """Processes web pages and creates calendar events."""
 
     url_to_notes = {}
+    urls_input = None
     if not urls:
-        urls_input = input("Enter URLs separated by spaces (leave empty to use ~/notes): ").split()
-        if not urls_input:
+        if args.interactive:
+            urls_input = input("Enter URLs separated by spaces (leave empty to use ~/notes): ").split() 
+        if not urls_input or not args.interactive:
             print("No URLs entered. Extracting links from ~/notes...")
             url_to_notes = _get_links_from_notes()
             if not url_to_notes:
@@ -1873,8 +1875,7 @@ def select_llm(args):
         if args.interactive:
             model = OllamaClient()
         else:
-            #model = OllamaClient('granite4:latest')
-            model = OllamaClient(0)
+            model = OllamaClient('granite4:latest')
         return model
     elif args.ai == "gemini":
         if args.interactive:
