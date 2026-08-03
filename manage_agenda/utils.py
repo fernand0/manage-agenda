@@ -463,6 +463,37 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
+#    llm_response = """
+#```json
+#{
+#  "summary": "",
+#  "location": "",
+#  "description": "",
+#  "start": {
+#    "dateTime": "2026-04-27",
+#    "timeZone": ""
+#  },
+#  "end": {
+#    "dateTime": "",
+#    "timeZone": ""
+#  }
+#},
+#{
+#  "summary": "",
+#  "location": "",
+#  "description": "",
+#  "start": {
+#    "dateTime": "2026-08-31",
+#    "timeZone": ""
+#  },
+#  "end": {
+#    "dateTime": "",
+#    "timeZone": ""
+#  }
+#}
+#]
+#```
+#"""
     write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
@@ -531,12 +562,12 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
     #while not event and not memory_error_occurred and not json_error_occurred and retries < max_retries:
     while ((args.interactive and 
             not event and not memory_error_occurred and not json_error_occurred and retries < max_retries)
-           or
+           or 
            (not args.interactive 
-            and ((event and (event['start']['dateTime'] != event_old['start']['dateTime']) and retries < 2)
-                 or not event))):
+            and (not event or
+                (event and ((event[0] if isinstance(event, (list,tuple)) else event)['start']['dateTime'] != event_old['start']['dateTime']) and retries < 2)))):
         if event and not args.interactive:
-            event_old = event
+            event_old = event[0] if isinstance(event, (list, tuple)) else event
         event, vcal_json, elapsed_time = get_event_from_llm(model, prompt, post_id, args.verbose)
         retries += 1
 
@@ -587,7 +618,7 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
             vcal_json = None
             json_error_occurred = False
             print("Error in generated Json...")
-    if event and (event['start']['dateTime'] != event_old['start']['dateTime']):
+    if event and ((event[0] if isinstance(event, (list,tuple)) else event)['start']['dateTime'] != event_old['start']['dateTime']):
         print("Events matching")
 
     if  not event and retries >= max_retries:
@@ -1820,17 +1851,19 @@ def select_llm(args):
     if args.interactive:
         selection = input("Local/mistral/gemini model )(l/m/g)? ")
         if selection == "l":
-            ai="ollama"
+            ai = "ollama"
         elif selection == "m":
-            ai="mistral"
+            ai = "mistral"
         else:
-            ai="gemini"
-    print(f"Selected AI: {args.ai}") if args.ai else ai
+            ai = "gemini"
+    else:
+        ai = getattr(args, 'ai', None) or "gemini"
+    print(f"Selected AI: {ai}")
     args = Args(
         interactive=args.interactive,
         delete=args.delete,
         source=args.source,
-        ai=args.ai,
+        ai=ai,
         verbose=args.verbose,
         destination=args.destination,
         text=args.text,
@@ -1840,6 +1873,7 @@ def select_llm(args):
         if args.interactive:
             model = OllamaClient()
         else:
+            #model = OllamaClient('granite4:latest')
             model = OllamaClient(0)
         return model
     elif args.ai == "gemini":
