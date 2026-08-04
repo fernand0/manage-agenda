@@ -30,8 +30,6 @@ A tool for adding entries to your Google Calendar from email messages and web pa
   - **Multiple accounts**: Support for multiple email and calendar accounts
   - **Event operations**: Clean, copy, move, delete, and update calendar events
   - **Enhanced event selection**: Select events by number or by entering text to match event titles
-- **Meaningful Identifiers**: Use meaningful IDs for filenames when available instead of numeric identifiers
-- **Error Page Detection**: Automatically skips error pages and empty content from URLs
 - **Auth Helper**: The `auth` command guides you through Google API credential setup
 
 ## Installation
