@@ -1,6 +1,6 @@
 [project]
 name = "manage-agenda"
-version = "0.2"
+version = "0.3"
 description = "Adding entries to google calendar"
 readme = "README.md"
 authors = [{name = "Fernando Tricas García"}]
