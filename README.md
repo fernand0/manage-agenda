@@ -8,25 +8,26 @@ A tool for adding entries to your Google Calendar from email messages and web pa
 
 ## Features
 
-- **Email Integration**: Automatically extract event information from Gmail messages
-- **IMAP Support**: Extract events from any IMAP email account
-- **Web Page Processing**: Extract events from URLs/web pages, including structured data (JSON-LD, script tags)
-- **Text File Processing**: Extract events from local text files
-- **Multi-Event Extraction**: Extract multiple events from a single source (email or web page)
-- **Note-Taker Integration**: Batch-process URLs from `~/notes` via [note-taker](https://github.com/fernand0/another-note-taking-app) integration
-- **Multi-LLM Support**: Works with Ollama (local models), Gemini, and Mistral
-- **LLM Model Evaluation**: Compare multiple Ollama models side-by-side with the `llm evaluate` command
+- **Automatically extract event information from:**
+  - **Gmail** messages
+  - **IMAP** email accounts
+  - **Web pages** and URLs, including structured data (JSON-LD, script tags). Supports batch-processing URLs from `~/notes` via [note-taker](https://github.com/fernand0/another-note-taking-app) integration
+  - **Text files** stored locally
+- **Multi-Event Extraction**: Extract multiple events from a single source
+- **LLM-powered event extraction:**
+  - Supports **Ollama** (local models), **Gemini**, and **Mistral**
+  - **Model evaluation**: Compare multiple Ollama models side-by-side with the `llm evaluate` command
+  - **Interactive fallback**: When extraction fails, retry, provide a text snippet, or skip
+  - **Retry option**: Retry LLM processing during date confirmation with 'r' option
+  - **Memory error handling**: Automatic fallback when models require more memory
+  - **AI model metadata**: Calendar events include metadata about which model processed them
 - **Smart Date Recognition**: Advanced date parsing for complex scheduling scenarios
-- **Interactive Fallback**: When LLM extraction fails, retry, provide a text snippet, or skip
-- **Memory Error Handling**: Automatic fallback when LLM models require more memory
-- **AI Model Metadata**: Calendar events include metadata about which AI model processed them
 - **Flexible Output**: Add events directly to Google Calendar or save as JSON files
 - **Google Calendar Sync**: Seamlessly add events to your Google Calendar
 - **Flexible Configuration**: Support for multiple email and calendar accounts
 - **Calendar Management**: Clean, copy, move, delete, and update calendar events
 - **Enhanced Event Selection**: Select events by number or by entering text to match event titles
 - **Cache Bypass Option**: Force refresh web content to bypass cache with `--force-refresh` flag
-- **Retry Option**: Retry LLM processing during date confirmation with 'r' option
 - **Meaningful Identifiers**: Use meaningful IDs for filenames when available instead of numeric identifiers
 - **Error Page Detection**: Automatically skips error pages and empty content from URLs
 - **Auth Helper**: The `auth` command guides you through Google API credential setup
