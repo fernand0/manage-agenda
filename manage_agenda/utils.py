@@ -220,7 +220,7 @@ def select_calendar(calendar_api, title="", args=None):
 
         if (args and args.interactive) or not args:
             selection, cal = select_from_list(eligible_calendars, "summary", title=title)
-        else: 
+        else:
             term = 'kkk'
             matches = [item for item in eligible_calendars if term in item['summary']]
             cal = matches[0] if matches else None
@@ -560,10 +560,10 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
 
     event_old = create_event_dict()
     #while not event and not memory_error_occurred and not json_error_occurred and retries < max_retries:
-    while ((args.interactive and 
+    while ((args.interactive and
             not event and not memory_error_occurred and not json_error_occurred and retries < max_retries)
-           or 
-           (not args.interactive 
+           or
+           (not args.interactive
             and (not event or
                 (event and ((event[0] if isinstance(event, (list,tuple)) else event)['start']['dateTime'] != event_old['start']['dateTime']) and retries < 2)))):
         if event and not args.interactive:
@@ -1769,7 +1769,7 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
     urls_input = None
     if not urls:
         if args.interactive:
-            urls_input = input("Enter URLs separated by spaces (leave empty to use ~/notes): ").split() 
+            urls_input = input("Enter URLs separated by spaces (leave empty to use ~/notes): ").split()
         if not urls_input or not args.interactive:
             print("No URLs entered. Extracting links from ~/notes...")
             url_to_notes = _get_links_from_notes()
@@ -1990,10 +1990,13 @@ def process_calendar_events(
     api_cal = select_api_source(args, api_src_type)
     selected_calendar = select_calendar(api_cal, title="Select calendar", args=args)
 
-    if args.destination:
-        my_calendar = args.destination
-    else:
-        my_calendar = select_calendar(api_cal)
+    # FIXME. Pending
+    # if args.destination:
+    #     my_calendar = args.destination
+    #     api_dst = api_cal
+    # else:
+    #     api_dst = select_api_source(args, api_src_type)
+    #     my_calendar = select_calendar(api_dst)
 
     # Set the active calendar using socialModules method
     api_cal.setActive(selected_calendar)
@@ -2009,7 +2012,7 @@ def process_calendar_events(
         all_posts = api_cal.getPosts()
     except Exception:
         all_posts = []
-    
+
     today = datetime.datetime.now()
     today = datetime.datetime.now(datetime.timezone.utc)
 
@@ -2061,14 +2064,18 @@ def process_calendar_events(
 
     # Handle destination calendar if needed
     my_calendar_dst = None
-    if destination_needed:
-        if args.destination:
-            my_calendar_dst = args.destination
-        else:
-            my_calendar_dst = select_calendar(api_cal)
+    my_calendar_dst = select_api_source(args, api_src_type)
+    my_calendar = select_calendar(my_calendar_dst)
+    # FIXME. Pending
+    # if destination_needed:
+    #     if args.destination:
+    #         my_calendar_dst = args.destination
+    #     else:
+    #         my_calendar_dst = select_calendar(api_cal)
 
     # Perform the specific action on selected events
     for event in selected_events:
+        print(f"Func: {action_func}")
         action_func(api_cal, event, my_calendar, my_calendar_dst)
 
 
@@ -2094,9 +2101,10 @@ def move_action(api_cal, event, my_calendar, my_calendar_dst):
     if "location" in event:
         my_event["location"] = event["location"]
 
-    api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
+    my_calendar_dst.getClient().events().insert(calendarId=my_calendar, body=my_event).execute()
     print(f"Copied event: {my_event['summary']}")
-    api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
+    api_cal.getClient().events().delete(calendarId=api_cal.getActive(),
+                                        eventId=event["id"]).execute()
     print(f"Deleted event: {event['summary']}")
 
 
