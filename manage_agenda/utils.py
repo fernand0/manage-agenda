@@ -2063,11 +2063,14 @@ def process_calendar_events(
     selected_events = select_events_by_user_input(api_cal, filtered_events, action_verb)
 
     # Handle destination calendar if needed
-    my_calendar_dst = None
-    my_calendar_dst = select_api_source(args, api_src_type)
-    my_calendar = select_calendar(my_calendar_dst)
     # FIXME. Pending
-    # if destination_needed:
+    if destination_needed:
+        my_calendar_dst = None
+        my_calendar_dst = select_api_source(args, api_src_type)
+        my_calendar = select_calendar(my_calendar_dst)
+    else:
+        my_calendar = None
+        my_calendar_dst = None
     #     if args.destination:
     #         my_calendar_dst = args.destination
     #     else:
@@ -2081,7 +2084,8 @@ def process_calendar_events(
 
 def delete_action(api_cal, event, my_calendar, my_calendar_dst):
     """Action function to delete an event."""
-    api_cal.getClient().events().delete(calendarId=my_calendar, eventId=event["id"]).execute()
+    api_cal.getClient().events().delete(calendarId=api_cal.getActive(),
+                                        eventId=event["id"]).execute()
     print(f"Deleted event: {event['summary']}")
 
 
