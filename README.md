@@ -6,6 +6,8 @@
 
 A tool for adding entries to your Google Calendar from email messages and web pages using Large Language Models (LLMs) to extract event information.
 
+![Architecture diagram showing the system flow for LLM-driven event extraction and multi-account calendar management](docs/architecture.jpg)
+
 ## Features
 
 - **Automatically extract event information from:**
