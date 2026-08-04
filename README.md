@@ -13,7 +13,10 @@ A tool for adding entries to your Google Calendar from email messages and web pa
   - **IMAP** email accounts
   - **Web pages** and URLs, including structured data (JSON-LD, script tags). Supports batch-processing URLs from `~/notes` via [note-taker](https://github.com/fernand0/another-note-taking-app) integration
   - **Text files** stored locally
-- **Multi-Event Extraction**: Extract multiple events from a single source
+  - Extraction features available for all sources:
+    - **Multi-event extraction**: Extract multiple events from a single source
+    - **Smart date recognition**: Advanced date parsing for complex scheduling scenarios
+    - **Cache bypass**: Force refresh web content to bypass cache with `--force-refresh` flag
 - **LLM-powered event extraction:**
   - Supports **Ollama** (local models), **Gemini**, and **Mistral**
   - **Model evaluation**: Compare multiple Ollama models side-by-side with the `llm evaluate` command
@@ -27,8 +30,6 @@ A tool for adding entries to your Google Calendar from email messages and web pa
   - **Multiple accounts**: Support for multiple email and calendar accounts
   - **Event operations**: Clean, copy, move, delete, and update calendar events
   - **Enhanced event selection**: Select events by number or by entering text to match event titles
-- **Smart Date Recognition**: Advanced date parsing for complex scheduling scenarios
-- **Cache Bypass Option**: Force refresh web content to bypass cache with `--force-refresh` flag
 - **Meaningful Identifiers**: Use meaningful IDs for filenames when available instead of numeric identifiers
 - **Error Page Detection**: Automatically skips error pages and empty content from URLs
 - **Auth Helper**: The `auth` command guides you through Google API credential setup
