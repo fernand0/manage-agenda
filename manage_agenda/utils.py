@@ -2101,7 +2101,8 @@ def move_action(api_cal, event, my_calendar, my_calendar_dst):
     if "location" in event:
         my_event["location"] = event["location"]
 
-    my_calendar_dst.getClient().events().insert(calendarId=my_calendar, body=my_event).execute()
+    my_calendar_dst.getClient().events().insert(calendarId=my_calendar,
+                                                body=my_event).execute()
     print(f"Copied event: {my_event['summary']}")
     api_cal.getClient().events().delete(calendarId=api_cal.getActive(),
                                         eventId=event["id"]).execute()
