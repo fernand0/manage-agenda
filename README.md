@@ -21,12 +21,13 @@ A tool for adding entries to your Google Calendar from email messages and web pa
   - **Retry option**: Retry LLM processing during date confirmation with 'r' option
   - **Memory error handling**: Automatic fallback when models require more memory
   - **AI model metadata**: Calendar events include metadata about which model processed them
+- **Calendar management:**
+  - **Sync**: Seamlessly add events to your Google Calendar
+  - **Flexible output**: Add events directly to Google Calendar or save as JSON files
+  - **Multiple accounts**: Support for multiple email and calendar accounts
+  - **Event operations**: Clean, copy, move, delete, and update calendar events
+  - **Enhanced event selection**: Select events by number or by entering text to match event titles
 - **Smart Date Recognition**: Advanced date parsing for complex scheduling scenarios
-- **Flexible Output**: Add events directly to Google Calendar or save as JSON files
-- **Google Calendar Sync**: Seamlessly add events to your Google Calendar
-- **Flexible Configuration**: Support for multiple email and calendar accounts
-- **Calendar Management**: Clean, copy, move, delete, and update calendar events
-- **Enhanced Event Selection**: Select events by number or by entering text to match event titles
 - **Cache Bypass Option**: Force refresh web content to bypass cache with `--force-refresh` flag
 - **Meaningful Identifiers**: Use meaningful IDs for filenames when available instead of numeric identifiers
 - **Error Page Detection**: Automatically skips error pages and empty content from URLs
