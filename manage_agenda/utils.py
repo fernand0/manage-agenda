@@ -1890,12 +1890,14 @@ def select_llm(args):
         logging.error(f"Invalid LLM source: {args.ai}")
         return None
 
+def clean_action(api_cal, event, my_calendar, my_calendar_dst):
+    pass
 
 def copy_action(api_cal, event, my_calendar, my_calendar_dst):
     """Action function to copy an event."""
     my_event = {
         "summary": event["summary"],
-        "description": event["description"],
+        "description": event["description"] if 'description' in event and event["description"] else "",
         "start": event["start"],
         "end": event["end"],
     }
@@ -1989,15 +1991,10 @@ def process_calendar_events(
     """
     # Initialize API and calendar
     api_cal = select_api_source(args, api_src_type)
-    selected_calendar = select_calendar(api_cal, title="Select calendar", args=args)
-
-    # FIXME. Pending
-    # if args.destination:
-    #     my_calendar = args.destination
-    #     api_dst = api_cal
-    # else:
-    #     api_dst = select_api_source(args, api_src_type)
-    #     my_calendar = select_calendar(api_dst)
+    if getattr(args, "source", None):
+        selected_calendar = args.source
+    else:
+        selected_calendar = select_calendar(api_cal, title="Select calendar", args=args)
 
     # Set the active calendar using socialModules method
     api_cal.setActive(selected_calendar)
@@ -2063,23 +2060,41 @@ def process_calendar_events(
 
     selected_events = select_events_by_user_input(api_cal, filtered_events, action_verb)
 
+    if 'clean' in action_func.__name__:
+        actions = ["Delete", "Copy", "Move"]
+        msg = "Select operation:"
+        for i, act in enumerate(actions):
+            msg = f"{msg}\n{i}) {act}"
+        msg = f"{msg}\n"
+
+        action_sel = input(msg)
+        destination_needed=True
+        if action_sel == "1":  # Copy
+            action_verb = "copy"
+            action_func =  copy_action
+        elif action_sel == "2":  # Move
+            action_verb =  "move"
+            action_func = move_action
+        else:  # Delete
+            action_verb =  "delete"
+            action_func = delete_action
+            destination_needed=False
+
     # Handle destination calendar if needed
-    # FIXME. Pending
     if destination_needed:
-        my_calendar_dst = None
         my_calendar_dst = select_api_source(args, api_src_type)
-        my_calendar = select_calendar(my_calendar_dst)
+        if getattr(args, "destination", None):
+            my_calendar = args.destination
+        else:
+            my_calendar = select_calendar(
+                my_calendar_dst, title="Select destination calendar", args=args
+            )
     else:
         my_calendar = None
         my_calendar_dst = None
-    #     if args.destination:
-    #         my_calendar_dst = args.destination
-    #     else:
-    #         my_calendar_dst = select_calendar(api_cal)
 
     # Perform the specific action on selected events
     for event in selected_events:
-        print(f"Func: {action_func}")
         action_func(api_cal, event, my_calendar, my_calendar_dst)
 
 
@@ -2185,65 +2200,17 @@ def update_event_status_cli(args):
 
 def clean_events_cli(args):
     """Combined command to clean calendar entries (select between copy or delete)."""
-    api_cal = select_api_source(args, "gcalendar")
-
-    if args.output:
-        my_calendar = args.output
-    else:
-        my_calendar = select_calendar(api_cal)
-
-    today = datetime.datetime.now()
-    the_date = today.isoformat(timespec="seconds") + "Z"
-
-    res = (
-        api_cal.getClient()
-        .events()
-        .list(
-            calendarId=my_calendar,
-            timeMin=the_date,
-            singleEvents=True,
-            eventTypes="default",
-            orderBy="startTime",
-        )
-        .execute()
-    )
-
-    print("Upcoming events (up to 20):")
-    for event in res["items"][:20]:
-        print(f"- {api_cal.getPostTitle(event)}")
-
-    text_filter = args.text
-    if args.interactive and not text_filter:
-        text_filter = input("Text to filter by (leave empty for no filter): ")
-
-    # Use the helper function to filter events by title
-    events_to_process = filter_events_by_title(api_cal, res["items"], text_filter)
-
-    if not events_to_process:
-        print("No events found matching the criteria.")
-        return
-
-    selected_events = select_events_by_user_input(api_cal, events_to_process, "process")
-
+    process_calendar_events(args, "clean", clean_action, destination_needed=True)
     # Ask user whether to copy or delete
-    actions = ["Delete", "Copy"]
-    msg = "Select operation:"
-    for i, act in enumerate(actions):
-        msg = f"{msg}\n{i}) {act}"
-    msg = f"{msg}\n"
+    # actions = ["Delete", "Copy"]
+    # msg = "Select operation:"
+    # for i, act in enumerate(actions):
+    #     msg = f"{msg}\n{i}) {act}"
+    # msg = f"{msg}\n"
 
-    action_sel = input(msg)
+    # action_sel = input(msg)
 
-    my_calendar_dst = None
-    if action_sel == "1":  # Copy action
-        if args.destination:
-            my_calendar_dst = args.destination
-        else:
-            title = selected_events[0]['summary']
-            my_calendar_dst = select_calendar(api_cal, title=title)
-
-    for event in selected_events:
-        if action_sel == "1":  # Copy
-            copy_action(api_cal, event, my_calendar, my_calendar_dst)
-        else:  # Delete
-            delete_action(api_cal, event, my_calendar, my_calendar_dst)
+    # if action_sel == "1":  # Copy
+    #     process_calendar_events(args, "copy", copy_action, destination_needed=True)
+    # else:  # Delete
+    #     process_calendar_events(args, "delete", delete_action, destination_needed=False)
