@@ -118,12 +118,18 @@ def evaluate(ctx, type_, output, prompt):
 @click.option(
     "-d",
     "--destination",
+    default=None,
+    help="Select destination calendar",
+)
+@click.option(
+    "-o",
+    "--output",
     type=click.Choice(["calendar", "file", "files"]),
     default="calendar",
     help="Output destination: calendar, file, or files",
 )
 @click.pass_context
-def add(ctx, interactive, source, ai, force_refresh, output):
+def add(ctx, interactive, source, ai, force_refresh, destination, output):
     """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
     if output == "files":
@@ -134,7 +140,7 @@ def add(ctx, interactive, source, ai, force_refresh, output):
         source=source,
         ai=ai,
         verbose=verbose,
-        destination=None,
+        destination=destination,
         text=None,
         output=output,
     )

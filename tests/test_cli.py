@@ -164,6 +164,20 @@ class TestCliCommands(unittest.TestCase):
         call_args = self.mock_process_email_cli.call_args
         self.assertEqual(call_args[1].get("source_name"), "gmail1")
 
+    def test_add_with_destination_and_output(self):
+        """Test add command with both --destination and --output options."""
+        result = self.runner.invoke(
+            self.cli.cli, ["add", "-s", "gmail", "-d", "specific_cal", "-o", "file"]
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        self.mock_process_email_cli.assert_called_once()
+        # Verify both destination and output were correctly passed to Args
+        call_args = self.mock_process_email_cli.call_args
+        args = call_args[0][0]
+        self.assertEqual(args.destination, "specific_cal")
+        self.assertEqual(args.output, "file")
+
     @patch("manage_agenda.cli.authorize")
     def test_auth_client_not_connected(self, mock_authorize):
         """Test auth command when client fails to connect."""
