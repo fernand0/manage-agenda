@@ -1,3 +1,4 @@
+import calendar
 import logging
 import os
 import re
@@ -139,7 +140,7 @@ def reduce_html(url, post, force_refresh=False):
         return None
 
     # Extract relevant script content before they are decomposed
-    extra_script_data = extract_relevant_script_content(soup)
+    # extra_script_data = extract_relevant_script_content(soup)
 
     if force_refresh:
         logging.info("Force refresh enabled. Returning full content after cleaning...")
@@ -172,8 +173,16 @@ def reduce_html(url, post, force_refresh=False):
         protected_keywords = [
             "Lugar", "Hora", "Fecha", "Cuándo", "Dónde", "Precio", "Entrada",
             "Place", "Time", "Date", "When", "Where", "Price", "Location", "Address",
-            "Dirección", "Ubicación"
+            "Dirección", "Ubicación", "Mañana"  
         ]
+        protected_keywords = (protected_keywords 
+        + ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        + [ "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+           "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+           ]
+        )
+        for month in calendar.day_name:
+            protected_keywords.append(month)
 
         for tag in soup2.find_all(True):
             if not tag.parent: # Already decomposed
@@ -206,7 +215,8 @@ def reduce_html(url, post, force_refresh=False):
             meta.decompose()
 
         # result = soup2.prettify()
-        result = soup2.get_text(separator="\n", strip=True)
+        result = soup2.get_text(separator="\n", strip=True) 
+
         # Update cache with the new version
         with open(cached_file_path, "w", encoding="utf-8") as f:
             f.write(new_html)
@@ -224,7 +234,22 @@ def reduce_html(url, post, force_refresh=False):
             meta.decompose()
         result = soup.get_text(separator="\n", strip=True)
 
-    if extra_script_data:
-        result = f"{result}\n\n--- Extra Data Found in Scripts ---\n{extra_script_data}"
+    newResult = ""
+    for line in result.split('\n'): 
+        # split() without arguments splits by any whitespace and ignores empty strings 
+        words = line.split()
+        if len(words) > 1: 
+            newResult = newResult+'\n'+line
+        elif len(words) == 1 and any(char.isdigit() for char in words[0]):
+            newResult = newResult+'\n'+line
+
+    print(f"Orig: {result}")
+    print(f"End Orig")
+    result = newResult
+    print(f"Res: {result}")
+    print(f"End Res")
+
+    # if extra_script_data:
+    #     result = f"{result}\n\n--- Extra Data Found in Scripts ---\n{extra_script_data}"
 
     return result
