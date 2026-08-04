@@ -1902,7 +1902,8 @@ def copy_action(api_cal, event, my_calendar, my_calendar_dst):
     if "location" in event:
         my_event["location"] = event["location"]
 
-    api_cal.getClient().events().insert(calendarId=my_calendar_dst, body=my_event).execute()
+    my_calendar_dst.getClient().events().insert(calendarId=my_calendar,
+                                        body=my_event).execute()
     print(f"Copied event: {my_event['summary']}")
 
 
