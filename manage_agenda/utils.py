@@ -647,12 +647,12 @@ def select_source_by_type(args, source_type, rules=None, title=""):
     """
     rules = rules or moduleRules.from_config()
 
-    service_map = {
-        "email": ["gmail", "imap"],
-        "gmail": ["gmail"],
-        "imap": ["imap"],
-    }
-    service = service_map.get(source_type, source_type)
+    if source_type == "email":
+        service = ["gmail", "imap"]
+    else:
+        # Normalize non-email types to a list so callers receive a consistent
+        # sequence (tests and moduleRules expect a list of candidates).
+        service = list(source_type) if isinstance(source_type, (list, tuple)) else [source_type]
 
     if args.interactive:
         api_src = rules.selectRuleInteractive(service, title=title)

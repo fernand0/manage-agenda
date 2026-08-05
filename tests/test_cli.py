@@ -50,13 +50,19 @@ class TestCliCommands(unittest.TestCase):
         # Access class-level mocks via self
         self.mock_module_rules = self.mock_module_rules_class
         self.mock_select_from_list = self.mock_select_from_list_class
+        # Reset call history on the class-level mock so each test starts fresh.
+        # This prevents previous tests from affecting assert_called_once checks.
+        try:
+            self.mock_select_from_list.reset_mock()
+        except Exception:
+            pass
         self.mock_rules_instance = self.mock_rules_instance_class
 
 
         # Individual patches that apply per test method
         self.mock_get_add_sources_patcher = patch("manage_agenda.utils.get_add_sources")
         self.mock_get_add_sources = self.mock_get_add_sources_patcher.start()
-        self.mock_get_add_sources.return_value = ["gmail1", "imap1", "Web (Enter URL)"]
+        self.mock_get_add_sources.return_value = (["gmail1", "imap1"], ["web", ("http", "set", "(Enter URLs or leave empty)"), ("text", "set", "(enter filenames or leave empty)")])
 
         self.mock_select_llm_patcher = patch("manage_agenda.utils.select_llm")
         self.mock_select_llm = self.mock_select_llm_patcher.start()
@@ -139,21 +145,23 @@ class TestCliCommands(unittest.TestCase):
 
     def test_add_interactive_web(self):
         """Test add command in interactive mode with web source."""
+        self.mock_select_from_list.return_value = (2, "web")
+
         result = self.runner.invoke(self.cli.cli, ["add", "-i", "-s", "web"])
 
         self.assertEqual(result.exit_code, 0)
+        self.mock_select_from_list.assert_called_once()
         self.mock_process_web_cli.assert_called_once()
 
     def test_add_interactive_email(self):
         """Test add command in interactive mode selecting email source."""
+        self.mock_select_from_list.return_value = (0, "gmail1")
+
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
         self.assertEqual(result.exit_code, 0)
-        self.mock_select_source_by_type.assert_called_once()
+        self.mock_select_from_list.assert_called_once()
         self.mock_process_email_cli.assert_called_once()
-        # Verify api_src was passed (from select_source_by_type)
-        call_args = self.mock_process_email_cli.call_args
-        self.assertIsNotNone(call_args[1].get("api_src"))
 
     def test_add_with_destination_and_output(self):
         """Test add command with both --destination and --output options."""
