@@ -1,6 +1,7 @@
 import configparser
 import logging
 import os
+import requests
 import types
 
 try:
@@ -132,7 +133,16 @@ class OllamaClient(LLMClient):
 
         iss = isinstance(model_name,int)
         if not iss and not model_name:
-            models = self.list_models()
+            models = None
+            while not models:
+                try:
+                    models = self.list_models()
+                except: 
+                    import subprocess
+                    subprocess.Popen(["ollama", "serve"], 
+                                     stdout=subprocess.DEVNULL, 
+                                     stderr=subprocess.DEVNULL)
+
             _, self.model_name = select_from_list(models, identifier="model", title="Available models")
         else:
             if isinstance(model_name,int):
@@ -249,7 +259,10 @@ def select_llm(args):
 
     if ai == "ollama":
         if args.interactive:
-            model = OllamaClient()
+            model = None
+            while not model:
+                model = OllamaClient()
+                
         else:
             model = OllamaClient('granite4:latest')
         return model
