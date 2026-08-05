@@ -339,7 +339,7 @@ more text"""
         mock_rules = MagicMock()
         select_api_source(args, "gmail", rules=mock_rules)
         # When rules are injected, checkRules is not called internally
-        mock_rules.selectRuleInteractive.assert_called_once_with("gmail", title="")
+        mock_rules.selectRuleInteractive.assert_called_once_with(["gmail"], title="")
 
     @patch("manage_agenda.utils.moduleRules")
     def test_select_api_source_non_interactive(self, mock_module_rules):
@@ -357,7 +357,7 @@ more text"""
         mock_module_rules.return_value = mock_rules
         select_api_source(args, "gmail", rules=mock_rules)
         # When rules are injected, checkRules is not called internally
-        mock_rules.selectRule.assert_called_once_with("gmail", "")
+        mock_rules.selectRule.assert_called_once_with(["gmail"], "")
         mock_rules.readConfigSrc.assert_called_once_with("", "test_rule", {"key": "value"})
 
     def setUp(self):

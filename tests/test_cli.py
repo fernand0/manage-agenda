@@ -23,7 +23,8 @@ class TestCliCommands(unittest.TestCase):
         cls.mock_module_rules_class.return_value = cls.mock_rules_instance_class
         cls.mock_module_rules_class.from_config.return_value = cls.mock_rules_instance_class
         cls.mock_rules_instance_class.checkRules.return_value = None
-        cls.mock_rules_instance_class.selectRule.side_effect = [["gmail1"], ["imap1"]]
+        cls.mock_rules_instance_class.selectRule.return_value = ["gmail1"]
+        cls.mock_rules_instance_class.readConfigSrc.return_value = MagicMock()
 
         cls.mock_select_from_list_class.return_value = (0, "default_selection") # Default, can be overridden per test
 
@@ -77,6 +78,11 @@ class TestCliCommands(unittest.TestCase):
         self.mock_api_dst.getClient.return_value = True
         self.mock_select_api_source.return_value = self.mock_api_dst
 
+        self.mock_select_source_by_type_patcher = patch("manage_agenda.utils.select_source_by_type")
+        self.mock_select_source_by_type = self.mock_select_source_by_type_patcher.start()
+        self.mock_api_src = MagicMock()
+        self.mock_select_source_by_type.return_value = self.mock_api_src
+
 
     def tearDown(self):
         self.mock_get_add_sources_patcher.stop()
@@ -84,6 +90,7 @@ class TestCliCommands(unittest.TestCase):
         self.mock_process_email_cli_patcher.stop()
         self.mock_process_web_cli_patcher.stop()
         self.mock_select_api_source_patcher.stop()
+        self.mock_select_source_by_type_patcher.stop()
         super().tearDown()
 
 
@@ -114,21 +121,9 @@ class TestCliCommands(unittest.TestCase):
         self.mock_process_email_cli.assert_called_once() # Now using self.mock_process_email_cli
 
     def test_add_no_posts(self):
-        # Mock api_src to return no posts
-        mock_api_src = MagicMock()
-        mock_api_src.service = "gmail"
-        mock_api_src.getLabels.return_value = [{"id": "Label_0"}]
-        mock_api_src.getPosts.return_value = []
-
-        # Temporarily override the mock_module_rules for this test
-        with patch.object(self.mock_module_rules, 'return_value') as mock_rules_instance_inner:
-            mock_rules_instance_inner.selectRule.return_value = ["mocked_rule"]
-            mock_rules_instance_inner.more.get.return_value = {"key": "value"}
-            mock_rules_instance_inner.readConfigSrc.return_value = mock_api_src
-
-            result = self.runner.invoke(self.cli.cli, ["add", "-s", "gmail"])
-            self.assertEqual(result.exit_code, 0)
-            self.mock_process_email_cli.assert_called_once()
+        result = self.runner.invoke(self.cli.cli, ["add", "-s", "gmail"])
+        self.assertEqual(result.exit_code, 0)
+        self.mock_process_email_cli.assert_called_once()
 
 
     def _mock_api(self, mock_process_email_cli):
@@ -143,28 +138,22 @@ class TestCliCommands(unittest.TestCase):
 
 
     def test_add_interactive_web(self):
-        """Test add command in interactive mode selecting web source."""
-        # Configure select_from_list for this specific test
-        self.mock_select_from_list.return_value = (2, "web (Enter URL)")
-
-        result = self.runner.invoke(self.cli.cli, ["add", "-i"])
+        """Test add command in interactive mode with web source."""
+        result = self.runner.invoke(self.cli.cli, ["add", "-i", "-s", "web"])
 
         self.assertEqual(result.exit_code, 0)
-        self.mock_get_add_sources.assert_called_once()
         self.mock_process_web_cli.assert_called_once()
 
     def test_add_interactive_email(self):
         """Test add command in interactive mode selecting email source."""
-        # Configure select_from_list for this specific test
-        self.mock_select_from_list.return_value = (0, "gmail1")
-
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
         self.assertEqual(result.exit_code, 0)
+        self.mock_select_source_by_type.assert_called_once()
         self.mock_process_email_cli.assert_called_once()
-        # Verify source_name was passed
+        # Verify api_src was passed (from select_source_by_type)
         call_args = self.mock_process_email_cli.call_args
-        self.assertEqual(call_args[1].get("source_name"), "gmail1")
+        self.assertIsNotNone(call_args[1].get("api_src"))
 
     def test_add_with_destination_and_output(self):
         """Test add command with both --destination and --output options."""

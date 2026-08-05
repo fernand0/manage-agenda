@@ -103,9 +103,9 @@ def evaluate(ctx, type_, output, prompt):
 @click.option(
     "-s",
     "--source",
-    type=click.Choice(["gmail", "imap", "web", "text"]),
-    default="gmail",
-    help="Source of data: gmail, imap, web, or files",
+    type=click.Choice(["email", "gmail", "imap", "web", "text"]),
+    default="email",
+    help="Source of data: email, gmail, imap, web, or files",
 )
 @click.option(
     "-d",

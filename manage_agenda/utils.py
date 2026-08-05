@@ -647,10 +647,12 @@ def select_source_by_type(args, source_type, rules=None, title=""):
     """
     rules = rules or moduleRules.from_config()
 
-    if source_type == "email":
-        service = ["gmail", "imap"]
-    else:
-        service = source_type
+    service_map = {
+        "email": ["gmail", "imap"],
+        "gmail": ["gmail"],
+        "imap": ["imap"],
+    }
+    service = service_map.get(source_type, source_type)
 
     if args.interactive:
         api_src = rules.selectRuleInteractive(service, title=title)
@@ -1649,15 +1651,16 @@ def process_txt_cli(args, model, source_name=None, rules=None):
     return False  # Default return if something went wrong before the main logic
 
 
-def process_email_cli(args, model, source_name=None, rules=None):
+def process_email_cli(args, model, source_name=None, api_src=None, rules=None):
     """Processes emails and creates calendar events."""
 
-    if source_name:
-        rules = rules or moduleRules.from_config()
-        source_details = rules.more.get(source_name, {})
-        api_src = rules.readConfigSrc("", source_name, source_details)
-    else:
-        api_src = select_email_source(args, rules=rules)
+    if not api_src:
+        if source_name:
+            rules = rules or moduleRules.from_config()
+            source_details = rules.more.get(source_name, {})
+            api_src = rules.readConfigSrc("", source_name, source_details)
+        else:
+            api_src = select_email_source(args, rules=rules)
 
     api_src, posts = _get_emails_from_folder(args, api_src)
 
@@ -1854,31 +1857,41 @@ def add_events_cli(args, rules=None):
 
     print(f"Selected model: {model.model_name}")
 
-    sources = get_add_sources(rules=rules)
-    print(f"Sources: {sources}")
-    if args.interactive:
-        sel, selected = select_from_list(sources, title="Sources of information")
+    source = args.source or ""
+    if source in ("email", "gmail", "imap"):
+        api_src = select_source_by_type(args, source, rules=rules)
+        process_email_cli(args, model, api_src=api_src, rules=rules)
+    elif source == "web":
+        process_web_cli(args, model, force_refresh=args.force_refresh)
+    elif source == "text":
+        process_txt_cli(args, model, rules=rules)
     else:
-        print(f"Selecting: {args.source}")
-        matches = [item for item in sources if args.source in item]
-        selected = matches[0] if matches else None
-        print(f"Selected: {selected}")
-    if selected is None:
-        return
+        # Fallback: select from all sources interactively
+        sources = get_add_sources(rules=rules)
+        print(f"Sources: {sources}")
+        if args.interactive:
+            sel, selected = select_from_list(sources, title="Sources of information")
+        else:
+            print(f"Selecting: {args.source}")
+            matches = [item for item in sources if args.source in item]
+            selected = matches[0] if matches else None
+            print(f"Selected: {selected}")
+        if selected is None:
+            return
 
-    print(f"\nSelected source: {selected}")
-    if isinstance(selected, str) and (("web" in selected) or selected.startswith("http")):
-        if selected.startswith("http"):
-            process_web_cli(args, model, urls=selected.split(" "), force_refresh=args.force_refresh)
+        print(f"\nSelected source: {selected}")
+        if isinstance(selected, str) and (("web" in selected) or selected.startswith("http")):
+            if selected.startswith("http"):
+                process_web_cli(args, model, urls=selected.split(" "), force_refresh=args.force_refresh)
+            else:
+                process_web_cli(args, model, force_refresh=args.force_refresh)
+        elif isinstance(selected, str) and (("text" in selected) or os.path.exists(selected)):
+            if "." in selected:
+                process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
+            else:
+                process_txt_cli(args, model, rules=rules)
         else:
-            process_web_cli(args, model, force_refresh=args.force_refresh)
-    elif isinstance(selected, str) and (("text" in selected) or os.path.exists(selected)):
-        if "." in selected:
-            process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
-        else:
-            process_txt_cli(args, model, rules=rules)
-    else:
-        process_email_cli(args, model, source_name=selected, rules=rules)
+            process_email_cli(args, model, source_name=selected, rules=rules)
 
 
 def copy_events_cli(args):
