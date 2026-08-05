@@ -653,17 +653,18 @@ def select_source_by_type(args, source_type, rules=None, title=""):
         service = source_type
 
     if args.interactive:
-        return rules.selectRuleInteractive(service, title=title)
+        api_src = rules.selectRuleInteractive(service, title=title)
+    else:
+        sources = rules.selectRule(service, "")
+        if not sources:
+            logging.warning(f"No {source_type} sources configured.")
+            return None
+        selected_source = sources[0]
+        source_details = rules.more.get(selected_source, {})
+        logging.info(f"Source: {selected_source} - {source_details}")
+        api_src = rules.readConfigSrc("", selected_source, source_details)
 
-    sources = rules.selectRule(service, "")
-    if not sources:
-        logging.warning(f"No {source_type} sources configured.")
-        return None
-
-    selected_source = sources[0]
-    source_details = rules.more.get(selected_source, {})
-    logging.info(f"Source: {selected_source} - {source_details}")
-    return rules.readConfigSrc("", selected_source, source_details)
+    return api_src
 
 
 def select_api_source(args, api_src_type, rules=None, title=""):
