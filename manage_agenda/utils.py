@@ -115,15 +115,10 @@ class Args:
     force_refresh: bool = False
 
 
-def _get_email_sources(rules):
-    """Helper function to get email sources (gmail + imap)."""
-    return rules.selectRule("gmail", "") + rules.selectRule("imap", "")
-
-
 def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     rules = rules or moduleRules.from_config()
-    email_sources = _get_email_sources(rules)
+    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
     return email_sources + ["web (Enter URLs or leave empty)"] + ["text (enter filenames or leave empty)"]
 
 
@@ -653,7 +648,7 @@ def select_source_by_type(args, source_type, rules=None, title=""):
     rules = rules or moduleRules.from_config()
 
     if source_type == "email":
-        sources = _get_email_sources(rules)
+        sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
     else:
         sources = rules.selectRule(source_type, "")
 
