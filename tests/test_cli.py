@@ -63,6 +63,7 @@ class TestCliCommands(unittest.TestCase):
         self.mock_select_llm.return_value = self.mock_llm
 
         self.mock_process_email_cli_patcher = patch("manage_agenda.utils.process_email_cli")
+
         self.mock_process_email_cli = self.mock_process_email_cli_patcher.start()
         self.mock_process_email_cli.return_value = True
 

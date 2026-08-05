@@ -9,6 +9,7 @@ from socialModules.configMod import select_from_list
 
 from manage_agenda.utils import (
     Args,
+    add_message_to_event_description,
     adjust_event_times,
     authorize,
     create_event_dict,
@@ -16,12 +17,11 @@ from manage_agenda.utils import (
     list_emails_folder,
     list_events_folder,
     process_email_cli,
-    add_message_to_event_description,
     safe_get,
     select_api_source,
     select_calendar,
-    select_llm,
 )
+from manage_agenda.utils_llm import select_llm
 
 # from manage_agenda.utils_base import select_from_list
 
@@ -365,9 +365,9 @@ more text"""
             ["interactive", "delete", "source", "verbose", "destination", "text"],
         )
 
-    @patch("manage_agenda.utils.input", return_value="l")
-    @patch("manage_agenda.utils.OllamaClient")
-    def test_select_llm_interactive_ollama(self, mock_ollama_client, mock_input):
+    @patch("manage_agenda.utils_llm.select_from_list", return_value=(0, "ollama"))
+    @patch("manage_agenda.utils_llm.OllamaClient")
+    def test_select_llm_interactive_ollama(self, mock_ollama_client, mock_sfl):
         args = self.Args(
             interactive=True,
             delete=False,
@@ -380,9 +380,9 @@ more text"""
         mock_ollama_client.assert_called_once()
         self.assertEqual(model, mock_ollama_client.return_value)
 
-    @patch("manage_agenda.utils.input", return_value="m")
-    @patch("manage_agenda.utils.MistralClient")
-    def test_select_llm_interactive_mistral(self, mock_mistral_client, mock_input):
+    @patch("manage_agenda.utils_llm.select_from_list", return_value=(2, "mistral"))
+    @patch("manage_agenda.utils_llm.MistralClient")
+    def test_select_llm_interactive_mistral(self, mock_mistral_client, mock_sfl):
         args = self.Args(
             interactive=True,
             delete=False,
@@ -395,9 +395,9 @@ more text"""
         mock_mistral_client.assert_called_once()
         self.assertEqual(model, mock_mistral_client.return_value)
 
-    @patch("manage_agenda.utils.input", return_value="g")
-    @patch("manage_agenda.utils.GeminiClient")
-    def test_select_llm_interactive_gemini_explicit(self, mock_gemini_client, mock_input):
+    @patch("manage_agenda.utils_llm.select_from_list", return_value=(1, "gemini"))
+    @patch("manage_agenda.utils_llm.GeminiClient")
+    def test_select_llm_interactive_gemini_explicit(self, mock_gemini_client, mock_sfl):
         args = self.Args(
             interactive=True,
             delete=False,
@@ -410,9 +410,9 @@ more text"""
         mock_gemini_client.assert_called_once()
         self.assertEqual(model, mock_gemini_client.return_value)
 
-    @patch("manage_agenda.utils.input", return_value="anything_else")
-    @patch("manage_agenda.utils.GeminiClient")
-    def test_select_llm_interactive_gemini_default(self, mock_gemini_client, mock_input):
+    @patch("manage_agenda.utils_llm.select_from_list", return_value=(1, "gemini"))
+    @patch("manage_agenda.utils_llm.GeminiClient")
+    def test_select_llm_interactive_gemini_default(self, mock_gemini_client, mock_sfl):
         args = self.Args(
             interactive=True,
             delete=False,
@@ -425,9 +425,9 @@ more text"""
         mock_gemini_client.assert_called_once()
         self.assertEqual(model, mock_gemini_client.return_value)
 
-    @patch("manage_agenda.utils.OllamaClient")
-    @patch("manage_agenda.utils.MistralClient")
-    @patch("manage_agenda.utils.GeminiClient")
+    @patch("manage_agenda.utils_llm.OllamaClient")
+    @patch("manage_agenda.utils_llm.MistralClient")
+    @patch("manage_agenda.utils_llm.GeminiClient")
     def test_select_llm_non_interactive_always_gemini(
         self, mock_gemini_client, mock_mistral_client, mock_ollama_client
     ):
@@ -1184,7 +1184,7 @@ more text"""
         mock_get_event_from_llm,
     ):
         """Test _process_event_with_llm_and_calendar when LLM returns a tuple of events."""
-        from manage_agenda.utils import _process_event_with_llm_and_calendar, Args
+        from manage_agenda.utils import Args, _process_event_with_llm_and_calendar
 
         args = Args(
             interactive=False,
@@ -1252,7 +1252,7 @@ more text"""
         mock_extract_event_with_llm_retry,
     ):
         """Test _process_event_with_llm_and_calendar with file output option."""
-        from manage_agenda.utils import _process_event_with_llm_and_calendar, Args
+        from manage_agenda.utils import Args, _process_event_with_llm_and_calendar
 
         args = Args(
             interactive=False,

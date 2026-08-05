@@ -236,3 +236,32 @@ class MistralClient(LLMClient):
     @staticmethod
     def list_models(self):
         return self.client.models.list()
+
+
+def select_llm(args):
+    """Selects and initializes the appropriate LLM client."""
+    if args.interactive:
+        llm_options = ["ollama", "gemini", "mistral"]
+        sel, ai = select_from_list(llm_options, title="Select model provider", default="gemini")
+    else:
+        ai = getattr(args, 'ai', None) or "gemini"
+    print(f"Selected AI: {ai}")
+
+    if ai == "ollama":
+        if args.interactive:
+            model = OllamaClient()
+        else:
+            model = OllamaClient('granite4:latest')
+        return model
+    elif ai == "gemini":
+        if args.interactive:
+            model = GeminiClient()
+        else:
+            model = GeminiClient("gemini-2.5-flash")
+        return model
+    elif ai == "mistral":
+        model = MistralClient()
+        return model
+    else:
+        logging.error(f"Invalid LLM source: {ai}")
+        return None

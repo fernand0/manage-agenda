@@ -96,7 +96,7 @@ from manage_agenda.utils_base import (
     format_time,
     write_file,
 )
-from manage_agenda.utils_llm import GeminiClient, MistralClient, OllamaClient
+from manage_agenda.utils_llm import select_llm
 from manage_agenda.utils_web import reduce_html
 
 
@@ -1841,48 +1841,6 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
 
     return False  # Default return if something went wrong before the main logic
 
-
-def select_llm(args):
-    """Selects and initializes the appropriate LLM client."""
-    if args.interactive:
-        selection = input("Local/mistral/gemini model )(l/m/g)? ")
-        if selection == "l":
-            ai = "ollama"
-        elif selection == "m":
-            ai = "mistral"
-        else:
-            ai = "gemini"
-    else:
-        ai = getattr(args, 'ai', None) or "gemini"
-    print(f"Selected AI: {ai}")
-    args = Args(
-        interactive=args.interactive,
-        delete=args.delete,
-        source=args.source,
-        ai=ai,
-        verbose=args.verbose,
-        destination=args.destination,
-        text=args.text,
-    )
-
-    if args.ai == "ollama":
-        if args.interactive:
-            model = OllamaClient()
-        else:
-            model = OllamaClient('granite4:latest')
-        return model
-    elif args.ai == "gemini":
-        if args.interactive:
-            model = GeminiClient()
-        else:
-            model = GeminiClient("gemini-2.5-flash")
-        return model
-    elif args.ai == "mistral":
-        model = MistralClient()
-        return model
-    else:
-        logging.error(f"Invalid LLM source: {args.ai}")
-        return None
 
 def clean_action(api_cal, event, my_calendar, my_calendar_dst):
     pass
