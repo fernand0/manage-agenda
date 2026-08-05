@@ -1,25 +1,19 @@
-import os
 import sys
 from runpy import run_module
 
 import click
-from socialModules.configMod import select_from_list
 
 from .utils import (
     Args,
+    add_events_cli,
     authorize,
     clean_events_cli,
     copy_events_cli,
     delete_events_cli,
-    get_add_sources,
     list_emails_folder,
     list_events_folder,
     move_events_cli,
-    process_email_cli,
-    process_txt_cli,
-    process_web_cli,
     select_api_source,
-    select_llm,
     update_event_status_cli,
 )
 from .utils_base import setup_logging
@@ -143,49 +137,10 @@ def add(ctx, interactive, source, ai, force_refresh, destination, output):
         destination=destination,
         text=None,
         output=output,
+        force_refresh=force_refresh,
     )
 
-    # Create rules instance once and reuse it
-    from .utils import ensure_rules
-
-    rules = ensure_rules()
-
-    model = select_llm(args)
-
-    if verbose:
-        click.echo(f"Selected model: {model.model_name}")
-
-    sources = get_add_sources(rules=rules)
-    print(f"Sources: {sources}")
-    if interactive:
-        sel, selected = select_from_list(sources, title="Sources of information")
-    else: 
-        print(f"Selecting: {args.source}")
-        # Check for equality, not membership
-        matches = [item for item in sources if args.source in item]
-        selected = matches[0] if matches else None
-        # We are supposing that the last added one is the most interesting
-        print(f"Selected: {selected}")
-    if selected is None:
-        return
-
-    # if "web" in selected_source:  
-    # Check if "web" is in the selected source string
-    print(f"\nSelected source: {selected}")
-    if isinstance(selected, str) and (("web" in selected) or selected.startswith("http")):
-        if selected.startswith("http"):
-            process_web_cli(args, model, urls=selected.split(" "), force_refresh=force_refresh)
-        else:
-            process_web_cli(args, model, force_refresh=force_refresh)
-    elif isinstance(selected, str) and (("text" in selected) or os.path.exists(selected)):
-        if "." in selected:
-            process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
-        else:
-            process_txt_cli(args, model, rules=rules)
-    else:
-        process_email_cli(args, model, source_name=selected, rules=rules)
-    # else:
-    #     process_email_cli(args, model, rules=rules)
+    add_events_cli(args)
 
 
 @cli.command()

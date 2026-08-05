@@ -9,7 +9,7 @@ class TestCliCommands(unittest.TestCase):
 
     # Class-level patchers
     mock_module_rules_patcher = patch("manage_agenda.utils.moduleRules.moduleRules")
-    mock_select_from_list_patcher = patch("manage_agenda.cli.select_from_list")
+    mock_select_from_list_patcher = patch("manage_agenda.utils.select_from_list")
 
     @classmethod
     def setUpClass(cls):
@@ -52,20 +52,20 @@ class TestCliCommands(unittest.TestCase):
 
 
         # Individual patches that apply per test method
-        self.mock_get_add_sources_patcher = patch("manage_agenda.cli.get_add_sources")
+        self.mock_get_add_sources_patcher = patch("manage_agenda.utils.get_add_sources")
         self.mock_get_add_sources = self.mock_get_add_sources_patcher.start()
         self.mock_get_add_sources.return_value = ["gmail1", "imap1", "Web (Enter URL)"]
 
-        self.mock_select_llm_patcher = patch("manage_agenda.cli.select_llm")
+        self.mock_select_llm_patcher = patch("manage_agenda.utils.select_llm")
         self.mock_select_llm = self.mock_select_llm_patcher.start()
         self.mock_llm = MagicMock()
         self.mock_select_llm.return_value = self.mock_llm
 
-        self.mock_process_email_cli_patcher = patch("manage_agenda.cli.process_email_cli")
+        self.mock_process_email_cli_patcher = patch("manage_agenda.utils.process_email_cli")
         self.mock_process_email_cli = self.mock_process_email_cli_patcher.start()
         self.mock_process_email_cli.return_value = True
 
-        self.mock_process_web_cli_patcher = patch("manage_agenda.cli.process_web_cli")
+        self.mock_process_web_cli_patcher = patch("manage_agenda.utils.process_web_cli")
         self.mock_process_web_cli = self.mock_process_web_cli_patcher.start()
         self.mock_process_web_cli.return_value = True
 

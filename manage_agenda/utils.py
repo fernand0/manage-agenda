@@ -111,6 +111,7 @@ class Args:
     destination: Optional[str] = None
     text: Optional[str] = None
     output: str = "calendar"
+    force_refresh: bool = False
 
 
 def _get_email_sources(rules):
@@ -1907,6 +1908,42 @@ def copy_action(api_cal, event, my_calendar, my_calendar_dst):
     my_calendar_dst.getClient().events().insert(calendarId=my_calendar,
                                         body=my_event).execute()
     print(f"Copied event: {my_event['summary']}")
+
+
+def add_events_cli(args, rules=None):
+    """Add entries to the calendar from various sources (email, web, text)."""
+    rules = ensure_rules(rules)
+
+    model = select_llm(args)
+
+    if args.verbose:
+        print(f"Selected model: {model.model_name}")
+
+    sources = get_add_sources(rules=rules)
+    print(f"Sources: {sources}")
+    if args.interactive:
+        sel, selected = select_from_list(sources, title="Sources of information")
+    else:
+        print(f"Selecting: {args.source}")
+        matches = [item for item in sources if args.source in item]
+        selected = matches[0] if matches else None
+        print(f"Selected: {selected}")
+    if selected is None:
+        return
+
+    print(f"\nSelected source: {selected}")
+    if isinstance(selected, str) and (("web" in selected) or selected.startswith("http")):
+        if selected.startswith("http"):
+            process_web_cli(args, model, urls=selected.split(" "), force_refresh=args.force_refresh)
+        else:
+            process_web_cli(args, model, force_refresh=args.force_refresh)
+    elif isinstance(selected, str) and (("text" in selected) or os.path.exists(selected)):
+        if "." in selected:
+            process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
+        else:
+            process_txt_cli(args, model, rules=rules)
+    else:
+        process_email_cli(args, model, source_name=selected, rules=rules)
 
 
 def copy_events_cli(args):
