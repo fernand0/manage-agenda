@@ -8,7 +8,7 @@ from click.testing import CliRunner
 class TestCliCommands(unittest.TestCase):
 
     # Class-level patchers
-    mock_module_rules_patcher = patch("manage_agenda.utils.moduleRules.moduleRules")
+    mock_module_rules_patcher = patch("manage_agenda.utils.moduleRules")
     mock_select_from_list_patcher = patch("manage_agenda.utils.select_from_list")
 
     @classmethod
@@ -21,6 +21,7 @@ class TestCliCommands(unittest.TestCase):
         # Configure class-level mocks
         cls.mock_rules_instance_class = MagicMock()
         cls.mock_module_rules_class.return_value = cls.mock_rules_instance_class
+        cls.mock_module_rules_class.from_config.return_value = cls.mock_rules_instance_class
         cls.mock_rules_instance_class.checkRules.return_value = None
         cls.mock_rules_instance_class.selectRule.side_effect = [["gmail1"], ["imap1"]]
 

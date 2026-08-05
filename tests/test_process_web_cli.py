@@ -55,7 +55,7 @@ class TestProcessWebCli(unittest.TestCase):
         self.assertEqual(page, mock_page)
 
     @patch("manage_agenda.utils._get_pages_from_urls")
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     @patch("manage_agenda.utils.reduce_html")
     @patch("manage_agenda.utils.write_file")
     @patch("manage_agenda.utils.print_first_10_lines")

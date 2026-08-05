@@ -36,7 +36,7 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.select_api_source")
     @patch("manage_agenda.utils.select_email_source")
     @patch("manage_agenda.utils._get_emails_from_folder")
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
     @patch("manage_agenda.utils.json.loads")
@@ -308,7 +308,7 @@ more text"""
         options = ["apple", "banana", "cherry"]
         self.assertEqual(select_from_list(options, default="banana"), (1, "banana"))
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_authorize_interactive(self, mock_module_rules):
         args = self.Args(
             interactive=True,
@@ -319,13 +319,13 @@ more text"""
             text="",
         )
         mock_rules = MagicMock()
-        mock_module_rules.return_value = mock_rules
+        mock_module_rules.from_config.return_value = mock_rules
         with patch("manage_agenda.utils.input", return_value="gmail"):
             authorize(args)
-        mock_rules.checkRules.assert_called_once()
+        mock_module_rules.from_config.assert_called_once()
         mock_rules.selectRuleInteractive.assert_called_once_with("gmail")
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_select_api_source_interactive(self, mock_module_rules):
         args = self.Args(
             interactive=True,
@@ -340,7 +340,7 @@ more text"""
         # When rules are injected, checkRules is not called internally
         mock_rules.selectRuleInteractive.assert_called_once_with("gmail", title="")
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_select_api_source_non_interactive(self, mock_module_rules):
         args = self.Args(
             interactive=False,
@@ -607,7 +607,7 @@ more text"""
         # Should fallback to default timezone
         self.assertEqual(result["start"]["timeZone"], "UTC")
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_get_add_sources(self, mock_module_rules):
         """Test get_add_sources returns correct sources."""
         from manage_agenda.utils import get_add_sources
@@ -720,13 +720,13 @@ more text"""
         mock_api_src.service = "imap"
         mock_api_src.deletePostId.side_effect = [Exception("Connection error"), None]
 
-        with patch("manage_agenda.utils.moduleRules.moduleRules") as mock_module_rules:
+        with patch("manage_agenda.utils.moduleRules") as mock_module_rules:
             mock_rules = MagicMock()
             mock_rules.more.get.return_value = {}
             mock_new_api_src = MagicMock()
             mock_new_api_src.service = "imap"
             mock_rules.readConfigSrc.return_value = mock_new_api_src
-            mock_module_rules.return_value = mock_rules
+            mock_module_rules.from_config.return_value = mock_rules
 
             _delete_email(args, mock_api_src, "post123", "test_source")
 
@@ -745,7 +745,7 @@ more text"""
         # Simulate two failures (original + retry)
         mock_api_src.deletePostId.side_effect = Exception("Connection error 1") # Only for the first call
 
-        with patch("manage_agenda.utils.moduleRules.moduleRules") as mock_module_rules, \
+        with patch("manage_agenda.utils.moduleRules") as mock_module_rules, \
              patch("manage_agenda.utils.logging.error") as mock_logging_error:
             mock_rules = MagicMock()
             mock_rules.more.get.return_value = {}
@@ -753,7 +753,7 @@ more text"""
             mock_new_api_src.service = "imap"
             mock_new_api_src.deletePostId.side_effect = Exception("Connection error 2") # For the retry call
             mock_rules.readConfigSrc.return_value = mock_new_api_src
-            mock_module_rules.return_value = mock_rules
+            mock_module_rules.from_config.return_value = mock_rules
 
             _delete_email(args, mock_api_src, "post123", "test_source")
 
@@ -828,7 +828,7 @@ more text"""
         self.assertIsInstance(prompt, str)
         self.assertGreater(len(prompt), 100)
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_select_email_source_interactive(self, mock_module_rules):
         """Test select_email_source in interactive mode."""
         from manage_agenda.utils import select_email_source
@@ -842,7 +842,7 @@ more text"""
             result = select_email_source(args)
             self.assertEqual(result, 0)
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_select_email_source_non_interactive(self, mock_module_rules):
         """Test select_email_source in non-interactive mode."""
         from manage_agenda.utils import select_email_source
@@ -856,7 +856,7 @@ more text"""
 
         self.assertEqual(result, "gmail1")
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_list_events_folder_with_posts(self, mock_module_rules):
         """Test list_events_folder with posts."""
         import io
@@ -884,7 +884,7 @@ more text"""
         self.assertIn("Event 2", output)
         mock_api_src.setPosts.assert_called_once()
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_list_events_folder_no_client(self, mock_module_rules):
         """Test list_events_folder when client is not available."""
         import io
@@ -903,7 +903,7 @@ more text"""
 
         self.assertIn("Some problem with the account", output)
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_get_emails_from_folder_success(self, mock_module_rules):
         """Test _get_emails_from_folder with successful retrieval."""
         from manage_agenda.utils import _get_emails_from_folder
@@ -928,7 +928,7 @@ more text"""
         self.assertIsNotNone(posts)
         self.assertEqual(len(posts), 2)
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_get_emails_from_folder_no_client(self, mock_module_rules):
         """Test _get_emails_from_folder when client fails."""
         import io
@@ -954,7 +954,7 @@ more text"""
         self.assertIsNone(api_src)
         self.assertIsNone(posts)
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_get_emails_from_folder_no_label(self, mock_module_rules):
         """Test _get_emails_from_folder when label doesn't exist."""
         from manage_agenda.utils import _get_emails_from_folder
@@ -977,7 +977,7 @@ more text"""
         self.assertIsNotNone(api_src)
         self.assertIsNone(posts)
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_get_emails_from_folder_no_posts(self, mock_module_rules):
         """Test _get_emails_from_folder when no posts found."""
         from manage_agenda.utils import _get_emails_from_folder
@@ -1024,7 +1024,7 @@ more text"""
         self.assertIn("Email 1", output)
         self.assertIn("Email 2", output)
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_authorize_success(self, mock_module_rules):
         """Test authorize function."""
         from manage_agenda.utils import authorize
@@ -1044,7 +1044,7 @@ more text"""
         self.assertIsNotNone(result)
         self.assertEqual(result, mock_api_src)
 
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     def test_authorize_no_services(self, mock_module_rules):
         """Test authorize when no services configured."""
         from manage_agenda.utils import authorize

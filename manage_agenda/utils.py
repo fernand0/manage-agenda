@@ -11,7 +11,8 @@ from typing import Optional
 import dateparser
 import googleapiclient
 import pytz
-from socialModules import moduleHtml, moduleRules
+from socialModules import moduleHtml
+from socialModules.moduleRules import moduleRules
 from socialModules.configMod import (
     safe_get,
     select_from_list,
@@ -119,17 +120,9 @@ def _get_email_sources(rules):
     return rules.selectRule("gmail", "") + rules.selectRule("imap", "")
 
 
-def ensure_rules(rules=None):
-    """Ensure rules object is initialized, creating one if needed."""
-    if rules is None:
-        rules = moduleRules.moduleRules()
-        rules.checkRules()
-    return rules
-
-
 def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
-    rules = ensure_rules(rules)
+    rules = rules or moduleRules.from_config()
     email_sources = _get_email_sources(rules)
     return email_sources + ["web (Enter URLs or leave empty)"] + ["text (enter filenames or leave empty)"]
 
@@ -633,7 +626,7 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
 
 
 def authorize(args, rules=None):
-    rules = ensure_rules(rules)
+    rules = rules or moduleRules.from_config()
     if args.interactive:
         service = input("Service? ")
         api_src = rules.selectRuleInteractive(service)
@@ -661,7 +654,7 @@ def _get_sources_by_type(source_type, rules):
 
 def select_source_by_type(args, source_type, rules=None, title=""):
     """Factory function to select sources by type."""
-    rules = ensure_rules(rules)
+    rules = rules or moduleRules.from_config()
 
     sources = _get_sources_by_type(source_type, rules)
 
@@ -736,7 +729,7 @@ def _get_msgs_from_folder(args, source_name, rules=None):
 def _get_emails_from_folder(args, source_name, rules=None):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
-    rules = ensure_rules(rules)
+    rules = rules or moduleRules.from_config()
     source_details = rules.more.get(source_name, {})
     api_src = rules.readConfigSrc("", source_name, source_details)
 
@@ -1517,7 +1510,7 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
                 if attempt < max_retries:
                     logging.info("Retrying to connect to the email server...")
 
-                    rules = ensure_rules(rules)
+                    rules = rules or moduleRules.from_config()
                     source_details = rules.more.get(source_name, {})
                     api_src = rules.readConfigSrc("", source_name, source_details)
                     if label:
@@ -1912,7 +1905,7 @@ def copy_action(api_cal, event, my_calendar, my_calendar_dst):
 
 def add_events_cli(args, rules=None):
     """Add entries to the calendar from various sources (email, web, text)."""
-    rules = ensure_rules(rules)
+    rules = rules or moduleRules.from_config()
 
     model = select_llm(args)
 
