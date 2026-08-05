@@ -614,8 +614,8 @@ more text"""
         from manage_agenda.utils import get_add_sources
 
         mock_rules = MagicMock()
-        mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
-        mock_module_rules.return_value = mock_rules
+        mock_rules.selectRule.return_value = ["gmail1", "imap1"]
+        mock_module_rules.from_config.return_value = mock_rules
 
         sources = get_add_sources(rules=mock_rules)
 

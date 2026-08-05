@@ -118,7 +118,7 @@ class Args:
 def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     rules = rules or moduleRules.from_config()
-    email_sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+    email_sources = rules.selectRule(["gmail", "imap"], "")
     return email_sources + ["web (Enter URLs or leave empty)"] + ["text (enter filenames or leave empty)"]
 
 
@@ -648,7 +648,7 @@ def select_source_by_type(args, source_type, rules=None, title=""):
     rules = rules or moduleRules.from_config()
 
     if source_type == "email":
-        sources = rules.selectRule("gmail", "") + rules.selectRule("imap", "")
+        sources = rules.selectRule(["gmail", "imap"], "")
     else:
         sources = rules.selectRule(source_type, "")
 
