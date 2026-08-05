@@ -619,10 +619,11 @@ more text"""
 
         sources = get_add_sources(rules=mock_rules)
 
-        self.assertIn("gmail1", sources)
-        self.assertIn("imap1", sources)
-        self.assertIn("web (Enter URLs or leave empty)", sources)
-        self.assertIn("text (enter filenames or leave empty)", sources)
+        self.assertIn("gmail1", sources[0])
+        self.assertIn("imap1", sources[0])
+        self.assertIn("web", sources[1])
+        self.assertIn("http", sources[1][1])
+        self.assertIn(("text", "set", "(enter filenames or leave empty)"), sources[1])
 
     def test_extract_json_with_braces(self):
         """Test extract_json finds JSON within text."""
