@@ -56,9 +56,9 @@ def llm(ctx):
 @click.option(
     "-o",
     "--output",
-    type=click.Choice(["calendar", "file", "files"]),
+    type=click.Choice(["calendar", "file"]),
     default="file",
-    help="Output destination: calendar, file, or files",
+    help="Output destination: calendar or file",
 )
 @click.argument("prompt", required=False)
 @click.pass_context
@@ -66,8 +66,6 @@ def evaluate(ctx, type_, output, prompt):
     """Evaluate different LLM models"""
     if prompt:
         print(prompt)
-    if output == "files":
-        output = "file"
     args = Args(
         interactive=False,
         delete=None,
@@ -118,16 +116,14 @@ def evaluate(ctx, type_, output, prompt):
 @click.option(
     "-o",
     "--output",
-    type=click.Choice(["calendar", "file", "files"]),
+    type=click.Choice(["calendar", "file"]),
     default="calendar",
-    help="Output destination: calendar, file, or files",
+    help="Output destination: calendar or file",
 )
 @click.pass_context
 def add(ctx, interactive, source, ai, force_refresh, destination, output):
     """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
-    if output == "files":
-        output = "file"
     args = Args(
         interactive=interactive,
         delete=None,
