@@ -836,13 +836,11 @@ more text"""
 
         args = Args(interactive=True)
         mock_rules = MagicMock()
-        mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
         mock_module_rules.from_config.return_value = mock_rules
 
-        with patch("manage_agenda.utils.select_from_list", return_value=(0, "gmail1")):
-            result = select_email_source(args)
-            self.assertIsNotNone(result)
-            mock_rules.readConfigSrc.assert_called_once()
+        result = select_email_source(args)
+        self.assertIsNotNone(result)
+        mock_rules.selectRuleInteractive.assert_called_once()
 
     @patch("manage_agenda.utils.moduleRules")
     def test_select_email_source_non_interactive(self, mock_module_rules):

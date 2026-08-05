@@ -641,37 +641,29 @@ def authorize(args, rules=None):
 def select_source_by_type(args, source_type, rules=None, title=""):
     """Selects and initializes a source, returning an API object.
 
-    For all source types (including email), returns an initialized API
-    source object. In interactive mode, the user selects from a list;
+    For all source types, returns an initialized API source object.
+    In interactive mode, the user selects from a list;
     in non-interactive mode, the first available source is used.
     """
     rules = rules or moduleRules.from_config()
 
     if source_type == "email":
-        sources = rules.selectRule(["gmail", "imap"], "")
+        service = ["gmail", "imap"]
     else:
-        sources = rules.selectRule(source_type, "")
+        service = source_type
 
     if args.interactive:
-        if source_type == "email":
-            selected_source, _ = select_from_list(sources, title=title)
-        else:
-            api_src = rules.selectRuleInteractive(source_type, title=title)
-            return api_src
-    else:
-        if not sources:
-            logging.warning(f"No {source_type} sources configured.")
-            return None
+        return rules.selectRuleInteractive(service, title=title)
 
-        if source_type == "email":
-            selected_source = sources[0]
-        else:
-            selected_source = sources[0]
+    sources = rules.selectRule(service, "")
+    if not sources:
+        logging.warning(f"No {source_type} sources configured.")
+        return None
 
+    selected_source = sources[0]
     source_details = rules.more.get(selected_source, {})
     logging.info(f"Source: {selected_source} - {source_details}")
-    api_src = rules.readConfigSrc("", selected_source, source_details)
-    return api_src
+    return rules.readConfigSrc("", selected_source, source_details)
 
 
 def select_api_source(args, api_src_type, rules=None, title=""):
