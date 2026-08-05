@@ -163,7 +163,7 @@ class TestProcessEmailCli(unittest.TestCase):
         self, mock_print, mock_get_emails, mock_select_email_source
     ):
         mock_api_src = MagicMock()
-        mock_select_email_source.return_value = "test_source"
+        mock_select_email_source.return_value = mock_api_src
         mock_get_emails.return_value = (mock_api_src, ["post1", "post2"])
         args = self.Args(
             interactive=False,
@@ -175,7 +175,7 @@ class TestProcessEmailCli(unittest.TestCase):
         )
         list_emails_folder(args)
         mock_select_email_source.assert_called_once_with(args, rules=None)
-        mock_get_emails.assert_called_once_with(args, "test_source", rules=None)
+        mock_get_emails.assert_called_once_with(args, mock_api_src)
         self.assertEqual(mock_print.call_count, 2)
 
     @patch("manage_agenda.utils.select_email_source")
@@ -184,7 +184,8 @@ class TestProcessEmailCli(unittest.TestCase):
     def test_list_emails_folder_no_posts(
         self, mock_print, mock_get_emails, mock_select_email_source
     ):
-        mock_select_email_source.return_value = "test_source"
+        mock_api_src = MagicMock()
+        mock_select_email_source.return_value = mock_api_src
         mock_get_emails.return_value = (None, None)
         args = self.Args(
             interactive=False,
@@ -196,7 +197,7 @@ class TestProcessEmailCli(unittest.TestCase):
         )
         list_emails_folder(args)
         mock_select_email_source.assert_called_once_with(args, rules=None)
-        mock_get_emails.assert_called_once_with(args, "test_source", rules=None)
+        mock_get_emails.assert_called_once_with(args, mock_api_src)
         mock_print.assert_not_called()
 
 
@@ -836,11 +837,12 @@ more text"""
         args = Args(interactive=True)
         mock_rules = MagicMock()
         mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
-        mock_module_rules.return_value = mock_rules
+        mock_module_rules.from_config.return_value = mock_rules
 
         with patch("manage_agenda.utils.select_from_list", return_value=(0, "gmail1")):
             result = select_email_source(args)
-            self.assertEqual(result, 0)
+            self.assertIsNotNone(result)
+            mock_rules.readConfigSrc.assert_called_once()
 
     @patch("manage_agenda.utils.moduleRules")
     def test_select_email_source_non_interactive(self, mock_module_rules):
@@ -850,11 +852,12 @@ more text"""
         args = Args(interactive=False)
         mock_rules = MagicMock()
         mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
-        mock_module_rules.return_value = mock_rules
+        mock_module_rules.from_config.return_value = mock_rules
 
         result = select_email_source(args, rules=mock_rules)
 
-        self.assertEqual(result, "gmail1")
+        self.assertIsNotNone(result)
+        mock_rules.readConfigSrc.assert_called_once()
 
     @patch("manage_agenda.utils.moduleRules")
     def test_list_events_folder_with_posts(self, mock_module_rules):
@@ -903,15 +906,11 @@ more text"""
 
         self.assertIn("Some problem with the account", output)
 
-    @patch("manage_agenda.utils.moduleRules")
-    def test_get_emails_from_folder_success(self, mock_module_rules):
+    def test_get_emails_from_folder_success(self):
         """Test _get_emails_from_folder with successful retrieval."""
         from manage_agenda.utils import _get_emails_from_folder
 
         args = Args(interactive=False, delete=False, verbose=False)
-
-        mock_rules = MagicMock()
-        mock_rules.more.get.return_value = {"key": "value"}
 
         mock_api_src = MagicMock()
         mock_api_src.getClient.return_value = MagicMock()
@@ -919,17 +918,13 @@ more text"""
         mock_api_src.getLabels.return_value = [{"id": "label1", "name": "zAgenda"}]
         mock_api_src.getPosts.return_value = [{"id": "1"}, {"id": "2"}]
 
-        mock_rules.readConfigSrc.return_value = mock_api_src
-        mock_module_rules.return_value = mock_rules
-
-        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
+        api_src, posts = _get_emails_from_folder(args, mock_api_src)
 
         self.assertIsNotNone(api_src)
         self.assertIsNotNone(posts)
         self.assertEqual(len(posts), 2)
 
-    @patch("manage_agenda.utils.moduleRules")
-    def test_get_emails_from_folder_no_client(self, mock_module_rules):
+    def test_get_emails_from_folder_no_client(self):
         """Test _get_emails_from_folder when client fails."""
         import io
 
@@ -937,55 +932,38 @@ more text"""
 
         args = Args(interactive=False, delete=False, verbose=False)
 
-        mock_rules = MagicMock()
-        mock_rules.more.get.return_value = {}
-
         mock_api_src = MagicMock()
         mock_api_src.getClient.return_value = None
 
-        mock_rules.readConfigSrc.return_value = mock_api_src
-        mock_module_rules.return_value = mock_rules
-
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
+        api_src, posts = _get_emails_from_folder(args, mock_api_src)
         sys.stdout = sys.__stdout__
 
         self.assertIsNone(api_src)
         self.assertIsNone(posts)
 
-    @patch("manage_agenda.utils.moduleRules")
-    def test_get_emails_from_folder_no_label(self, mock_module_rules):
+    def test_get_emails_from_folder_no_label(self):
         """Test _get_emails_from_folder when label doesn't exist."""
         from manage_agenda.utils import _get_emails_from_folder
 
         args = Args(interactive=False, delete=False, verbose=False)
-
-        mock_rules = MagicMock()
-        mock_rules.more.get.return_value = {}
 
         mock_api_src = MagicMock()
         mock_api_src.getClient.return_value = MagicMock()
         mock_api_src.service = "imap"
         mock_api_src.getLabels.return_value = []
 
-        mock_rules.readConfigSrc.return_value = mock_api_src
-        mock_module_rules.return_value = mock_rules
-
-        api_src, posts = _get_emails_from_folder(args, "imap1", rules=mock_rules)
+        api_src, posts = _get_emails_from_folder(args, mock_api_src)
 
         self.assertIsNotNone(api_src)
         self.assertIsNone(posts)
 
-    @patch("manage_agenda.utils.moduleRules")
-    def test_get_emails_from_folder_no_posts(self, mock_module_rules):
+    def test_get_emails_from_folder_no_posts(self):
         """Test _get_emails_from_folder when no posts found."""
         from manage_agenda.utils import _get_emails_from_folder
 
         args = Args(interactive=False, delete=False, verbose=False)
-
-        mock_rules = MagicMock()
-        mock_rules.more.get.return_value = {}
 
         mock_api_src = MagicMock()
         mock_api_src.getClient.return_value = MagicMock()
@@ -993,15 +971,12 @@ more text"""
         mock_api_src.getLabels.return_value = [{"id": "label1"}]
         mock_api_src.getPosts.return_value = []
 
-        mock_rules.readConfigSrc.return_value = mock_api_src
-        mock_module_rules.return_value = mock_rules
-
-        api_src, posts = _get_emails_from_folder(args, "gmail1", rules=mock_rules)
+        api_src, posts = _get_emails_from_folder(args, mock_api_src)
 
         self.assertIsNotNone(api_src)
         self.assertIsNone(posts)
 
-    @patch("manage_agenda.utils.select_email_source", return_value="gmail1")
+    @patch("manage_agenda.utils.select_email_source")
     @patch("manage_agenda.utils._get_emails_from_folder")
     def test_list_emails_folder_with_posts(self, mock_get_emails, mock_select_source):
         """Test list_emails_folder with posts."""
@@ -1012,6 +987,7 @@ more text"""
         args = Args(interactive=False, delete=False, verbose=False)
 
         mock_api_src = MagicMock()
+        mock_select_source.return_value = mock_api_src
         mock_api_src.getPostTitle.side_effect = ["Email 1", "Email 2"]
         mock_get_emails.return_value = (mock_api_src, [{"id": "1"}, {"id": "2"}])
 

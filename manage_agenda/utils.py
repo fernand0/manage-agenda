@@ -643,27 +643,24 @@ def authorize(args, rules=None):
     return api_src
 
 
-def _get_sources_by_type(source_type, rules):
-    """Helper function to get sources based on type."""
-    if source_type == "email":
-        return _get_email_sources(rules)
-    else:
-        # For API sources and others, use the direct approach
-        return rules.selectRule(source_type, "")
-
-
 def select_source_by_type(args, source_type, rules=None, title=""):
-    """Factory function to select sources by type."""
+    """Selects and initializes a source, returning an API object.
+
+    For all source types (including email), returns an initialized API
+    source object. In interactive mode, the user selects from a list;
+    in non-interactive mode, the first available source is used.
+    """
     rules = rules or moduleRules.from_config()
 
-    sources = _get_sources_by_type(source_type, rules)
+    if source_type == "email":
+        sources = _get_email_sources(rules)
+    else:
+        sources = rules.selectRule(source_type, "")
 
     if args.interactive:
         if source_type == "email":
             selected_source, _ = select_from_list(sources, title=title)
-            return selected_source
         else:
-            # For API sources and others
             api_src = rules.selectRuleInteractive(source_type, title=title)
             return api_src
     else:
@@ -672,15 +669,14 @@ def select_source_by_type(args, source_type, rules=None, title=""):
             return None
 
         if source_type == "email":
-            # For email sources, return the source name
-            return sources[0]
+            selected_source = sources[0]
         else:
-            # For API sources, load the configuration
-            source_name = sources[0]
-            source_details = rules.more.get(source_name, {})
-            logging.info(f"Source: {source_name} - {source_details}")
-            api_src = rules.readConfigSrc("", source_name, source_details)
-            return api_src
+            selected_source = sources[0]
+
+    source_details = rules.more.get(selected_source, {})
+    logging.info(f"Source: {selected_source} - {source_details}")
+    api_src = rules.readConfigSrc("", selected_source, source_details)
+    return api_src
 
 
 def select_api_source(args, api_src_type, rules=None, title=""):
@@ -726,12 +722,9 @@ def _get_msgs_from_folder(args, source_name, rules=None):
     return None, posts
 
 
-def _get_emails_from_folder(args, source_name, rules=None):
+def _get_emails_from_folder(args, api_src):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
-    rules = rules or moduleRules.from_config()
-    source_details = rules.more.get(source_name, {})
-    api_src = rules.readConfigSrc("", source_name, source_details)
 
     if not api_src.getClient():
         print("Some problem with the account")
@@ -764,8 +757,8 @@ def select_email_source(args, rules=None):
 
 def list_emails_folder(args, rules=None):
     """Lists emails and in folder."""
-    source_name = select_email_source(args, rules=rules)
-    api_src, posts = _get_emails_from_folder(args, source_name, rules=rules)
+    api_src = select_email_source(args, rules=rules)
+    api_src, posts = _get_emails_from_folder(args, api_src)
     if posts:
         for i, post in enumerate(posts):
             # post_id = api_src.getPostId(post)
@@ -1671,10 +1664,14 @@ def process_txt_cli(args, model, source_name=None, rules=None):
 def process_email_cli(args, model, source_name=None, rules=None):
     """Processes emails and creates calendar events."""
 
-    if not source_name:
-        source_name = select_email_source(args, rules=rules)
+    if source_name:
+        rules = rules or moduleRules.from_config()
+        source_details = rules.more.get(source_name, {})
+        api_src = rules.readConfigSrc("", source_name, source_details)
+    else:
+        api_src = select_email_source(args, rules=rules)
 
-    api_src, posts = _get_emails_from_folder(args, source_name, rules=rules)
+    api_src, posts = _get_emails_from_folder(args, api_src)
 
     if posts:
 
@@ -1867,8 +1864,7 @@ def add_events_cli(args, rules=None):
 
     model = select_llm(args)
 
-    if args.verbose:
-        print(f"Selected model: {model.model_name}")
+    print(f"Selected model: {model.model_name}")
 
     sources = get_add_sources(rules=rules)
     print(f"Sources: {sources}")
