@@ -242,7 +242,7 @@ def select_llm(args):
     """Selects and initializes the appropriate LLM client."""
     if args.interactive:
         llm_options = ["ollama", "gemini", "mistral"]
-        sel, ai = select_from_list(llm_options, title="Select model provider", default="gemini")
+        sel, ai = select_from_list(llm_options, title="Select model provider", default="ollama")
     else:
         ai = getattr(args, 'ai', None) or "gemini"
     print(f"Selected AI: {ai}")
