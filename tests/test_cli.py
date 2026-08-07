@@ -25,6 +25,7 @@ class TestCliCommands(unittest.TestCase):
         cls.mock_rules_instance_class.checkRules.return_value = None
         cls.mock_rules_instance_class.selectRule.return_value = ["gmail1"]
         cls.mock_rules_instance_class.readConfigSrc.return_value = MagicMock()
+        cls.mock_rules_instance_class.selectRuleInteractive.return_value = "gmail1"  # Default
 
         cls.mock_select_from_list_class.return_value = (0, "default_selection") # Default, can be overridden per test
 
@@ -57,6 +58,10 @@ class TestCliCommands(unittest.TestCase):
         except Exception:
             pass
         self.mock_rules_instance = self.mock_rules_instance_class
+        try:
+            self.mock_rules_instance.selectRuleInteractive.reset_mock()
+        except Exception:
+            pass
 
 
         # Individual patches that apply per test method
@@ -145,22 +150,22 @@ class TestCliCommands(unittest.TestCase):
 
     def test_add_interactive_web(self):
         """Test add command in interactive mode with web source."""
-        self.mock_select_from_list.return_value = (2, "web")
+        self.mock_rules_instance.selectRuleInteractive.return_value = "web"
 
         result = self.runner.invoke(self.cli.cli, ["add", "-i", "-s", "web"])
 
         self.assertEqual(result.exit_code, 0)
-        self.mock_select_from_list.assert_called_once()
+        self.mock_rules_instance.selectRuleInteractive.assert_called_once()
         self.mock_process_web_cli.assert_called_once()
 
     def test_add_interactive_email(self):
         """Test add command in interactive mode selecting email source."""
-        self.mock_select_from_list.return_value = (0, "gmail1")
+        self.mock_rules_instance.selectRuleInteractive.return_value = "gmail1"
 
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
         self.assertEqual(result.exit_code, 0)
-        self.mock_select_from_list.assert_called_once()
+        self.mock_rules_instance.selectRuleInteractive.assert_called_once()
         self.mock_process_email_cli.assert_called_once()
 
     def test_add_with_destination_and_output(self):
