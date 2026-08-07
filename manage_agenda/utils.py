@@ -118,7 +118,7 @@ class Args:
 def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     rules = rules or moduleRules.from_config()
-    email_sources = rules.selectRule(["gmail", "imap"], "")
+    email_sources = rules.selectRule(["gmail", "imap"])
     return email_sources , ["web"] + [('http', 'set',  "(Enter URLs or leave empty)")] + [("text", 'set', '(enter filenames or leave empty)')]
 
 
@@ -1869,10 +1869,12 @@ def add_events_cli(args, rules=None):
     #if True:
     #    # Fallback: select from all sources interactively
     sources, more_options = get_add_sources(rules=rules)
+    sources = ["gmail","imap"]
     if args.verbose:
         print(f"Sources: {sources}")
     if args.interactive:
-        sel, selected = select_from_list(sources, more_options=more_options, title="Sources of information")
+        #sel, selected = select_from_list(sources, more_options=more_options, title="Sources of information")
+        selected = rules.selectRuleInteractive(sources, title="Select Rule", more_options=more_options)
     else:
         print(f"Selecting: {args.source}")
         matches = [item for item in sources if args.source in item]
@@ -1880,18 +1882,18 @@ def add_events_cli(args, rules=None):
         print(f"Selected: {selected}")
     if selected:
         print(f"\nSelected source: {selected}")
-        if ("web" in selected) or ("http" in selected):
+        if hasattr(selected, '__iter__') and (("web" in selected) or ("http" in selected)):
             url_list = None
-            if selected.startswith("http"):
+            if isinstance(selected, str) and "http" in selected:
                 url_list=selected.split(" ")
             process_web_cli(args, model, urls=url_list, force_refresh=args.force_refresh)
-        elif isinstance(selected, str) and (("text" in selected) or os.path.exists(selected)):
+        elif hasattr(selected, '__iter__') and (("text" in selected) or os.path.exists(selected)):
             file_list = None
-            if "." in selected:
+            if isinstance(selected, str) and "." in selected:
                 file_list = selected.split(" ")
-                process_txt_cli(args, model, source_name=file_list, rules=rules)
+            process_txt_cli(args, model, source_name=file_list, rules=rules)
         else:
-            process_email_cli(args, model, source_name=selected, rules=rules)
+            process_email_cli(args, model, api_src=selected, rules=rules)
 
 
 def copy_events_cli(args):
