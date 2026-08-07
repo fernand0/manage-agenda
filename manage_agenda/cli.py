@@ -13,12 +13,13 @@ from .utils import (
     list_emails_folder,
     list_events_folder,
     move_events_cli,
-    select_api_source,
+    # select_api_source,
     update_event_status_cli,
 )
 from .utils_base import setup_logging
 from .utils_llm import evaluate_models
 
+from socialModules.moduleRules import moduleRules
 
 @click.group()
 @click.version_option()
@@ -209,7 +210,10 @@ def gcalendar(ctx, interactive):
         destination=None,
         text=None,
     )
-    api_src = select_api_source(args, api_src_type="gcalendar")
+    rules = moduleRules.from_config()
+    # api_src = select_api_source(args, api_src_type="gcalendar")
+    api_src_type = "gcalendar"
+    api_src = rules.selectRuleInteractive(api_src_type, title="Select Rule") 
     list_events_folder(args, api_src)
 
 

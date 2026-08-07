@@ -451,7 +451,23 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     print(f"Calling LLM {model.model_name}")
     event, vcal_json = None, None
     start_time = time.time()
-    llm_response = model.generate_text(prompt)
+    # llm_response = model.generate_text(prompt)
+    llm_response = """
+{
+  "summary": "Celebración de jubilación de Ángela Alcalá",
+  "location": "Edificio Paraninfo de la Universidad de Zaragoza",
+  "description": "Día en el que se celebrará el homenaje de jubilación de nuestra compañera Ángela Alcalá, con comida y regalo.",
+  "start": {
+    "dateTime": "2026-09-25T00:00:00",
+    "timeZone": "CET"
+  },
+  "end": {
+    "dateTime": "",
+    "timeZone": ""
+  },
+  "recurrence": []
+}
+"""
 #    llm_response = """
 #```json
 #{
@@ -638,40 +654,40 @@ def authorize(args, rules=None):
     return api_src
 
 
-def select_source_by_type(args, source_type, rules=None, title=""):
-    """Selects and initializes a source, returning an API object.
+# def select_source_by_type(args, source_type, rules=None, title=""):
+#     """Selects and initializes a source, returning an API object.
+# 
+#     For all source types, returns an initialized API source object.
+#     In interactive mode, the user selects from a list;
+#     in non-interactive mode, the first available source is used.
+#     """
+#     rules = rules or moduleRules.from_config()
+# 
+#     if source_type == "email":
+#         service = ["gmail", "imap"]
+#     else:
+#         # Normalize non-email types to a list so callers receive a consistent
+#         # sequence (tests and moduleRules expect a list of candidates).
+#         service = list(source_type) if isinstance(source_type, (list, tuple)) else [source_type]
+# 
+#     if args.interactive:
+#         api_src = rules.selectRuleInteractive(service, title=title)
+#     else:
+#         sources = rules.selectRule(service, "")
+#         if not sources:
+#             logging.warning(f"No {source_type} sources configured.")
+#             return None
+#         selected_source = sources[0]
+#         source_details = rules.more.get(selected_source, {})
+#         logging.info(f"Source: {selected_source} - {source_details}")
+#         api_src = rules.readConfigSrc("", selected_source, source_details)
+# 
+#     return api_src
 
-    For all source types, returns an initialized API source object.
-    In interactive mode, the user selects from a list;
-    in non-interactive mode, the first available source is used.
-    """
-    rules = rules or moduleRules.from_config()
 
-    if source_type == "email":
-        service = ["gmail", "imap"]
-    else:
-        # Normalize non-email types to a list so callers receive a consistent
-        # sequence (tests and moduleRules expect a list of candidates).
-        service = list(source_type) if isinstance(source_type, (list, tuple)) else [source_type]
-
-    if args.interactive:
-        api_src = rules.selectRuleInteractive(service, title=title)
-    else:
-        sources = rules.selectRule(service, "")
-        if not sources:
-            logging.warning(f"No {source_type} sources configured.")
-            return None
-        selected_source = sources[0]
-        source_details = rules.more.get(selected_source, {})
-        logging.info(f"Source: {selected_source} - {source_details}")
-        api_src = rules.readConfigSrc("", selected_source, source_details)
-
-    return api_src
-
-
-def select_api_source(args, api_src_type, rules=None, title=""):
-    """Selects an API source, interactive or not."""
-    return select_source_by_type(args, api_src_type, rules, title=title)
+# def select_api_source(args, api_src_type, rules=None, title=""):
+#     """Selects an API source, interactive or not."""
+#     return select_source_by_type(args, api_src_type, rules, title=title)
 
 
 def list_events_folder(args, api_src, calendar=""):
@@ -740,9 +756,9 @@ def _get_emails_from_folder(args, api_src):
     return api_src, posts
 
 
-def select_email_source(args, rules=None):
-    """Selects an email source, interactive or not."""
-    return select_source_by_type(args, "email", rules)
+# def select_email_source(args, rules=None):
+#     """Selects an email source, interactive or not."""
+#     return select_source_by_type(args, "email", rules)
 
 
 def list_emails_folder(args, rules=None):
@@ -1178,6 +1194,7 @@ def _process_event_with_llm_and_calendar(
     reference_date_time,
     post_identifier,
     subject_for_print,
+    rules = None,
 ):
     """
     Common logic for processing an event with LLM, adjusting times, and publishing to calendar.
@@ -1205,13 +1222,9 @@ def _process_event_with_llm_and_calendar(
         )
 
         # Handle restart case first
-        if need_restart:
+        if need_restart or need_another_ai:
             # Loop will continue to restart the process
-            pass  # Intentionally do nothing, just let the loop continue
-        elif need_another_ai:
             # Need to get another AI response and try again
-            # This means we need to repeat the process with a new AI call
-            # We'll just continue the loop to repeat the process
             pass  # Intentionally do nothing, just let the loop continue
         else:
             # Check if extraction was unsuccessful
@@ -1221,19 +1234,21 @@ def _process_event_with_llm_and_calendar(
                 if event is None:
                     should_process = False  # Indicate failure
                 else:
+                    # In case it is not a list we will make a list
                     events = list(event)
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
                         title = events[0]['summary']
-                        api_dst = select_api_source(args, api_dst_type, title=title)
+                        api_dst = rules.selectRuleInteractive(api_dst_type, title="Select Rule") 
+                        #print(f"Api1: {api_dst}")
+                        #api_dst = select_api_source(args, api_dst_type, title=title)
+                        #print(f"Api: {api_dst}")
+                        #sys.exit()
                         selected_calendar = select_calendar(api_dst, title=title, args=args)
                     else:
                         api_dst = None
                         selected_calendar = None
 
-                    # --- Event Adjustment ---
-                    # TODO: event is always a list (enforced in _extract_event_with_llm_retry),
-                    # so the single-event else path below is dead code. Re-enable if needed.
                     calendar_results = []
 
                     if getattr(args, "output", "calendar") == "calendar" and not selected_calendar:
@@ -1246,8 +1261,8 @@ def _process_event_with_llm_and_calendar(
                                 json.dumps(single_event)
                             )
 
-
-                            _display_event_info(single_event, subject_for_print, elapsed_time, model, post_identifier)
+                            _display_event_info(single_event, subject_for_print, 
+                                                elapsed_time, model, post_identifier)
 
                             retry_needed = False
                             if args.interactive:
@@ -1522,7 +1537,7 @@ def _is_post_too_old(args, time_difference):
 
 
 def _process_common_flow(
-    args, model, items, metadata_extractor, content_extractor, item_cleaner=None
+    args, model, items, metadata_extractor, content_extractor, item_cleaner=None, rules=None
 ):
     """
     Common flow for processing items (emails, web pages).
@@ -1561,6 +1576,7 @@ def _process_common_flow(
             post_date_time,
             post_id,
             post_title,
+            rules=rules
         )
 
         # processed_event = True
@@ -1646,7 +1662,7 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             pass
 
         return _process_common_flow(
-            args, model, posts, metadata_extractor, content_extractor, item_cleaner
+            args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
         )
     return False  # Default return if something went wrong before the main logic
 
@@ -1691,7 +1707,7 @@ def process_email_cli(args, model, source_name=None, api_src=None, rules=None):
             _delete_email(args, api_src, post_pos, source_name, rules=rules)
 
         return _process_common_flow(
-            args, model, posts, metadata_extractor, content_extractor, item_cleaner
+            args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
         )
     return False  # Default return if something went wrong before the main logic
 
@@ -1744,7 +1760,7 @@ def _get_links_from_notes():
         return {}
 
 
-def process_web_cli(args, model, urls=None, force_refresh=False):
+def process_web_cli(args, model, urls=None, force_refresh=False, rules=None):
     """Processes web pages and creates calendar events."""
 
     url_to_notes = {}
@@ -1824,7 +1840,7 @@ def process_web_cli(args, model, urls=None, force_refresh=False):
                     manager.delete_note(note_title)
 
         return _process_common_flow(
-            args, model, posts, metadata_extractor, content_extractor, item_cleaner
+            args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
         )
 
     return False  # Default return if something went wrong before the main logic
@@ -1886,7 +1902,7 @@ def add_events_cli(args, rules=None):
             url_list = None
             if isinstance(selected, str) and "http" in selected:
                 url_list=selected.split(" ")
-            process_web_cli(args, model, urls=url_list, force_refresh=args.force_refresh)
+            process_web_cli(args, model, urls=url_list, force_refresh=args.force_refresh, rules=rules)
         elif hasattr(selected, '__iter__') and (("text" in selected) or os.path.exists(selected)):
             file_list = None
             if isinstance(selected, str) and "." in selected:
@@ -1977,7 +1993,10 @@ def process_calendar_events(
         None
     """
     # Initialize API and calendar
-    api_cal = select_api_source(args, api_src_type)
+    # api_cal = select_api_source(args, api_src_type)
+    rules = moduleRules.from_config()
+    api_cal_type = "gcalendar"
+    api_cal = rules.selectRuleInteractive(api_cal_type, title="Select Rule") 
     if getattr(args, "source", None):
         selected_calendar = args.source
     else:
@@ -2069,7 +2088,10 @@ def process_calendar_events(
 
     # Handle destination calendar if needed
     if destination_needed:
-        my_calendar_dst = select_api_source(args, api_src_type)
+        #my_calendar_dst = select_api_source(args, api_src_type)
+        rules = rules or moduleRules.from_config()
+        my_dst_type = "gcalendar"
+        my_calendar_dst = rules.selectRuleInteractive(my_dst_type, title="Select Rule") 
         if getattr(args, "destination", None):
             my_calendar = args.destination
         else:
@@ -2123,7 +2145,10 @@ def move_events_cli(args):
 
 def update_event_status_cli(args):
     """Update event status from busy to available for selected events."""
-    api_cal = select_api_source(args, "gcalendar")
+    #api_cal = select_api_source(args, "gcalendar")
+    rules = moduleRules.from_config()
+    api_cal_type = "gcalendar"
+    api_cal = rules.selectRuleInteractive(api_cal_type, title="Select Rule") 
 
     if args.output:
         my_calendar = args.output
@@ -2183,7 +2208,6 @@ def update_event_status_cli(args):
 
         title = api_cal.getPostTitle(event) or "No Title"
         print(f"Updated event status to available: {title}")
-
 
 def clean_events_cli(args):
     """Combined command to clean calendar entries (select between copy or delete)."""
