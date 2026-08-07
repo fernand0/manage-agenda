@@ -18,7 +18,6 @@ from manage_agenda.utils import (
     list_events_folder,
     process_email_cli,
     safe_get,
-    select_api_source,
     select_calendar,
 )
 from manage_agenda.utils_llm import select_llm
