@@ -451,23 +451,23 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     print(f"Calling LLM {model.model_name}")
     event, vcal_json = None, None
     start_time = time.time()
-    # llm_response = model.generate_text(prompt)
-    llm_response = """
-{
-  "summary": "Celebración de jubilación de Ángela Alcalá",
-  "location": "Edificio Paraninfo de la Universidad de Zaragoza",
-  "description": "Día en el que se celebrará el homenaje de jubilación de nuestra compañera Ángela Alcalá, con comida y regalo.",
-  "start": {
-    "dateTime": "2026-09-25T00:00:00",
-    "timeZone": "CET"
-  },
-  "end": {
-    "dateTime": "",
-    "timeZone": ""
-  },
-  "recurrence": []
-}
-"""
+    llm_response = model.generate_text(prompt)
+#     llm_response = """
+# {
+#   "summary": "Celebración de jubilación de Ángela Alcalá",
+#   "location": "Edificio Paraninfo de la Universidad de Zaragoza",
+#   "description": "Día en el que se celebrará el homenaje de jubilación de nuestra compañera Ángela Alcalá, con comida y regalo.",
+#   "start": {
+#     "dateTime": "2026-09-25T00:00:00",
+#     "timeZone": "CET"
+#   },
+#   "end": {
+#     "dateTime": "",
+#     "timeZone": ""
+#   },
+#   "recurrence": []
+# }
+# """
 #    llm_response = """
 #```json
 #{
@@ -685,9 +685,28 @@ def authorize(args, rules=None):
 #     return api_src
 
 
-# def select_api_source(args, api_src_type, rules=None, title=""):
-#     """Selects an API source, interactive or not."""
-#     return select_source_by_type(args, api_src_type, rules, title=title)
+def select_api(args, api_type, rules=None, title=""):
+    """Selects an API, interactive or not."""
+    rules = rules or moduleRules.from_config()
+
+    if api_type == "email":
+        service = ["gmail", "imap"]
+    else:
+        service = list(api_type) if isinstance(api_type, (list, tuple)) else [api_type]
+
+    if args.interactive:
+        api = rules.selectRuleInteractive(service, title=title)
+    else:
+        sources = rules.selectRule(service, "")
+        if not sources:
+            logging.warning(f"No {api_type} sources configured.")
+            return None
+        selected_source = sources[0]
+        source_details = rules.more.get(selected_source, {})
+        logging.info(f"Source: {selected_source} - {source_details}")
+        api = rules.readConfigSrc("", selected_source, source_details)
+
+    return api
 
 
 def list_events_folder(args, api_src, calendar=""):
@@ -763,7 +782,7 @@ def _get_emails_from_folder(args, api_src):
 
 def list_emails_folder(args, rules=None):
     """Lists emails and in folder."""
-    api_src = select_email_source(args, rules=rules)
+    api_src = select_api(args, "email", rules=rules)
     api_src, posts = _get_emails_from_folder(args, api_src)
     if posts:
         for i, post in enumerate(posts):
@@ -1239,11 +1258,7 @@ def _process_event_with_llm_and_calendar(
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
                         title = events[0]['summary']
-                        api_dst = rules.selectRuleInteractive(api_dst_type, title="Select Rule") 
-                        #print(f"Api1: {api_dst}")
-                        #api_dst = select_api_source(args, api_dst_type, title=title)
-                        #print(f"Api: {api_dst}")
-                        #sys.exit()
+                        api_dst = select_api(args, api_dst_type, rules=rules, title="Select Rule")
                         selected_calendar = select_calendar(api_dst, title=title, args=args)
                     else:
                         api_dst = None
@@ -1676,7 +1691,7 @@ def process_email_cli(args, model, source_name=None, api_src=None, rules=None):
             source_details = rules.more.get(source_name, {})
             api_src = rules.readConfigSrc("", source_name, source_details)
         else:
-            api_src = select_email_source(args, rules=rules)
+            api_src = select_api(args, "email", rules=rules)
 
     api_src, posts = _get_emails_from_folder(args, api_src)
 
@@ -1994,9 +2009,10 @@ def process_calendar_events(
     """
     # Initialize API and calendar
     # api_cal = select_api_source(args, api_src_type)
-    rules = moduleRules.from_config()
-    api_cal_type = "gcalendar"
-    api_cal = rules.selectRuleInteractive(api_cal_type, title="Select Rule") 
+    # rules = moduleRules.from_config()
+    # api_cal_type = "gcalendar"
+    # api_cal = rules.selectRuleInteractive(api_cal_type, title="Select Rule") 
+    api_cal = select_api(args, "gcalendar", rules=None, title="Select Rule")
     if getattr(args, "source", None):
         selected_calendar = args.source
     else:
@@ -2089,9 +2105,10 @@ def process_calendar_events(
     # Handle destination calendar if needed
     if destination_needed:
         #my_calendar_dst = select_api_source(args, api_src_type)
-        rules = rules or moduleRules.from_config()
-        my_dst_type = "gcalendar"
-        my_calendar_dst = rules.selectRuleInteractive(my_dst_type, title="Select Rule") 
+        # rules = rules or moduleRules.from_config()
+        # my_dst_type = "gcalendar"
+        # my_calendar_dst = rules.selectRuleInteractive(my_dst_type, title="Select Rule") 
+        my_calendar_dst = select_api(args, "gcalendar", rules=None, title="Select rule")
         if getattr(args, "destination", None):
             my_calendar = args.destination
         else:
@@ -2146,9 +2163,10 @@ def move_events_cli(args):
 def update_event_status_cli(args):
     """Update event status from busy to available for selected events."""
     #api_cal = select_api_source(args, "gcalendar")
-    rules = moduleRules.from_config()
-    api_cal_type = "gcalendar"
-    api_cal = rules.selectRuleInteractive(api_cal_type, title="Select Rule") 
+    # rules = moduleRules.from_config()
+    # api_cal_type = "gcalendar"
+    # api_cal = rules.selectRuleInteractive(api_cal_type, title="Select Rule") 
+    api_cal = select_api(args, "gcalendar", rules = None, title="Select Rule")
 
     if args.output:
         my_calendar = args.output

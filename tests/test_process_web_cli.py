@@ -121,7 +121,7 @@ class TestProcessWebCli(unittest.TestCase):
         mock_get_pages.return_value = (mock_page, ["post_obj"])
         
         # Intercept _process_common_flow to trigger item_cleaner
-        def side_effect(args, model, items, metadata_extractor, content_extractor, item_cleaner=None):
+        def side_effect(args, model, items, metadata_extractor, content_extractor, item_cleaner=None, rules=None):
             if item_cleaner:
                 item_cleaner("post_obj", 0, "post_id")
             return True
