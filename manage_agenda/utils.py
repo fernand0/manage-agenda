@@ -732,6 +732,7 @@ def _get_msgs_from_folder(args, source_name, rules=None):
 
     posts = []
     for file_path in txt_files:
+        file_path = Path(file_path)
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             file_name = file_path.stem
@@ -1258,7 +1259,7 @@ def _process_event_with_llm_and_calendar(
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
                         title = events[0]['summary']
-                        api_dst = select_api(args, api_dst_type, rules=rules, title="Select Rule")
+                        api_dst = select_api(args, api_dst_type, rules=rules, title="Select Calendar")
                         selected_calendar = select_calendar(api_dst, title=title, args=args)
                     else:
                         api_dst = None
@@ -1524,6 +1525,7 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
                     logging.info("Retrying to connect to the email server...")
 
                     rules = rules or moduleRules.from_config()
+                    logging.info(f"Source: {source_name}")
                     source_details = rules.more.get(source_name, {})
                     api_src = rules.readConfigSrc("", source_name, source_details)
                     if label:
