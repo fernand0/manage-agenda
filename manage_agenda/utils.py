@@ -427,9 +427,6 @@ def _ensure_valid_event_timezones(event, fallback_tz="UTC"):
     return event
 
 
-
-
-
 def extract_json(text):
     # extract json (assuming response contains json within backticks)
 
