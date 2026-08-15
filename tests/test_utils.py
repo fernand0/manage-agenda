@@ -18,7 +18,7 @@ from manage_agenda.utils import (
     list_events_folder,
     process_email_cli,
     safe_get,
-    select_api_source,
+    select_api,
     select_calendar,
 )
 from manage_agenda.utils_llm import select_llm
@@ -33,8 +33,7 @@ class TestProcessEmailCli(unittest.TestCase):
             ["interactive", "delete", "source", "verbose", "destination", "text"],
         )
 
-    @patch("manage_agenda.utils.select_api_source")
-    @patch("manage_agenda.utils.select_email_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("manage_agenda.utils.moduleRules")
     @patch("manage_agenda.utils.select_calendar")
@@ -51,8 +50,7 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_select_calendar,
         mock_module_rules,
         mock_get_emails_from_folder,
-        mock_select_email_source,
-        mock_select_api_source,
+        mock_select_api,
     ):
         args = self.Args(
             interactive=False,
@@ -83,11 +81,10 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_api_src.getPostTitle.return_value = "Test title"
         mock_api_src.getPostBody.return_value = "Test Body"
 
-        mock_select_email_source.return_value = "test_source"
         mock_get_emails_from_folder.return_value = (mock_api_src, ["post_id"])
 
         mock_api_dst = MagicMock()
-        mock_select_api_source.return_value = mock_api_dst
+        mock_select_api.return_value = mock_api_dst
         mock_select_calendar.return_value = "primary"
 
         mock_rules = MagicMock()
@@ -156,14 +153,14 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_api_src.setPosts.assert_called_once()
         mock_print.assert_not_called()
 
-    @patch("manage_agenda.utils.select_email_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("builtins.print")
     def test_list_emails_folder_with_posts(
-        self, mock_print, mock_get_emails, mock_select_email_source
+        self, mock_print, mock_get_emails, mock_select_api
     ):
         mock_api_src = MagicMock()
-        mock_select_email_source.return_value = mock_api_src
+        mock_select_api.return_value = mock_api_src
         mock_get_emails.return_value = (mock_api_src, ["post1", "post2"])
         args = self.Args(
             interactive=False,
@@ -174,18 +171,18 @@ class TestProcessEmailCli(unittest.TestCase):
             text="",
         )
         list_emails_folder(args)
-        mock_select_email_source.assert_called_once_with(args, rules=None)
+        mock_select_api.assert_called_once_with(args, "email", rules=None)
         mock_get_emails.assert_called_once_with(args, mock_api_src)
         self.assertEqual(mock_print.call_count, 2)
 
-    @patch("manage_agenda.utils.select_email_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("builtins.print")
     def test_list_emails_folder_no_posts(
-        self, mock_print, mock_get_emails, mock_select_email_source
+        self, mock_print, mock_get_emails, mock_select_api
     ):
         mock_api_src = MagicMock()
-        mock_select_email_source.return_value = mock_api_src
+        mock_select_api.return_value = mock_api_src
         mock_get_emails.return_value = (None, None)
         args = self.Args(
             interactive=False,
@@ -196,7 +193,7 @@ class TestProcessEmailCli(unittest.TestCase):
             text="",
         )
         list_emails_folder(args)
-        mock_select_email_source.assert_called_once_with(args, rules=None)
+        mock_select_api.assert_called_once_with(args, "email", rules=None)
         mock_get_emails.assert_called_once_with(args, mock_api_src)
         mock_print.assert_not_called()
 
@@ -327,7 +324,7 @@ more text"""
         mock_rules.selectRuleInteractive.assert_called_once_with("gmail")
 
     @patch("manage_agenda.utils.moduleRules")
-    def test_select_api_source_interactive(self, mock_module_rules):
+    def test_select_api_interactive(self, mock_module_rules):
         args = self.Args(
             interactive=True,
             delete=False,
@@ -337,12 +334,11 @@ more text"""
             text="",
         )
         mock_rules = MagicMock()
-        select_api_source(args, "gmail", rules=mock_rules)
-        # When rules are injected, checkRules is not called internally
+        select_api(args, "gmail", rules=mock_rules)
         mock_rules.selectRuleInteractive.assert_called_once_with(["gmail"], title="")
 
     @patch("manage_agenda.utils.moduleRules")
-    def test_select_api_source_non_interactive(self, mock_module_rules):
+    def test_select_api_non_interactive(self, mock_module_rules):
         args = self.Args(
             interactive=False,
             delete=False,
@@ -355,8 +351,7 @@ more text"""
         mock_rules.selectRule.return_value = ["test_rule"]
         mock_rules.more.get.return_value = {"key": "value"}
         mock_module_rules.return_value = mock_rules
-        select_api_source(args, "gmail", rules=mock_rules)
-        # When rules are injected, checkRules is not called internally
+        select_api(args, "gmail", rules=mock_rules)
         mock_rules.selectRule.assert_called_once_with(["gmail"], "")
         mock_rules.readConfigSrc.assert_called_once_with("", "test_rule", {"key": "value"})
 
@@ -831,31 +826,33 @@ more text"""
         self.assertGreater(len(prompt), 100)
 
     @patch("manage_agenda.utils.moduleRules")
-    def test_select_email_source_interactive(self, mock_module_rules):
-        """Test select_email_source in interactive mode."""
-        from manage_agenda.utils import select_email_source
+    def test_select_api_email_interactive(self, mock_module_rules):
+        """Test select_api with email type in interactive mode."""
+        from manage_agenda.utils import select_api
 
         args = Args(interactive=True)
         mock_rules = MagicMock()
         mock_module_rules.from_config.return_value = mock_rules
 
-        result = select_email_source(args)
+        result = select_api(args, "email")
         self.assertIsNotNone(result)
         mock_rules.selectRuleInteractive.assert_called_once()
 
     @patch("manage_agenda.utils.moduleRules")
-    def test_select_email_source_non_interactive(self, mock_module_rules):
-        """Test select_email_source in non-interactive mode."""
-        from manage_agenda.utils import select_email_source
+    def test_select_api_email_non_interactive(self, mock_module_rules):
+        """Test select_api with email type in non-interactive mode."""
+        from manage_agenda.utils import select_api
 
         args = Args(interactive=False)
         mock_rules = MagicMock()
-        mock_rules.selectRule.side_effect = [["gmail1"], ["imap1"]]
+        mock_rules.selectRule.return_value = ["gmail1"]
+        mock_rules.more.get.return_value = {"key": "value"}
         mock_module_rules.from_config.return_value = mock_rules
 
-        result = select_email_source(args, rules=mock_rules)
+        result = select_api(args, "email", rules=mock_rules)
 
         self.assertIsNotNone(result)
+        mock_rules.selectRule.assert_called_once()
         mock_rules.readConfigSrc.assert_called_once()
 
     @patch("manage_agenda.utils.moduleRules")
@@ -975,9 +972,9 @@ more text"""
         self.assertIsNotNone(api_src)
         self.assertIsNone(posts)
 
-    @patch("manage_agenda.utils.select_email_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils._get_emails_from_folder")
-    def test_list_emails_folder_with_posts(self, mock_get_emails, mock_select_source):
+    def test_list_emails_folder_with_posts(self, mock_get_emails, mock_select_api):
         """Test list_emails_folder with posts."""
         import io
 
@@ -986,7 +983,7 @@ more text"""
         args = Args(interactive=False, delete=False, verbose=False)
 
         mock_api_src = MagicMock()
-        mock_select_source.return_value = mock_api_src
+        mock_select_api.return_value = mock_api_src
         mock_api_src.getPostTitle.side_effect = ["Email 1", "Email 2"]
         mock_get_emails.return_value = (mock_api_src, [{"id": "1"}, {"id": "2"}])
 
@@ -1036,7 +1033,7 @@ more text"""
 
 
 
-    @patch("manage_agenda.utils.select_api_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
     @patch("builtins.input", side_effect=["meeting", "0", "calendar2"])
     def test_copy_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
@@ -1072,7 +1069,7 @@ more text"""
         # Verify event was inserted
         mock_client.events().insert.assert_called()
 
-    @patch("manage_agenda.utils.select_api_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
     @patch("builtins.input", side_effect=["", "0"])
     def test_delete_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
@@ -1108,7 +1105,7 @@ more text"""
         # Verify event was deleted
         mock_client.events().delete.assert_called()
 
-    @patch("manage_agenda.utils.select_api_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
     @patch("builtins.input", side_effect=["", "0", "calendar2"])
     def test_move_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
@@ -1146,7 +1143,7 @@ more text"""
         mock_client.events().delete.assert_called()
 
     @patch("manage_agenda.utils.get_event_from_llm")
-    @patch("manage_agenda.utils.select_api_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
     @patch("manage_agenda.utils._validate_event_dates_interactive")
@@ -1155,7 +1152,7 @@ more text"""
         mock_interactive_confirmation,
         mock_write_file,
         mock_select_calendar,
-        mock_select_api_source,
+        mock_select_api,
         mock_get_event_from_llm,
     ):
         """Test _process_event_with_llm_and_calendar when LLM returns a tuple of events."""
@@ -1186,7 +1183,7 @@ more text"""
         mock_get_event_from_llm.return_value = ((event1, event2), (event1, event2), 1.0)
 
         mock_api_dst = MagicMock()
-        mock_select_api_source.return_value = mock_api_dst
+        mock_select_api.return_value = mock_api_dst
         mock_select_calendar.return_value = "calendar_id"
         mock_interactive_confirmation.side_effect = lambda args, ev: ev
         mock_api_dst.publishPost.side_effect = ["result1", "result2"]
@@ -1214,7 +1211,7 @@ more text"""
         self.assertEqual(mock_api_dst.publishPost.call_count, 2)
 
     @patch("manage_agenda.utils._extract_event_with_llm_retry")
-    @patch("manage_agenda.utils.select_api_source")
+    @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
     @patch("manage_agenda.utils._validate_event_dates_interactive")
@@ -1223,7 +1220,7 @@ more text"""
         mock_interactive_confirmation,
         mock_write_file,
         mock_select_calendar,
-        mock_select_api_source,
+        mock_select_api,
         mock_extract_event_with_llm_retry,
     ):
         """Test _process_event_with_llm_and_calendar with file output option."""
@@ -1263,8 +1260,8 @@ more text"""
         self.assertEqual(events[0]["summary"], "Meeting One")
         self.assertEqual(results, ["post_123_1_times.json"])
 
-        # Verify select_api_source, select_calendar, and publishPost were not called
-        mock_select_api_source.assert_not_called()
+        # Verify select_api, select_calendar, and publishPost were not called
+        mock_select_api.assert_not_called()
         mock_select_calendar.assert_not_called()
 
         # Verify file write was called

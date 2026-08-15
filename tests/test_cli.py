@@ -51,13 +51,17 @@ class TestCliCommands(unittest.TestCase):
         # Access class-level mocks via self
         self.mock_module_rules = self.mock_module_rules_class
         self.mock_select_from_list = self.mock_select_from_list_class
-        # Reset call history on the class-level mock so each test starts fresh.
+        self.mock_rules_instance = self.mock_rules_instance_class
+        # Reset call history on the class-level mocks so each test starts fresh.
         # This prevents previous tests from affecting assert_called_once checks.
         try:
             self.mock_select_from_list.reset_mock()
         except Exception:
             pass
+<<<<<<< HEAD
         self.mock_rules_instance = self.mock_rules_instance_class
+=======
+>>>>>>> 32c097816e18444da63d60771c872e62545cd7f5
         try:
             self.mock_rules_instance.selectRuleInteractive.reset_mock()
         except Exception:
@@ -83,16 +87,12 @@ class TestCliCommands(unittest.TestCase):
         self.mock_process_web_cli = self.mock_process_web_cli_patcher.start()
         self.mock_process_web_cli.return_value = True
 
-        self.mock_select_api_source_patcher = patch("manage_agenda.utils.select_api_source")
-        self.mock_select_api_source = self.mock_select_api_source_patcher.start()
+        self.mock_select_api_patcher = patch("manage_agenda.utils.select_api")
+        self.mock_select_api = self.mock_select_api_patcher.start()
         self.mock_api_dst = MagicMock()
         self.mock_api_dst.getClient.return_value = True
-        self.mock_select_api_source.return_value = self.mock_api_dst
+        self.mock_select_api.return_value = self.mock_api_dst
 
-        self.mock_select_source_by_type_patcher = patch("manage_agenda.utils.select_source_by_type")
-        self.mock_select_source_by_type = self.mock_select_source_by_type_patcher.start()
-        self.mock_api_src = MagicMock()
-        self.mock_select_source_by_type.return_value = self.mock_api_src
 
 
     def tearDown(self):
@@ -100,8 +100,8 @@ class TestCliCommands(unittest.TestCase):
         self.mock_select_llm_patcher.stop()
         self.mock_process_email_cli_patcher.stop()
         self.mock_process_web_cli_patcher.stop()
-        self.mock_select_api_source_patcher.stop()
-        self.mock_select_source_by_type_patcher.stop()
+        self.mock_select_api_patcher.stop()
+
         super().tearDown()
 
 
@@ -111,12 +111,15 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_authorize.assert_called_once()
 
-    @patch("manage_agenda.cli.select_api_source")
+    @patch("manage_agenda.cli.moduleRules")
     @patch("manage_agenda.cli.list_events_folder")
-    def test_gcalendar_command(self, mock_list_events_folder, mock_select_api_source):
+    def test_gcalendar_command(self, mock_list_events_folder, mock_cli_module_rules):
+        mock_cli_rules = MagicMock()
+        mock_cli_module_rules.from_config.return_value = mock_cli_rules
+        mock_cli_rules.selectRuleInteractive.return_value = self.mock_api_dst
         result = self.runner.invoke(self.cli.cli, ["gcalendar"])
         self.assertEqual(result.exit_code, 0)
-        mock_select_api_source.assert_called_once()
+        mock_cli_rules.selectRuleInteractive.assert_called_once()
         mock_list_events_folder.assert_called_once()
 
     @patch("manage_agenda.cli.list_emails_folder")
@@ -165,7 +168,11 @@ class TestCliCommands(unittest.TestCase):
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
         self.assertEqual(result.exit_code, 0)
+<<<<<<< HEAD
         self.mock_rules_instance.selectRuleInteractive.assert_called_once()
+=======
+        self.mock_rules_instance.selectRuleInteractive.assert_called()
+>>>>>>> 32c097816e18444da63d60771c872e62545cd7f5
         self.mock_process_email_cli.assert_called_once()
 
     def test_add_with_destination_and_output(self):

@@ -2178,7 +2178,6 @@ def update_event_status_cli(args):
         title = api_cal.getPostTitle(event) or "No Title"
         print(f"Updated event status to available: {title}")
 
-
 def clean_events_cli(args):
     """Combined command to clean calendar entries (select between copy or delete)."""
     process_calendar_events(args, "clean", clean_action, destination_needed=True)
