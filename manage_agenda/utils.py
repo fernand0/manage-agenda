@@ -635,40 +635,37 @@ def authorize(args, rules=None):
     return api_src
 
 
-def select_source_by_type(args, source_type, rules=None, title=""):
-    """Selects and initializes a source, returning an API object.
 
-    For all source types, returns an initialized API source object.
-    In interactive mode, the user selects from a list;
-    in non-interactive mode, the first available source is used.
-    """
-    rules = rules or moduleRules.from_config()
+# def select_source_by_type(args, source_type, rules=None, title=""):
+#     """Selects and initializes a source, returning an API object.
+# 
+#     For all source types, returns an initialized API source object.
+#     In interactive mode, the user selects from a list;
+#     in non-interactive mode, the first available source is used.
+#     """
+#     rules = rules or moduleRules.from_config()
+# 
+#     if source_type == "email":
+#         service = ["gmail", "imap"]
+#     else:
+#         # Normalize non-email types to a list so callers receive a consistent
+#         # sequence (tests and moduleRules expect a list of candidates).
+#         service = list(source_type) if isinstance(source_type, (list, tuple)) else [source_type]
+# 
+#     if args.interactive:
+#         api_src = rules.selectRuleInteractive(service, title=title)
+#     else:
+#         sources = rules.selectRule(service, "")
+#         if not sources:
+#             logging.warning(f"No {source_type} sources configured.")
+#             return None
+#         selected_source = sources[0]
+#         source_details = rules.more.get(selected_source, {})
+#         logging.info(f"Source: {selected_source} - {source_details}")
+#         api_src = rules.readConfigSrc("", selected_source, source_details)
+# 
+#     return api_src
 
-    if source_type == "email":
-        service = ["gmail", "imap"]
-    else:
-        # Normalize non-email types to a list so callers receive a consistent
-        # sequence (tests and moduleRules expect a list of candidates).
-        service = list(source_type) if isinstance(source_type, (list, tuple)) else [source_type]
-
-    if args.interactive:
-        api_src = rules.selectRuleInteractive(service, title=title)
-    else:
-        sources = rules.selectRule(service, "")
-        if not sources:
-            logging.warning(f"No {source_type} sources configured.")
-            return None
-        selected_source = sources[0]
-        source_details = rules.more.get(selected_source, {})
-        logging.info(f"Source: {selected_source} - {source_details}")
-        api_src = rules.readConfigSrc("", selected_source, source_details)
-
-    return api_src
-
-
-def select_api_source(args, api_src_type, rules=None, title=""):
-    """Selects an API source, interactive or not."""
-    return select_source_by_type(args, api_src_type, rules, title=title)
 
 
 def list_events_folder(args, api_src, calendar=""):
@@ -737,14 +734,40 @@ def _get_emails_from_folder(args, api_src):
     return api_src, posts
 
 
-def select_email_source(args, rules=None):
-    """Selects an email source, interactive or not."""
-    return select_source_by_type(args, "email", rules)
+
+# def select_email_source(args, rules=None):
+#     """Selects an email source, interactive or not."""
+#     return select_source_by_type(args, "email", rules)
+
+
+
+def select_api(args, api_type, rules=None, title=""):
+    """Selects an API, interactive or not."""
+    rules = rules or moduleRules.from_config()
+
+    if api_type == "email":
+        service = ["gmail", "imap"]
+    else:
+        service = list(api_type) if isinstance(api_type, (list, tuple)) else [api_type]
+
+    if args.interactive:
+        api = rules.selectRuleInteractive(service, title=title)
+    else:
+        sources = rules.selectRule(service, "")
+        if not sources:
+            logging.warning(f"No {api_type} sources configured.")
+            return None
+        selected_source = sources[0]
+        source_details = rules.more.get(selected_source, {})
+        logging.info(f"Source: {selected_source} - {source_details}")
+        api = rules.readConfigSrc("", selected_source, source_details)
+
+    return api
 
 
 def list_emails_folder(args, rules=None):
     """Lists emails and in folder."""
-    api_src = select_email_source(args, rules=rules)
+    api_src = select_api(args, "email", rules=rules)
     api_src, posts = _get_emails_from_folder(args, api_src)
     if posts:
         for i, post in enumerate(posts):
@@ -1222,7 +1245,7 @@ def _process_event_with_llm_and_calendar(
                     if getattr(args, "output", "calendar") == "calendar":
                         api_dst_type = "gcalendar"
                         title = events[0]['summary']
-                        api_dst = select_api_source(args, api_dst_type, title=title)
+                        api_dst = select_api(args, api_dst_type, rules=rules, title="Select Calendar")
                         selected_calendar = select_calendar(api_dst, title=title, args=args)
                     else:
                         api_dst = None
@@ -1974,7 +1997,7 @@ def process_calendar_events(
         None
     """
     # Initialize API and calendar
-    api_cal = select_api_source(args, api_src_type)
+    api_cal = select_api(args, "gcalendar", rules=None, title="Select Rule")
     if getattr(args, "source", None):
         selected_calendar = args.source
     else:
@@ -2066,7 +2089,7 @@ def process_calendar_events(
 
     # Handle destination calendar if needed
     if destination_needed:
-        my_calendar_dst = select_api_source(args, api_src_type)
+        my_calendar_dst = select_api(args, "gcalendar", rules=None, title="Select rule")
         if getattr(args, "destination", None):
             my_calendar = args.destination
         else:
@@ -2120,7 +2143,7 @@ def move_events_cli(args):
 
 def update_event_status_cli(args):
     """Update event status from busy to available for selected events."""
-    api_cal = select_api_source(args, "gcalendar")
+    api_cal = select_api(args, "gcalendar", rules = None, title="Select Rule")
 
     if args.output:
         my_calendar = args.output
