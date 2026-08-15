@@ -58,10 +58,7 @@ class TestCliCommands(unittest.TestCase):
             self.mock_select_from_list.reset_mock()
         except Exception:
             pass
-<<<<<<< HEAD
         self.mock_rules_instance = self.mock_rules_instance_class
-=======
->>>>>>> 32c097816e18444da63d60771c872e62545cd7f5
         try:
             self.mock_rules_instance.selectRuleInteractive.reset_mock()
         except Exception:
@@ -168,11 +165,7 @@ class TestCliCommands(unittest.TestCase):
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
         self.assertEqual(result.exit_code, 0)
-<<<<<<< HEAD
-        self.mock_rules_instance.selectRuleInteractive.assert_called_once()
-=======
         self.mock_rules_instance.selectRuleInteractive.assert_called()
->>>>>>> 32c097816e18444da63d60771c872e62545cd7f5
         self.mock_process_email_cli.assert_called_once()
 
     def test_add_with_destination_and_output(self):
