@@ -120,7 +120,7 @@ def get_add_sources(rules=None):
     """Returns a list of available sources for the add command."""
     rules = rules or moduleRules.from_config()
     email_sources = rules.selectRule(["gmail", "imap"])
-    return email_sources , ["web"] + [('http', 'set',  "(Enter URLs or leave empty)")] + [("text", 'set', '(enter filenames or leave empty)')]
+    return email_sources , [('web/http', 'set',  "(Enter URLs or leave empty)")] + [("text", 'set', '(enter filenames or leave empty)')]
 
 
 def print_first_10_lines(content, content_type="content"):
@@ -1872,7 +1872,7 @@ def add_events_cli(args, rules=None):
         print(f"Selected: {selected}")
     if selected:
         print(f"\nSelected source: {selected}")
-        if hasattr(selected, '__iter__') and (("web" in selected) or ("http" in selected)):
+        if hasattr(selected, '__iter__') and (("web" in str(selected)) or ("http" in str(selected))):
             url_list = None
             if isinstance(selected, str) and "http" in selected:
                 url_list=selected.split(" ")
