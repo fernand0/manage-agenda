@@ -12,6 +12,7 @@ import dateparser
 import googleapiclient
 import pytz
 from socialModules import moduleHtml
+from socialModules.moduleContent import display_posts
 from socialModules.moduleRules import moduleRules
 from socialModules.configMod import (
     safe_get,
@@ -679,10 +680,9 @@ def list_events_folder(args, api_src, calendar=""):
     """Lists events in calendar."""
     if api_src.getClient():
         api_src.setPosts()
-        if api_src.getPosts():
-            for i, post in enumerate(api_src.getPosts()):
-                post_title = api_src.getPostTitle(post)
-                print(f"{i}) {post_title}")
+        posts = api_src.getPosts()
+        if posts:
+            display_posts(api_src, posts)
     else:
         print("Some problem with the account")
 
@@ -747,11 +747,7 @@ def list_emails_folder(args, rules=None):
     api_src = select_api(args, "email", rules=rules)
     api_src, posts = _get_emails_from_folder(args, api_src)
     if posts:
-        for i, post in enumerate(posts):
-            # post_id = api_src.getPostId(post)
-            # post_date = api_src.getPostDate(post)
-            post_title = api_src.getPostTitle(post)
-            print(f"{i}) {post_title}")
+        display_posts(api_src, posts)
 
 def _create_llm_prompt(*args):
     """Constructs the LLM prompt for event extraction."""
@@ -1908,8 +1904,7 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
         List of selected events
     """
     print(f"Select events to {action_verb}:")
-    for i, event in enumerate(events_list):
-        print(f"{i}) {api_cal.getPostTitle(event)}")
+    display_posts(api_cal, events_list)
 
     print(f"{len(events_list)}) All")
 
