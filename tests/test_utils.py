@@ -156,9 +156,7 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("builtins.print")
-    def test_list_emails_folder_with_posts(
-        self, mock_print, mock_get_emails, mock_select_api
-    ):
+    def test_list_emails_folder_with_posts(self, mock_print, mock_get_emails, mock_select_api):
         mock_api_src = MagicMock()
         mock_select_api.return_value = mock_api_src
         mock_get_emails.return_value = (mock_api_src, ["post1", "post2"])
@@ -178,9 +176,7 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("builtins.print")
-    def test_list_emails_folder_no_posts(
-        self, mock_print, mock_get_emails, mock_select_api
-    ):
+    def test_list_emails_folder_no_posts(self, mock_print, mock_get_emails, mock_select_api):
         mock_api_src = MagicMock()
         mock_select_api.return_value = mock_api_src
         mock_get_emails.return_value = (None, None)
@@ -196,6 +192,38 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_select_api.assert_called_once_with(args, "email", rules=None)
         mock_get_emails.assert_called_once_with(args, mock_api_src)
         mock_print.assert_not_called()
+
+    @patch("manage_agenda.utils.select_events_by_user_input", return_value=[])
+    @patch("manage_agenda.utils.display_posts")
+    @patch("manage_agenda.utils.select_calendar", return_value="calendar-id")
+    @patch("manage_agenda.utils.select_api")
+    def test_update_event_status_uses_calendar_posts(
+        self,
+        mock_select_api,
+        mock_select_calendar,
+        mock_display_posts,
+        mock_select_events,
+    ):
+        from manage_agenda.utils import update_event_status_cli
+
+        args = Args(interactive=False, output="", text="")
+        api_cal = MagicMock()
+        events = [{"summary": "Event", "transparency": "opaque"}]
+        api_cal.getPosts.return_value = events
+        api_cal.getPostTitle.return_value = "Event"
+        mock_select_api.return_value = api_cal
+
+        update_event_status_cli(args)
+
+        api_cal.setActive.assert_called_once_with("calendar-id")
+        api_cal.setPosts.assert_called_once_with(
+            max_results=None, event_types="default", show_active=False
+        )
+        mock_display_posts.assert_called_once()
+        assert mock_display_posts.call_args.args[:2] == (api_cal, events)
+        assert mock_display_posts.call_args.kwargs["limit"] == 20
+        assert mock_display_posts.call_args.kwargs["title"] == "Upcoming events (up to 20):"
+        mock_select_events.assert_called_once_with(api_cal, events, "update")
 
 
 class TestUtils(unittest.TestCase):
@@ -554,7 +582,9 @@ more text"""
         )
 
         prompt = "Create an event"
-        event, vcal_json, elapsed_time = get_event_from_llm(mock_model, prompt, post_id="test_post_123", verbose=False)
+        event, vcal_json, elapsed_time = get_event_from_llm(
+            mock_model, prompt, post_id="test_post_123", verbose=False
+        )
 
         self.assertIsNotNone(event)
         self.assertEqual(event["summary"], "Test Event")
@@ -573,7 +603,9 @@ more text"""
 
         captured_output = io.StringIO()
         sys.stdout = captured_output
-        event, vcal_json, elapsed_time = get_event_from_llm(mock_model, "test", post_id="test_post_123", verbose=False)
+        event, vcal_json, elapsed_time = get_event_from_llm(
+            mock_model, "test", post_id="test_post_123", verbose=False
+        )
         sys.stdout = sys.__stdout__
         output = captured_output.getvalue()
 
@@ -741,15 +773,21 @@ more text"""
         mock_api_src = MagicMock()
         mock_api_src.service = "imap"
         # Simulate two failures (original + retry)
-        mock_api_src.deletePostId.side_effect = Exception("Connection error 1") # Only for the first call
+        mock_api_src.deletePostId.side_effect = Exception(
+            "Connection error 1"
+        )  # Only for the first call
 
-        with patch("manage_agenda.utils.moduleRules") as mock_module_rules, \
-             patch("manage_agenda.utils.logging.error") as mock_logging_error:
+        with (
+            patch("manage_agenda.utils.moduleRules") as mock_module_rules,
+            patch("manage_agenda.utils.logging.error") as mock_logging_error,
+        ):
             mock_rules = MagicMock()
             mock_rules.more.get.return_value = {}
             mock_new_api_src = MagicMock()
             mock_new_api_src.service = "imap"
-            mock_new_api_src.deletePostId.side_effect = Exception("Connection error 2") # For the retry call
+            mock_new_api_src.deletePostId.side_effect = Exception(
+                "Connection error 2"
+            )  # For the retry call
             mock_rules.readConfigSrc.return_value = mock_new_api_src
             mock_module_rules.from_config.return_value = mock_rules
 
@@ -761,9 +799,9 @@ more text"""
             self.assertEqual(mock_new_api_src.deletePostId.call_count, 1)
 
             # Check that the error message was logged
-            mock_logging_error.assert_called_once_with("Could not delete email post123 after 2 attempts: Connection error 2")
-
-
+            mock_logging_error.assert_called_once_with(
+                "Could not delete email post123 after 2 attempts: Connection error 2"
+            )
 
     def test_is_email_too_old_recent(self):
         """Test _is_email_too_old with recent email."""
@@ -1032,8 +1070,6 @@ more text"""
 
         self.assertIsNone(result)
 
-
-
     @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
     @patch("builtins.input", side_effect=["meeting", "0", "calendar2"])
@@ -1271,4 +1307,3 @@ more text"""
 
 if __name__ == "__main__":
     unittest.main()
-

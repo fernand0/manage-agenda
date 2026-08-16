@@ -2180,36 +2180,26 @@ def update_event_status_cli(args):
     else:
         my_calendar = select_calendar(api_cal)
 
-    today = datetime.datetime.now()
-    the_date = today.isoformat(timespec="seconds") + "Z"
-
-    res = (
-        api_cal.getClient()
-        .events()
-        .list(
-            calendarId=my_calendar,
-            timeMin=the_date,
-            singleEvents=True,
-            eventTypes="default",
-            orderBy="startTime",
-        )
-        .execute()
+    api_cal.setActive(my_calendar)
+    api_cal.setPosts(max_results=None, event_types="default", show_active=False)
+    events = api_cal.getPosts() or []
+    display_posts(
+        api_cal,
+        events,
+        format_post=lambda event: (
+            f"[{event.get('transparency', 'opaque')}] "
+            f"{api_cal.getPostTitle(event) or 'No Title'}"
+        ),
+        limit=20,
+        title="Upcoming events (up to 20):",
     )
-
-    print("Upcoming events (up to 20):")
-    for event in res["items"][:20]:
-        status = event.get(
-            "transparency", "opaque"
-        )  # "opaque" means busy, "transparent" means free
-        title = api_cal.getPostTitle(event) or "No Title"
-        print(f"- [{status}] {title}")
 
     text_filter = args.text
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
     events_to_update = []
-    for event in res["items"]:
+    for event in events:
         title = api_cal.getPostTitle(event) or "No Title"
         if text_filter in title:
             # Only include events that are currently "busy" (opaque)
