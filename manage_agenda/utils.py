@@ -452,53 +452,6 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
-    #     llm_response = """
-    # {
-    #   "summary": "Celebración de jubilación de Ángela Alcalá",
-    #   "location": "Edificio Paraninfo de la Universidad de Zaragoza",
-    #   "description": "Día en el que se celebrará el homenaje de jubilación de nuestra compañera Ángela Alcalá, con comida y regalo.",
-    #   "start": {
-    #     "dateTime": "2026-09-25T00:00:00",
-    #     "timeZone": "CET"
-    #   },
-    #   "end": {
-    #     "dateTime": "",
-    #     "timeZone": ""
-    #   },
-    #   "recurrence": []
-    # }
-    # """
-    #    llm_response = """
-    # ```json
-    # {
-    #  "summary": "",
-    #  "location": "",
-    #  "description": "",
-    #  "start": {
-    #    "dateTime": "2026-04-27",
-    #    "timeZone": ""
-    #  },
-    #  "end": {
-    #    "dateTime": "",
-    #    "timeZone": ""
-    #  }
-    # },
-    # {
-    #  "summary": "",
-    #  "location": "",
-    #  "description": "",
-    #  "start": {
-    #    "dateTime": "2026-08-31",
-    #    "timeZone": ""
-    #  },
-    #  "end": {
-    #    "dateTime": "",
-    #    "timeZone": ""
-    #  }
-    # }
-    # ]
-    # ```
-    # """
     write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
     end_time = time.time()
     elapsed_time = end_time - start_time
@@ -2175,8 +2128,8 @@ def update_event_status_cli(args):
     """Update event status from busy to available for selected events."""
     api_cal = select_api(args, "gcalendar", rules=None, title="Select Rule")
 
-    if args.output:
-        my_calendar = args.output
+    if args.source:
+        my_calendar = args.source
     else:
         my_calendar = select_calendar(api_cal)
 

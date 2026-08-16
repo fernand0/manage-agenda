@@ -1,0 +1,18 @@
+<think>
+The event details are present in the source text, so I will return them as JSON.
+</think>
+
+{
+  "summary": "Example meeting",
+  "location": "Online",
+  "description": "An example meeting used for parsing tests.",
+  "start": {
+    "dateTime": "2030-04-12 09:00:00",
+    "timeZone": "CET"
+  },
+  "end": {
+    "dateTime": "2030-04-12 10:00:00",
+    "timeZone": "CET"
+  },
+  "recurrence": []
+}

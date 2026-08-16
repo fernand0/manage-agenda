@@ -1,0 +1,28 @@
+```json
+{
+  "summary": "",
+  "location": "",
+  "description": "",
+  "start": {
+    "dateTime": "2030-02-10",
+    "timeZone": ""
+  },
+  "end": {
+    "dateTime": "",
+    "timeZone": ""
+  }
+},
+{
+  "summary": "",
+  "location": "",
+  "description": "",
+  "start": {
+    "dateTime": "2030-03-11",
+    "timeZone": ""
+  },
+  "end": {
+    "dateTime": "",
+    "timeZone": ""
+  }
+}
+```
