@@ -7,12 +7,14 @@ from .utils import (
     Args,
     add_events_cli,
     authorize,
+    list_folder,
+    # select_api_source,
+)
+from .utils_events import (
     clean_events_cli,
     copy_events_cli,
     delete_events_cli,
-    list_folder,
     move_events_cli,
-    # select_api_source,
     update_event_status_cli,
 )
 from .utils_base import setup_logging

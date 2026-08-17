@@ -10,7 +10,6 @@ from socialModules.configMod import select_from_list
 from manage_agenda.utils import (
     Args,
     add_message_to_event_description,
-    adjust_event_times,
     authorize,
     create_event_dict,
     extract_json,
@@ -20,6 +19,7 @@ from manage_agenda.utils import (
     select_api,
     select_calendar,
 )
+from manage_agenda.utils_events import adjust_event_times
 from manage_agenda.utils_llm import select_llm
 
 # from manage_agenda.utils_base import select_from_list
@@ -212,10 +212,10 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_get_emails.assert_called_once_with(args, mock_api_src)
         mock_display_posts.assert_called_once_with(mock_api_src, None)
 
-    @patch("manage_agenda.utils.select_events_by_user_input", return_value=[])
-    @patch("manage_agenda.utils.display_posts")
-    @patch("manage_agenda.utils.select_calendar", return_value="calendar-id")
-    @patch("manage_agenda.utils.select_api")
+    @patch("manage_agenda.utils_events.select_events_by_user_input", return_value=[])
+    @patch("manage_agenda.utils_events.display_posts")
+    @patch("manage_agenda.utils_events.select_calendar", return_value="calendar-id")
+    @patch("manage_agenda.utils_events.select_api")
     def test_update_event_status_uses_calendar_posts(
         self,
         mock_select_api,
@@ -223,7 +223,7 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_display_posts,
         mock_select_events,
     ):
-        from manage_agenda.utils import update_event_status_cli
+        from manage_agenda.utils_events import update_event_status_cli
 
         args = Args(interactive=False, output="", text="")
         api_cal = MagicMock()
@@ -1076,12 +1076,12 @@ more text"""
 
         self.assertIsNone(result)
 
-    @patch("manage_agenda.utils.select_api")
-    @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
+    @patch("manage_agenda.utils_events.select_api")
+    @patch("manage_agenda.utils_events.select_calendar", return_value="calendar1")
     @patch("builtins.input", side_effect=["meeting", "0", "calendar2"])
     def test_copy_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
         """Test copy_events_cli basic flow."""
-        from manage_agenda.utils import copy_events_cli
+        from manage_agenda.utils_events import copy_events_cli
 
         args = Args(
             interactive=True, source=None, destination=None, text=None, delete=False, verbose=False
@@ -1112,12 +1112,12 @@ more text"""
         # Verify event was inserted
         mock_client.events().insert.assert_called()
 
-    @patch("manage_agenda.utils.select_api")
-    @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
+    @patch("manage_agenda.utils_events.select_api")
+    @patch("manage_agenda.utils_events.select_calendar", return_value="calendar1")
     @patch("builtins.input", side_effect=["", "0"])
     def test_delete_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
         """Test delete_events_cli basic flow."""
-        from manage_agenda.utils import delete_events_cli
+        from manage_agenda.utils_events import delete_events_cli
 
         args = Args(
             interactive=True, source=None, destination=None, text=None, delete=False, verbose=False
@@ -1148,12 +1148,12 @@ more text"""
         # Verify event was deleted
         mock_client.events().delete.assert_called()
 
-    @patch("manage_agenda.utils.select_api")
-    @patch("manage_agenda.utils.select_calendar", return_value="calendar1")
+    @patch("manage_agenda.utils_events.select_api")
+    @patch("manage_agenda.utils_events.select_calendar", return_value="calendar1")
     @patch("builtins.input", side_effect=["", "0", "calendar2"])
     def test_move_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
         """Test move_events_cli basic flow."""
-        from manage_agenda.utils import move_events_cli
+        from manage_agenda.utils_events import move_events_cli
 
         args = Args(
             interactive=True, source=None, destination=None, text=None, delete=False, verbose=False
@@ -1189,7 +1189,7 @@ more text"""
     @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
-    @patch("manage_agenda.utils._validate_event_dates_interactive")
+    @patch("manage_agenda.utils_events._validate_event_dates_interactive")
     def test_process_event_with_llm_and_calendar_multiple_events(
         self,
         mock_interactive_confirmation,
@@ -1257,7 +1257,7 @@ more text"""
     @patch("manage_agenda.utils.select_api")
     @patch("manage_agenda.utils.select_calendar")
     @patch("manage_agenda.utils.write_file")
-    @patch("manage_agenda.utils._validate_event_dates_interactive")
+    @patch("manage_agenda.utils_events._validate_event_dates_interactive")
     def test_process_event_with_llm_and_calendar_file_output(
         self,
         mock_interactive_confirmation,
