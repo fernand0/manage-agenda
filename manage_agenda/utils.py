@@ -651,16 +651,13 @@ def select_api(args, api_type, rules=None, title=""):
     return api
 
 
-def list_events_folder(args, api_src, calendar=""):
+def list_events_folder(args):
     """Lists events in calendar."""
-    if api_src.getClient():
-        api_src.setPosts()
-        posts = api_src.getPosts()
-        if posts:
-            display_posts(api_src, posts)
-    else:
-        print("Some problem with the account")
-
+    rules = moduleRules.from_config()
+    # api_src = select_api_source(args, api_src_type="gcalendar")
+    api_src = rules.selectRuleInteractive(service="gcalendar", title="Select calendar account")
+    posts = _get_events_from_calendar(args, api_src)
+    display_posts(api_src, posts)
 
 def _get_msgs_from_folder(args, source_name, rules=None):
     """Helper function to get posts stored in some folder."""
@@ -689,16 +686,27 @@ def _get_msgs_from_folder(args, source_name, rules=None):
 
     return None, posts
 
+def _get_events_from_calendar(args, api_src, calendar=None):
+    """Helper function to get events from a specific calendar."""
+    "FIXME: maybe a folder argument?"
 
-def _get_emails_from_folder(args, api_src):
+    if calendar:
+        api_src.setCalendar(calendar)
+    posts = None
+    api_src.setPosts()
+    posts = api_src.getPosts()
+
+    return(posts)
+
+
+def _get_emails_from_folder(args, api_src, folder=None):
     """Helper function to get emails from a specific folder."""
     "FIXME: maybe a folder argument?"
 
-    if not api_src.getClient():
-        print("Some problem with the account")
-        return None, None
+    posts = None
 
-    folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
+    if not folder:
+        folder = "INBOX/zAgenda" if "imap" in api_src.service.lower() else "zAgenda"
     api_src.setPostsType("posts")
     api_src.setLabels()
     label = api_src.getLabels(folder)
@@ -711,19 +719,15 @@ def _get_emails_from_folder(args, api_src):
     api_src.setPosts()
     posts = api_src.getPosts()
 
-    if not posts:
-        print(f"There are no posts tagged with label {folder}")
-        posts = None
-
-    return api_src, posts
+    return posts
 
 
-def list_emails_folder(args, rules=None):
+def list_emails_folder(args):
     """Lists emails and in folder."""
-    api_src = select_api(args, "email", rules=rules)
-    api_src, posts = _get_emails_from_folder(args, api_src)
-    if posts:
-        display_posts(api_src, posts)
+    rules = moduleRules.from_config()
+    api_src = rules.selectRuleInteractive(service="gmail", title="Select mail account")
+    posts = _get_emails_from_folder(args, api_src)
+    display_posts(api_src, posts)
 
 
 def _create_llm_prompt(*args):

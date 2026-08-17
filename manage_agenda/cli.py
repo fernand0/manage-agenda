@@ -210,11 +210,7 @@ def gcalendar(ctx, interactive):
         destination=None,
         text=None,
     )
-    rules = moduleRules.from_config()
-    # api_src = select_api_source(args, api_src_type="gcalendar")
-    api_src_type = "gcalendar"
-    api_src = rules.selectRuleInteractive(api_src_type, title="Select Rule") 
-    list_events_folder(args, api_src)
+    list_events_folder(args)
 
 
 @cli.command()
