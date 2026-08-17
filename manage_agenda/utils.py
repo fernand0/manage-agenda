@@ -684,7 +684,6 @@ def _get_events_from_calendar(args, api_src, calendar=None):
 
     if calendar:
         api_src.setCalendar(calendar)
-    posts = None
     api_src.setPosts()
     posts = api_src.getPosts()
 
@@ -704,12 +703,10 @@ def _get_emails_from_folder(args, api_src, folder=None):
     label = api_src.getLabels(folder)
     if not label:
         print(f"There are no posts tagged with label {folder}")
-        return None
-
-    # label_id = safe_get(label[0], ["id"])
-    api_src.setChannel(folder)
-    api_src.setPosts()
-    posts = api_src.getPosts()
+    else:
+        api_src.setChannel(folder)
+        api_src.setPosts()
+        posts = api_src.getPosts()
 
     return posts
 
