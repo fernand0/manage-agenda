@@ -7,8 +7,9 @@ import pytz
 from socialModules.configMod import safe_get
 from socialModules.moduleContent import display_posts
 
+from manage_agenda import connections
 from manage_agenda.config import config
-from manage_agenda.utils import filter_events_by_title, select_api, select_calendar
+from manage_agenda.connections import select_calendar
 
 # Constants for date confirmation and interactive date/time modification.
 DATE_CONFIRM_PROMPT = (
@@ -25,6 +26,23 @@ try:
 except pytz.exceptions.UnknownTimeZoneError:
     logging.error(f"Invalid timezone '{config.DEFAULT_TIMEZONE}' in config. Falling back to UTC.")
     DEFAULT_NAIVE_TIMEZONE = pytz.utc
+
+
+def filter_events_by_title(api_cal, events, text_filter):
+    """Filter calendar events by title or abstract text."""
+    filtered_events = []
+    for event in events:
+        title = api_cal.getPostTitle(event)
+        if title and text_filter and text_filter.lower() in title.lower():
+            filtered_events.append(event)
+        else:
+            abstract = api_cal.getPostAbstract(event)
+            if abstract and text_filter and text_filter.lower() in abstract.lower():
+                filtered_events.append(event)
+            elif not text_filter and title:
+                filtered_events.append(event)
+
+    return filtered_events
 
 
 def _get_datetime_input(field_name):
@@ -422,7 +440,7 @@ def process_calendar_events(
         None
     """
     # Initialize API and calendar
-    api_cal = select_api(args, "gcalendar", rules=None, title="Select Rule")
+    api_cal = connections.select_api(args, "gcalendar", rules=None, title="Select Rule")
     if getattr(args, "source", None):
         selected_calendar = args.source
     else:
@@ -514,7 +532,9 @@ def process_calendar_events(
 
     # Handle destination calendar if needed
     if destination_needed:
-        my_calendar_dst = select_api(args, "gcalendar", rules=None, title="Select rule")
+        my_calendar_dst = connections.select_api(
+            args, "gcalendar", rules=None, title="Select rule"
+        )
         if getattr(args, "destination", None):
             my_calendar = args.destination
         else:
@@ -569,7 +589,7 @@ def move_events_cli(args):
 
 def update_event_status_cli(args):
     """Update event status from busy to available for selected events."""
-    api_cal = select_api(args, "gcalendar", rules=None, title="Select Rule")
+    api_cal = connections.select_api(args, "gcalendar", rules=None, title="Select Rule")
 
     if args.source:
         my_calendar = args.source

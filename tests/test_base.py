@@ -5,7 +5,7 @@ from unittest.mock import mock_open, patch
 
 sys.path.append(".")
 
-from manage_agenda.utils_base import setup_logging, write_file
+from manage_agenda.base import setup_logging, write_file
 
 
 class TestUtilsBase(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestUtilsBase(unittest.TestCase):
         content = "This is a test."
 
         # We need to mock DEFAULT_DATA_DIR or the function will fail
-        with patch("manage_agenda.utils_base.DEFAULT_DATA_DIR", "/fake/dir/"):
+        with patch("manage_agenda.base.DEFAULT_DATA_DIR", "/fake/dir/"):
             write_file(filename, content)
 
         mock_open_file.assert_called_once_with("/fake/dir/test.txt", "w")
@@ -35,7 +35,7 @@ class TestUtilsBase(unittest.TestCase):
         filename = "test.txt"
         content = "This is a test."
 
-        with patch("manage_agenda.utils_base.DEFAULT_DATA_DIR", "/fake/dir/"):
+        with patch("manage_agenda.base.DEFAULT_DATA_DIR", "/fake/dir/"):
             write_file(filename, content)
 
         mock_open_file.assert_called_once_with("/fake/dir/test.txt", "w")
@@ -47,8 +47,8 @@ class TestUtilsBase(unittest.TestCase):
         Tests that setup_logging configures logging to the default /tmp directory.
         """
         with (
-            patch("manage_agenda.utils_base.LOGDIR", ""),
-            patch("manage_agenda.utils_base.config.LOG_FILE", "/tmp/manage_agenda.log"),
+            patch("manage_agenda.base.LOGDIR", ""),
+            patch("manage_agenda.base.config.LOG_FILE", "/tmp/manage_agenda.log"),
         ):
             setup_logging(verbose=True)
 
@@ -62,7 +62,7 @@ class TestUtilsBase(unittest.TestCase):
         """
         Tests that setup_logging configures logging to a specified directory.
         """
-        with patch("manage_agenda.utils_base.LOGDIR", "/var/log"):
+        with patch("manage_agenda.base.LOGDIR", "/var/log"):
             setup_logging()
 
         mock_basic_config.assert_called_once()

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 sys.path.append(".")
 
-from manage_agenda.utils_web import CACHE_DIR, extract_domain_and_path_from_url, reduce_html
+from manage_agenda.web import CACHE_DIR, extract_domain_and_path_from_url, reduce_html
 
 
 class TestUtilsWeb(unittest.TestCase):
@@ -55,18 +55,18 @@ class TestReduceHtml(unittest.TestCase):
         self.temp_cache = tempfile.mkdtemp()
         self.original_cache = CACHE_DIR
         # Patch CACHE_DIR globally
-        import manage_agenda.utils_web
+        import manage_agenda.web
 
-        manage_agenda.utils_web.CACHE_DIR = self.temp_cache
+        manage_agenda.web.CACHE_DIR = self.temp_cache
 
     def tearDown(self):
         """Clean up temporary cache directory."""
         if os.path.exists(self.temp_cache):
             shutil.rmtree(self.temp_cache)
         # Restore original CACHE_DIR
-        import manage_agenda.utils_web
+        import manage_agenda.web
 
-        manage_agenda.utils_web.CACHE_DIR = self.original_cache
+        manage_agenda.web.CACHE_DIR = self.original_cache
 
     def test_reduce_html_first_time(self):
         """Test reduce_html when URL is not cached."""
@@ -153,7 +153,7 @@ class TestReduceHtml(unittest.TestCase):
         # Cache dir should be created
         self.assertTrue(os.path.exists(self.temp_cache))
 
-    @patch("manage_agenda.utils_web.logging.info")
+    @patch("manage_agenda.web.logging.info")
     def test_reduce_html_prints_cache_messages(self, mock_logging_info):
         """Test that reduce_html logs appropriate messages."""
         url = "https://example.com/msg"
