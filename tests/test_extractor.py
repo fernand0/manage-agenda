@@ -1,17 +1,19 @@
 # test_extractor.py
+# ruff: noqa: I001
 import os
 import sys
 
 # Add the parent directory to the system path to allow importing manage_agenda
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from manage_agenda.utils_web import extract_domain_and_path_from_url
+from manage_agenda.web import extract_domain_and_path_from_url
+
 
 def main():
     try:
         script_dir = os.path.dirname(__file__)
         file_path = os.path.join(script_dir, "test.txt")
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             for line in f:
                 url = line.strip()
                 if url:
@@ -25,4 +27,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

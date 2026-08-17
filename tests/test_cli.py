@@ -8,8 +8,8 @@ from click.testing import CliRunner
 class TestCliCommands(unittest.TestCase):
 
     # Class-level patchers
-    mock_module_rules_patcher = patch("manage_agenda.utils.moduleRules")
-    mock_select_from_list_patcher = patch("manage_agenda.utils.select_from_list")
+    mock_module_rules_patcher = patch("manage_agenda.sources.moduleRules")
+    mock_select_from_list_patcher = patch("manage_agenda.connections.select_from_list")
 
     @classmethod
     def setUpClass(cls):
@@ -66,25 +66,25 @@ class TestCliCommands(unittest.TestCase):
 
 
         # Individual patches that apply per test method
-        self.mock_get_add_sources_patcher = patch("manage_agenda.utils.get_add_sources")
+        self.mock_get_add_sources_patcher = patch("manage_agenda.sources.get_add_sources")
         self.mock_get_add_sources = self.mock_get_add_sources_patcher.start()
         self.mock_get_add_sources.return_value = (["gmail1", "imap1"], ["web", ("http", "set", "(Enter URLs or leave empty)"), ("text", "set", "(enter filenames or leave empty)")])
 
-        self.mock_select_llm_patcher = patch("manage_agenda.utils.select_llm")
+        self.mock_select_llm_patcher = patch("manage_agenda.sources.select_llm")
         self.mock_select_llm = self.mock_select_llm_patcher.start()
         self.mock_llm = MagicMock()
         self.mock_select_llm.return_value = self.mock_llm
 
-        self.mock_process_email_cli_patcher = patch("manage_agenda.utils.process_email_cli")
+        self.mock_process_email_cli_patcher = patch("manage_agenda.sources.process_email_cli")
 
         self.mock_process_email_cli = self.mock_process_email_cli_patcher.start()
         self.mock_process_email_cli.return_value = True
 
-        self.mock_process_web_cli_patcher = patch("manage_agenda.utils.process_web_cli")
+        self.mock_process_web_cli_patcher = patch("manage_agenda.sources.process_web_cli")
         self.mock_process_web_cli = self.mock_process_web_cli_patcher.start()
         self.mock_process_web_cli.return_value = True
 
-        self.mock_select_api_patcher = patch("manage_agenda.utils.select_api")
+        self.mock_select_api_patcher = patch("manage_agenda.sources.select_api")
         self.mock_select_api = self.mock_select_api_patcher.start()
         self.mock_api_dst = MagicMock()
         self.mock_api_dst.getClient.return_value = True
@@ -108,22 +108,19 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_authorize.assert_called_once()
 
-    @patch("manage_agenda.cli.moduleRules")
-    @patch("manage_agenda.cli.list_events_folder")
-    def test_gcalendar_command(self, mock_list_events_folder, mock_cli_module_rules):
-        mock_cli_rules = MagicMock()
-        mock_cli_module_rules.from_config.return_value = mock_cli_rules
-        mock_cli_rules.selectRuleInteractive.return_value = self.mock_api_dst
+    @patch("manage_agenda.cli.list_folder")
+    def test_gcalendar_command(self, mock_list_folder):
         result = self.runner.invoke(self.cli.cli, ["gcalendar"])
         self.assertEqual(result.exit_code, 0)
-        mock_cli_rules.selectRuleInteractive.assert_called_once()
-        mock_list_events_folder.assert_called_once()
+        mock_list_folder.assert_called_once()
+        self.assertEqual(mock_list_folder.call_args.args[1], "gcalendar")
 
-    @patch("manage_agenda.cli.list_emails_folder")
-    def test_gmail_command(self, mock_list_emails_folder):
+    @patch("manage_agenda.cli.list_folder")
+    def test_gmail_command(self, mock_list_folder):
         result = self.runner.invoke(self.cli.cli, ["gmail"])
         self.assertEqual(result.exit_code, 0)
-        mock_list_emails_folder.assert_called_once()
+        mock_list_folder.assert_called_once()
+        self.assertEqual(mock_list_folder.call_args.args[1], "gmail")
 
     def test_add_non_interactive(self):
         # All necessary mocks are set up in setUp

@@ -173,13 +173,25 @@ def reduce_html(url, post, force_refresh=False):
         protected_keywords = [
             "Lugar", "Hora", "Fecha", "Cuándo", "Dónde", "Precio", "Entrada",
             "Place", "Time", "Date", "When", "Where", "Price", "Location", "Address",
-            "Dirección", "Ubicación", "Mañana"  
+            "Dirección", "Ubicación", "Mañana"
         ]
-        protected_keywords = (protected_keywords 
-        + ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-        + [ "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
-           "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-           ]
+        protected_keywords = (
+            protected_keywords
+            + ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+            + [
+                "Enero",
+                "Febrero",
+                "Marzo",
+                "Abril",
+                "Mayo",
+                "Junio",
+                "Julio",
+                "Agosto",
+                "Septiembre",
+                "Octubre",
+                "Noviembre",
+                "Diciembre",
+            ]
         )
         for month in calendar.day_name:
             protected_keywords.append(month)
@@ -215,7 +227,7 @@ def reduce_html(url, post, force_refresh=False):
             meta.decompose()
 
         # result = soup2.prettify()
-        result = soup2.get_text(separator="\n", strip=True) 
+        result = soup2.get_text(separator="\n", strip=True)
 
         # Update cache with the new version
         with open(cached_file_path, "w", encoding="utf-8") as f:
@@ -235,19 +247,19 @@ def reduce_html(url, post, force_refresh=False):
         result = soup.get_text(separator="\n", strip=True)
 
     newResult = ""
-    for line in result.split('\n'): 
-        # split() without arguments splits by any whitespace and ignores empty strings 
+    for line in result.split("\n"):
+        # split() without arguments splits by any whitespace and ignores empty strings
         words = line.split()
-        if len(words) > 1: 
-            newResult = newResult+'\n'+line
+        if len(words) > 1:
+            newResult = newResult + "\n" + line
         elif len(words) == 1 and any(char.isdigit() for char in words[0]):
-            newResult = newResult+'\n'+line
+            newResult = newResult + "\n" + line
 
     print(f"Orig: {result}")
-    print(f"End Orig")
+    print("End Orig")
     result = newResult
     print(f"Res: {result}")
-    print(f"End Res")
+    print("End Res")
 
     # if extra_script_data:
     #     result = f"{result}\n\n--- Extra Data Found in Scripts ---\n{extra_script_data}"
