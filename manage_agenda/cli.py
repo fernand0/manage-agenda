@@ -3,24 +3,22 @@ from runpy import run_module
 
 import click
 
-from .utils import (
-    Args,
-    add_events_cli,
-    authorize,
-    list_folder,
-    # select_api_source,
-)
-from .utils_events import (
+from .base import setup_logging
+from .connections import authorize
+from .evaluation import evaluate_models
+from .events import (
     clean_events_cli,
     copy_events_cli,
     delete_events_cli,
     move_events_cli,
     update_event_status_cli,
 )
-from .utils_base import setup_logging
-from .utils_llm import evaluate_models
+from .sources import (
+    Args,
+    add_events_cli,
+    list_folder,
+)
 
-from socialModules.moduleRules import moduleRules
 
 @click.group()
 @click.version_option()

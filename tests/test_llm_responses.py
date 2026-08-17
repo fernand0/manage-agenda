@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from manage_agenda.utils import get_event_from_llm
+from manage_agenda.extraction import get_event_from_llm
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "llm_responses"
 FIXTURE_CASES = [
@@ -30,7 +30,7 @@ class FixtureModel:
 )
 def test_parses_llm_response_fixture(fixture_name, expected_start_dates, monkeypatch):
     response = (FIXTURES_DIR / fixture_name).read_text(encoding="utf-8")
-    monkeypatch.setattr("manage_agenda.utils.write_file", lambda *args: None)
+    monkeypatch.setattr("manage_agenda.extraction.write_file", lambda *args: None)
 
     event, _, _ = get_event_from_llm(
         FixtureModel(response), "Extract calendar events", fixture_name

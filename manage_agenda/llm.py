@@ -1,7 +1,6 @@
 import configparser
 import logging
 import os
-import requests
 import types
 
 try:
@@ -22,7 +21,9 @@ try:
     from ollama import ChatResponse, chat
 except Exception:
     ChatResponse = object
-    chat = lambda *args, **kwargs: None
+
+    def chat(*args, **kwargs):
+        return None
 
 try:
     from mistralai.client import Mistral
@@ -32,50 +33,6 @@ except Exception:
             raise RuntimeError("mistralai is not installed")
 
 from socialModules.configMod import CONFIGDIR, select_from_list
-
-
-def evaluate_models(args, prompt=None, eval_type=None):
-    """
-    Evaluates multiple Ollama models and prints their responses and timings.
-    """
-    from manage_agenda.config import config
-
-    results = []
-    models = OllamaClient.list_models()
-    if not models:
-        print("No models available")
-    for model_info in models:
-        model_name = model_info["model"]
-        print(f"Evaluating model: {model_name}")
-        client = OllamaClient(model_name=model_name)
-
-        if eval_type == "email":
-            from .utils import process_email_cli
-            print(f"Cli (email): {process_email_cli(args, client)}")
-        elif eval_type == "web":
-            from .utils import process_web_cli
-            print(f"Cli (web): {process_web_cli(args, client)}")
-        elif eval_type == "txt":
-            from .utils import process_txt_cli
-            print(f"Cli (txt): {process_txt_cli(args, client, source_name=config.MSG_TXT_DIR)}")
-        else:
-            if prompt:
-                import time
-                print(f"Prompt: {prompt}")
-                start_time = time.time()
-                response = client.generate_text(prompt)
-                end_time = time.time()
-
-                duration = end_time - start_time
-                results.append({"model": model_name, "response": response, "duration": duration})
-
-    if results:
-        print("\n--- Evaluation Results ---")
-        for result in results:
-            print(f"Model: {result['model']}")
-            print(f"Time taken: {result['duration']:.2f} seconds")
-            print(f"Response: {result['response']}")
-            print("--------------------")
 
 
 # This shouln't go here?
@@ -131,21 +88,26 @@ class OllamaClient(LLMClient):
         self.config = False
         super().__init__(name_class)
 
-        iss = isinstance(model_name,int)
+        iss = isinstance(model_name, int)
         if not iss and not model_name:
             models = None
             while not models:
                 try:
                     models = self.list_models()
-                except: 
+                except Exception:
                     import subprocess
-                    subprocess.Popen(["ollama", "serve"], 
-                                     stdout=subprocess.DEVNULL, 
-                                     stderr=subprocess.DEVNULL)
 
-            _, self.model_name = select_from_list(models, identifier="model", title="Available models")
+                    subprocess.Popen(
+                        ["ollama", "serve"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+
+            _, self.model_name = select_from_list(
+                models, identifier="model", title="Available models"
+            )
         else:
-            if isinstance(model_name,int):
+            if isinstance(model_name, int):
                 self.model_name = self.list_models()[0].model
             else:
                 self.model_name = model_name
@@ -157,7 +119,7 @@ class OllamaClient(LLMClient):
                 messages=[{"role": "user", "content": prompt}],
                 options={"num_ctx": len(prompt),
                 },
-                keep_alive = 0,
+                keep_alive=0,
             )
             # To unload a model from memory in Ollama, you must use the
             # keep_alive parameter with a value of 0 via the API.
@@ -254,7 +216,7 @@ def select_llm(args):
         llm_options = ["ollama", "gemini", "mistral"]
         sel, ai = select_from_list(llm_options, title="Select model provider", default="ollama")
     else:
-        ai = getattr(args, 'ai', None) or "gemini"
+        ai = getattr(args, "ai", None) or "gemini"
     print(f"Selected AI: {ai}")
 
     if ai == "ollama":
@@ -262,9 +224,8 @@ def select_llm(args):
             model = None
             while not model:
                 model = OllamaClient()
-                
         else:
-            model = OllamaClient('granite4:latest')
+            model = OllamaClient("granite4:latest")
         return model
     elif ai == "gemini":
         if args.interactive:

@@ -62,10 +62,10 @@ pytest
 pytest --cov=manage_agenda --cov-report=html
 
 # Specific test file
-pytest tests/test_utils.py
+pytest tests/test_sources.py
 
 # Specific test
-pytest tests/test_utils.py::test_function_name
+pytest tests/test_sources.py::test_function_name
 ```
 
 ### Writing Tests
@@ -173,10 +173,14 @@ manage-agenda/
 │   ├── cli.py             # CLI commands
 │   ├── config.py          # Configuration management
 │   ├── exceptions.py      # Custom exceptions
-│   ├── utils.py           # Main utilities
-│   ├── utils_base.py      # Base utilities
-│   ├── utils_llm.py       # LLM integration
-│   └── utils_web.py       # Web scraping
+│   ├── base.py            # Base utilities
+│   ├── connections.py     # External-service connections
+│   ├── evaluation.py      # LLM evaluation workflows
+│   ├── events.py          # Calendar event operations
+│   ├── extraction.py      # LLM event extraction
+│   ├── llm.py             # LLM provider clients and selection
+│   ├── sources.py         # Source ingestion workflows
+│   └── web.py             # Web scraping
 ├── tests/                 # Test suite
 ├── .env.example          # Environment template
 ├── .pre-commit-config.yaml
