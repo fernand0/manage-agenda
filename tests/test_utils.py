@@ -14,8 +14,7 @@ from manage_agenda.utils import (
     authorize,
     create_event_dict,
     extract_json,
-    list_emails_folder,
-    list_events_folder,
+    list_folder,
     process_email_cli,
     safe_get,
     select_api,
@@ -117,7 +116,7 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.display_posts")
     @patch("manage_agenda.utils._get_events_from_calendar")
     @patch("manage_agenda.utils.moduleRules")
-    def test_list_events_folder_with_posts(
+    def test_list_gcalendar_folder_with_posts(
         self, mock_module_rules, mock_get_events, mock_display_posts
     ):
         mock_api_src = MagicMock()
@@ -132,7 +131,7 @@ class TestProcessEmailCli(unittest.TestCase):
             destination="",
             text="",
         )
-        list_events_folder(args)
+        list_folder(args, "gcalendar")
         mock_module_rules.from_config.return_value.selectRuleInteractive.assert_called_once_with(
             service="gcalendar", title="Select calendar account"
         )
@@ -142,7 +141,7 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.display_posts")
     @patch("manage_agenda.utils._get_events_from_calendar")
     @patch("manage_agenda.utils.moduleRules")
-    def test_list_events_folder_no_posts(
+    def test_list_gcalendar_folder_without_posts(
         self, mock_module_rules, mock_get_events, mock_display_posts
     ):
         mock_api_src = MagicMock()
@@ -156,7 +155,7 @@ class TestProcessEmailCli(unittest.TestCase):
             destination="",
             text="",
         )
-        list_events_folder(args)
+        list_folder(args, "gcalendar")
         mock_module_rules.from_config.return_value.selectRuleInteractive.assert_called_once_with(
             service="gcalendar", title="Select calendar account"
         )
@@ -166,9 +165,8 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.display_posts")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("manage_agenda.utils.moduleRules")
-    @patch("builtins.print")
-    def test_list_emails_folder_with_posts(
-        self, mock_print, mock_module_rules, mock_get_emails, mock_display_posts
+    def test_list_gmail_folder_with_posts(
+        self, mock_module_rules, mock_get_emails, mock_display_posts
     ):
         mock_api_src = MagicMock()
         mock_module_rules.from_config.return_value.selectRuleInteractive.return_value = mock_api_src
@@ -181,7 +179,7 @@ class TestProcessEmailCli(unittest.TestCase):
             destination="",
             text="",
         )
-        list_emails_folder(args)
+        list_folder(args, "gmail")
         mock_module_rules.from_config.assert_called_once()
         mock_module_rules.from_config.return_value.selectRuleInteractive.assert_called_once_with(
             service="gmail", title="Select mail account"
@@ -192,9 +190,8 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.utils.display_posts")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("manage_agenda.utils.moduleRules")
-    @patch("builtins.print")
-    def test_list_emails_folder_no_posts(
-        self, mock_print, mock_module_rules, mock_get_emails, mock_display_posts
+    def test_list_gmail_folder_without_posts(
+        self, mock_module_rules, mock_get_emails, mock_display_posts
     ):
         mock_api_src = MagicMock()
         mock_module_rules.from_config.return_value.selectRuleInteractive.return_value = mock_api_src
@@ -207,7 +204,7 @@ class TestProcessEmailCli(unittest.TestCase):
             destination="",
             text="",
         )
-        list_emails_folder(args)
+        list_folder(args, "gmail")
         mock_module_rules.from_config.assert_called_once()
         mock_module_rules.from_config.return_value.selectRuleInteractive.assert_called_once_with(
             service="gmail", title="Select mail account"
@@ -919,10 +916,10 @@ more text"""
     @patch("manage_agenda.utils.display_posts")
     @patch("manage_agenda.utils._get_events_from_calendar")
     @patch("manage_agenda.utils.moduleRules")
-    def test_list_events_folder_with_posts(
+    def test_list_gcalendar_folder_with_posts(
         self, mock_module_rules, mock_get_events, mock_display_posts
     ):
-        """Test list_events_folder with posts."""
+        """Test listing a calendar folder with posts."""
         args = Args(interactive=False, delete=False, verbose=False)
         mock_api_src = MagicMock()
         events = [
@@ -932,7 +929,7 @@ more text"""
         mock_module_rules.from_config.return_value.selectRuleInteractive.return_value = mock_api_src
         mock_get_events.return_value = events
 
-        list_events_folder(args)
+        list_folder(args, "gcalendar")
 
         mock_get_events.assert_called_once_with(args, mock_api_src)
         mock_display_posts.assert_called_once_with(mock_api_src, events)
@@ -940,16 +937,16 @@ more text"""
     @patch("manage_agenda.utils.display_posts")
     @patch("manage_agenda.utils._get_events_from_calendar")
     @patch("manage_agenda.utils.moduleRules")
-    def test_list_events_folder_no_posts(
+    def test_list_gcalendar_folder_without_posts(
         self, mock_module_rules, mock_get_events, mock_display_posts
     ):
-        """Test list_events_folder when no events are found."""
+        """Test listing a calendar folder when no events are found."""
         args = Args(interactive=False, delete=False, verbose=False)
         mock_api_src = MagicMock()
         mock_module_rules.from_config.return_value.selectRuleInteractive.return_value = mock_api_src
         mock_get_events.return_value = None
 
-        list_events_folder(args)
+        list_folder(args, "gcalendar")
 
         mock_get_events.assert_called_once_with(args, mock_api_src)
         mock_display_posts.assert_called_once_with(mock_api_src, None)
@@ -1024,10 +1021,10 @@ more text"""
     @patch("manage_agenda.utils.display_posts")
     @patch("manage_agenda.utils._get_emails_from_folder")
     @patch("manage_agenda.utils.moduleRules")
-    def test_list_emails_folder_with_posts(
+    def test_list_gmail_folder_with_posts(
         self, mock_module_rules, mock_get_emails, mock_display_posts
     ):
-        """Test list_emails_folder with posts."""
+        """Test listing a Gmail folder with posts."""
 
         args = Args(interactive=False, delete=False, verbose=False)
 
@@ -1036,7 +1033,7 @@ more text"""
         mock_module_rules.from_config.return_value.selectRuleInteractive.return_value = mock_api_src
         mock_get_emails.return_value = posts
 
-        list_emails_folder(args)
+        list_folder(args, "gmail")
 
         mock_module_rules.from_config.return_value.selectRuleInteractive.assert_called_once_with(
             service="gmail", title="Select mail account"

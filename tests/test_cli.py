@@ -108,17 +108,19 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_authorize.assert_called_once()
 
-    @patch("manage_agenda.cli.list_events_folder")
-    def test_gcalendar_command(self, mock_list_events_folder):
+    @patch("manage_agenda.cli.list_folder")
+    def test_gcalendar_command(self, mock_list_folder):
         result = self.runner.invoke(self.cli.cli, ["gcalendar"])
         self.assertEqual(result.exit_code, 0)
-        mock_list_events_folder.assert_called_once()
+        mock_list_folder.assert_called_once()
+        self.assertEqual(mock_list_folder.call_args.args[1], "gcalendar")
 
-    @patch("manage_agenda.cli.list_emails_folder")
-    def test_gmail_command(self, mock_list_emails_folder):
+    @patch("manage_agenda.cli.list_folder")
+    def test_gmail_command(self, mock_list_folder):
         result = self.runner.invoke(self.cli.cli, ["gmail"])
         self.assertEqual(result.exit_code, 0)
-        mock_list_emails_folder.assert_called_once()
+        mock_list_folder.assert_called_once()
+        self.assertEqual(mock_list_folder.call_args.args[1], "gmail")
 
     def test_add_non_interactive(self):
         # All necessary mocks are set up in setUp

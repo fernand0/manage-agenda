@@ -651,14 +651,6 @@ def select_api(args, api_type, rules=None, title=""):
     return api
 
 
-def list_events_folder(args):
-    """Lists events in calendar."""
-    rules = moduleRules.from_config()
-    # api_src = select_api_source(args, api_src_type="gcalendar")
-    api_src = rules.selectRuleInteractive(service="gcalendar", title="Select calendar account")
-    posts = _get_events_from_calendar(args, api_src)
-    display_posts(api_src, posts)
-
 def _get_msgs_from_folder(args, source_name, rules=None):
     """Helper function to get posts stored in some folder."""
     # FIXME: maybe a folder argument?
@@ -722,11 +714,17 @@ def _get_emails_from_folder(args, api_src, folder=None):
     return posts
 
 
-def list_emails_folder(args):
-    """Lists emails and in folder."""
+def list_folder(args, service):
+    """List posts from the selected folder for a supported service."""
     rules = moduleRules.from_config()
-    api_src = rules.selectRuleInteractive(service="gmail", title="Select mail account")
-    posts = _get_emails_from_folder(args, api_src)
+    if service in ["email", "imap", "gmail"]:
+        api_src = rules.selectRuleInteractive(service=service, title="Select mail account")
+        posts = _get_emails_from_folder(args, api_src)
+    elif service == "gcalendar":
+        api_src = rules.selectRuleInteractive(service=service, title="Select calendar account")
+        posts = _get_events_from_calendar(args, api_src)
+    else:
+        raise ValueError(f"Unsupported folder service: {service}")
     display_posts(api_src, posts)
 
 

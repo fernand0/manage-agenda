@@ -10,8 +10,7 @@ from .utils import (
     clean_events_cli,
     copy_events_cli,
     delete_events_cli,
-    list_emails_folder,
-    list_events_folder,
+    list_folder,
     move_events_cli,
     # select_api_source,
     update_event_status_cli,
@@ -210,7 +209,7 @@ def gcalendar(ctx, interactive):
         destination=None,
         text=None,
     )
-    list_events_folder(args)
+    list_folder(args, "gcalendar")
 
 
 @cli.command()
@@ -233,7 +232,7 @@ def gmail(ctx, interactive):
         destination=None,
         text=None,
     )
-    list_emails_folder(args)
+    list_folder(args, "gmail")
 
 
 @cli.command()
