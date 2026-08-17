@@ -712,7 +712,7 @@ def _get_emails_from_folder(args, api_src, folder=None):
     label = api_src.getLabels(folder)
     if not label:
         print(f"There are no posts tagged with label {folder}")
-        return api_src, None
+        return None
 
     # label_id = safe_get(label[0], ["id"])
     api_src.setChannel(folder)
@@ -1659,7 +1659,7 @@ def process_email_cli(args, model, source_name=None, api_src=None, rules=None):
         else:
             api_src = select_api(args, "email", rules=rules)
 
-    api_src, posts = _get_emails_from_folder(args, api_src)
+    posts = _get_emails_from_folder(args, api_src)
 
     if posts:
 
