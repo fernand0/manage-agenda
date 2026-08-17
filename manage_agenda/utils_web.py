@@ -1,3 +1,4 @@
+import calendar
 import logging
 import os
 import re
@@ -11,7 +12,7 @@ CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "manage_agenda")
 def extract_domain_and_path_from_url(url):
     """
     Extracts the domain and path from a given URL, excluding filename and date
-    patterns.  
+    patterns.
     Returns a string in the format "domain/path".
     """
     parsed_url = urlparse(url)
@@ -56,7 +57,7 @@ def extract_relevant_script_content(soup):
         if script.get("type") == "application/ld+json":
             if script.string:
                 script_content.append(f"Structured Data (JSON-LD):\n{script.string.strip()}")
-        
+
         # 2. Look for large data objects or specific keywords in regular scripts
         elif not script.get("src") and script.string:
             content = script.string.strip()
@@ -64,7 +65,7 @@ def extract_relevant_script_content(soup):
             # it might be an initial state or data dump.
             # We look for "window.__" or "EVENT_DATA" or similar common patterns.
             keywords = ["event", "schedule", "calendar", "date", "venue", "location", "price"]
-            if (len(content) > 100 and 
+            if (len(content) > 100 and
                 any(k.lower() in content.lower() for k in keywords) and
                 ("{" in content or "[" in content)):
                 # We don't want to include huge minified libraries, so we check for some structure
@@ -95,7 +96,7 @@ def is_error_content(soup):
     for heading in soup.find_all(["h1", "h2"]):
         h_text = heading.get_text().lower()
         error_indicators = [
-            "404", "500", "502", "503", "not found", "access denied", 
+            "404", "500", "502", "503", "not found", "access denied",
             "forbidden", "error occurred", "security check"
         ]
         if any(err in h_text for err in error_indicators):
@@ -137,9 +138,9 @@ def reduce_html(url, post, force_refresh=False):
     if is_error_content(soup):
         logging.warning(f"Error page detected for {url}")
         return None
-    
+
     # Extract relevant script content before they are decomposed
-    extra_script_data = extract_relevant_script_content(soup)
+    # extra_script_data = extract_relevant_script_content(soup)
 
     if force_refresh:
         logging.info("Force refresh enabled. Returning full content after cleaning...")
@@ -172,13 +173,21 @@ def reduce_html(url, post, force_refresh=False):
         protected_keywords = [
             "Lugar", "Hora", "Fecha", "Cuándo", "Dónde", "Precio", "Entrada",
             "Place", "Time", "Date", "When", "Where", "Price", "Location", "Address",
-            "Dirección", "Ubicación"
+            "Dirección", "Ubicación", "Mañana"  
         ]
-        
+        protected_keywords = (protected_keywords 
+        + ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        + [ "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+           "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+           ]
+        )
+        for month in calendar.day_name:
+            protected_keywords.append(month)
+
         for tag in soup2.find_all(True):
             if not tag.parent: # Already decomposed
                 continue
-                
+
             tag_text = tag.get_text(strip=True)
             if not tag_text or tag_text not in fragments1:
                 continue
@@ -206,7 +215,8 @@ def reduce_html(url, post, force_refresh=False):
             meta.decompose()
 
         # result = soup2.prettify()
-        result = soup2.get_text(separator="\n", strip=True)
+        result = soup2.get_text(separator="\n", strip=True) 
+
         # Update cache with the new version
         with open(cached_file_path, "w", encoding="utf-8") as f:
             f.write(new_html)
@@ -224,7 +234,22 @@ def reduce_html(url, post, force_refresh=False):
             meta.decompose()
         result = soup.get_text(separator="\n", strip=True)
 
-    if extra_script_data:
-        result = f"{result}\n\n--- Extra Data Found in Scripts ---\n{extra_script_data}"
+    newResult = ""
+    for line in result.split('\n'): 
+        # split() without arguments splits by any whitespace and ignores empty strings 
+        words = line.split()
+        if len(words) > 1: 
+            newResult = newResult+'\n'+line
+        elif len(words) == 1 and any(char.isdigit() for char in words[0]):
+            newResult = newResult+'\n'+line
+
+    print(f"Orig: {result}")
+    print(f"End Orig")
+    result = newResult
+    print(f"Res: {result}")
+    print(f"End Res")
+
+    # if extra_script_data:
+    #     result = f"{result}\n\n--- Extra Data Found in Scripts ---\n{extra_script_data}"
 
     return result

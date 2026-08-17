@@ -1,65 +1,26 @@
-import click
-import os
+import sys
+from runpy import run_module
 
-# Import auxiliary functions and classes from utils.py
+import click
+
 from .utils import (
     Args,
+    add_events_cli,
     authorize,
+    list_folder,
+    # select_api_source,
+)
+from .utils_events import (
     clean_events_cli,
     copy_events_cli,
     delete_events_cli,
-    get_add_sources,
-    list_emails_folder,
-    list_events_folder,
     move_events_cli,
-    process_email_cli,
-    process_web_cli,
-    process_txt_cli,
-    select_api_source,
-    select_email_prompt,
-    select_llm,
     update_event_status_cli,
 )
-from .utils_base import (
-    setup_logging,
-)
-from .utils_llm import (
-    evaluate_models,
-)
+from .utils_base import setup_logging
+from .utils_llm import evaluate_models
 
-
-def select_from_list(options, identifier="", selector="", default=""):
-    """
-    Presents a list of options to the user and returns the selected option.
-    """
-    for i, option in enumerate(options):
-        display = option.get(identifier, option) if isinstance(option, dict) else option
-        print(f"{i}) {display}")
-
-    while True:
-        try:
-            selection = input("Select an option: ").strip()
-            if not selection:
-                continue
-            if selection.isdigit():
-                selection = int(selection)
-                if 0 <= selection < len(options):
-                    return selection, options[selection]
-            elif (selection.startswith("http") or ('.' in selection)):
-                # An URL or a filename containing a '.'
-                return len(options) - 1, selection
-            else:
-                for i, option in enumerate(options):
-                    option_str = option.get(identifier, str(option)) if isinstance(option, dict) else str(option)
-                    if selection.lower() in option_str.lower():
-                        return i, option
-        except (ValueError, IndexError):
-            pass
-        except (KeyboardInterrupt, EOFError):
-            print("\nSelection cancelled.")
-            return None, None
-        print("Invalid selection. Please try again.")
-
+from socialModules.moduleRules import moduleRules
 
 @click.group()
 @click.version_option()
@@ -86,23 +47,38 @@ def llm(ctx):
 
 
 @llm.command()
+@click.option(
+    "-t",
+    "--type",
+    "type_",
+    type=click.Choice(["email", "web", "txt"]),
+    default="txt",
+    help="Type of evaluation to run (email, web, txt)",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Choice(["calendar", "file"]),
+    default="file",
+    help="Output destination: calendar or file",
+)
 @click.argument("prompt", required=False)
 @click.pass_context
-def evaluate(ctx, prompt):
+def evaluate(ctx, type_, output, prompt):
     """Evaluate different LLM models"""
-    if not prompt:
-        args = Args(
-            interactive=True,
-            delete=None,
-            source=None,
-            verbose=ctx.obj["VERBOSE"],
-            destination=None,
-            text=None,
-        )
-        prompt = select_email_prompt(args)
-
     if prompt:
-        evaluate_models(prompt)
+        print(prompt)
+    args = Args(
+        interactive=False,
+        delete=None,
+        source=None,
+        verbose=ctx.obj["VERBOSE"],
+        destination=None,
+        text=None,
+        output=output,
+    )
+
+    evaluate_models(args, prompt=prompt, eval_type=type_ if not prompt else None)
 
 
 @cli.command()
@@ -114,9 +90,9 @@ def evaluate(ctx, prompt):
     help="Running in interactive mode",
 )
 @click.option(
-    "-s",
-    "--source",
-    default="gemini",
+    "-a",
+    "--ai",
+    default="ollama",
     help="Select LLM",
 )
 @click.option(
@@ -126,53 +102,43 @@ def evaluate(ctx, prompt):
     default=False,
     help="Force refresh web content to bypass cache",
 )
+@click.option(
+    "-s",
+    "--source",
+    type=click.Choice(["email", "gmail", "imap", "web", "text"]),
+    default=None,
+    help="Source of data: email, gmail, imap, web, or text files",
+)
+@click.option(
+    "-d",
+    "--destination",
+    default=None,
+    help="Select destination calendar",
+)
+@click.option(
+    "-o",
+    "--output",
+    type=click.Choice(["calendar", "file"]),
+    default="calendar",
+    help="Output destination: calendar or file",
+)
 @click.pass_context
-def add(ctx, interactive, source, force_refresh):
+def add(ctx, interactive, source, ai, force_refresh, destination, output):
     """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
         interactive=interactive,
         delete=None,
         source=source,
+        ai=ai,
         verbose=verbose,
-        destination=None,
+        destination=destination,
         text=None,
+        output=output,
+        force_refresh=force_refresh,
     )
 
-    # Create rules instance once and reuse it
-    from .utils import ensure_rules
-
-    rules = ensure_rules()
-
-    model = select_llm(args)
-
-    if verbose:
-        print(f"Model: {model}")
-
-    if interactive:
-        sources = get_add_sources(rules=rules)
-        sel, selected = select_from_list(sources)
-
-        if selected is None:
-            return
-
-        # if "Web" in selected_source:  # Check if "Web" is in the selected source string
-        print(f"\nSelected: {selected}")
-        if isinstance(selected, str) and (("Web" in selected) or selected.startswith("http")):
-            url = None
-            if selected.startswith("http"):
-                process_web_cli(args, model, urls=selected.split(" "), force_refresh=force_refresh)
-            else:
-                process_web_cli(args, model, force_refresh=force_refresh)
-        elif isinstance(selected, str) and (("Text" in selected) or os.path.exists(selected)):
-            if '.' in selected:
-                process_txt_cli(args, model, source_name=selected.split(" "), rules=rules)
-            else:
-                process_txt_cli(args, model, rules=rules)
-        else:
-            process_email_cli(args, model, source_name=selected, rules=rules)
-    else:
-        process_email_cli(args, model, rules=rules)
+    add_events_cli(args)
 
 
 @cli.command()
@@ -197,7 +163,6 @@ def auth(ctx, interactive):
     )
     if verbose:
         print(f"Args: {args}")
-    # api_src = select_account(args, api_src_type="g")
     api_src = authorize(args)
     if not api_src.getClient():
         msg = (
@@ -246,8 +211,7 @@ def gcalendar(ctx, interactive):
         destination=None,
         text=None,
     )
-    api_src = select_api_source(args, api_src_type="gcalendar")
-    list_events_folder(args, api_src)
+    list_folder(args, "gcalendar")
 
 
 @cli.command()
@@ -270,7 +234,7 @@ def gmail(ctx, interactive):
         destination=None,
         text=None,
     )
-    list_emails_folder(args)
+    list_folder(args, "gmail")
 
 
 @cli.command()
@@ -469,3 +433,28 @@ def update_status(ctx, interactive, source, text):
     )
 
     update_event_status_cli(args)
+
+BROWSERS = ("chromium", "firefox", "webkit", "chrome", "chrome-beta")
+
+@cli.command()
+@click.option(
+    "--browser",
+    "-b",
+    default="firefox",
+    type=click.Choice(BROWSERS, case_sensitive=False),
+    help="Which browser to install",
+)
+def install(browser):
+    """
+    Install the Playwright browser needed by this tool.
+
+    Usage:
+
+        manage-agenda install
+
+    Or for browsers other than the Firefox default:
+
+        manage-agenda install -b chromium
+    """
+    sys.argv = ["playwright", "install", browser]
+    run_module("playwright", run_name="__main__")

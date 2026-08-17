@@ -107,12 +107,11 @@ class TestOllamaClient(unittest.TestCase):
 
 
 class TestGeminiClient(unittest.TestCase):
-    @patch("manage_agenda.utils_llm.genai.GenerativeModel")
-    @patch("manage_agenda.utils_llm.genai.configure")
+    @patch("manage_agenda.utils_llm.genai.Client")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
     def test_gemini_init_with_model_name(
-        self, mock_exists, mock_load_config, mock_configure, mock_model
+        self, mock_exists, mock_load_config, mock_genai_client
     ):
         """Test GeminiClient initialization with model name."""
         mock_config = MagicMock()
@@ -123,23 +122,20 @@ class TestGeminiClient(unittest.TestCase):
         client = GeminiClient(model_name="gemini-pro")
 
         self.assertEqual(client.model_name, "gemini-pro")
-        mock_configure.assert_called_once_with(api_key="fake_api_key")
-        mock_model.assert_called_once_with("gemini-pro")
+        mock_genai_client.assert_called_once_with(api_key="fake_api_key")
 
-    @patch("manage_agenda.utils_llm.genai.GenerativeModel")
+    @patch("manage_agenda.utils_llm.genai.Client")
     @patch("manage_agenda.utils_llm.select_from_list", return_value=(0, "models/gemini-pro"))
     @patch("manage_agenda.utils_llm.GeminiClient.list_models")
-    @patch("manage_agenda.utils_llm.genai.configure")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
     def test_gemini_init_without_model_name(
         self,
         mock_exists,
         mock_load_config,
-        mock_configure,
         mock_list_models,
         mock_select,
-        mock_model,
+        mock_genai_client,
     ):
         """Test GeminiClient initialization without model name."""
         mock_config = MagicMock()
@@ -155,12 +151,11 @@ class TestGeminiClient(unittest.TestCase):
 
         self.assertEqual(client.model_name, "gemini-pro")
 
-    @patch("manage_agenda.utils_llm.genai.GenerativeModel")
-    @patch("manage_agenda.utils_llm.genai.configure")
+    @patch("manage_agenda.utils_llm.genai.Client")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
     def test_gemini_generate_text_success(
-        self, mock_exists, mock_load_config, mock_configure, mock_model
+        self, mock_exists, mock_load_config, mock_genai_client
     ):
         """Test GeminiClient generate_text success."""
         mock_config = MagicMock()
@@ -168,23 +163,22 @@ class TestGeminiClient(unittest.TestCase):
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
 
-        mock_client = MagicMock()
+        mock_client_instance = MagicMock()
         mock_response = MagicMock()
         mock_response.text = "Gemini response"
-        mock_client.generate_content.return_value = mock_response
-        mock_model.return_value = mock_client
+        mock_client_instance.models.generate_content.return_value = mock_response
+        mock_genai_client.return_value = mock_client_instance
 
         client = GeminiClient(model_name="gemini-pro")
         result = client.generate_text("test prompt")
 
         self.assertEqual(result, "Gemini response")
 
-    @patch("manage_agenda.utils_llm.genai.GenerativeModel")
-    @patch("manage_agenda.utils_llm.genai.configure")
+    @patch("manage_agenda.utils_llm.genai.Client")
     @patch("manage_agenda.utils_llm.load_config")
     @patch("os.path.exists", return_value=True)
     def test_gemini_generate_text_error(
-        self, mock_exists, mock_load_config, mock_configure, mock_model
+        self, mock_exists, mock_load_config, mock_genai_client
     ):
         """Test GeminiClient generate_text error handling."""
         mock_config = MagicMock()
@@ -192,25 +186,36 @@ class TestGeminiClient(unittest.TestCase):
         mock_config.get.return_value = "fake_api_key"
         mock_load_config.return_value = mock_config
 
-        mock_client = MagicMock()
-        mock_client.generate_content.side_effect = Exception("API Error")
-        mock_model.return_value = mock_client
+        mock_client_instance = MagicMock()
+        mock_client_instance.models.generate_content.side_effect = Exception("API Error")
+        mock_genai_client.return_value = mock_client_instance
 
         client = GeminiClient(model_name="gemini-pro")
         result = client.generate_text("test prompt")
 
         self.assertIsNone(result)
 
-    @patch("manage_agenda.utils_llm.genai.list_models")
-    def test_gemini_list_models(self, mock_list):
+    @patch("manage_agenda.utils_llm.genai.Client")
+    @patch("manage_agenda.utils_llm.load_config")
+    @patch("os.path.exists", return_value=True)
+    def test_gemini_list_models(self, mock_exists, mock_load_config, mock_genai_client):
         """Test GeminiClient list_models."""
+        mock_config = MagicMock()
+        mock_config.sections.return_value = ["section1"]
+        mock_config.get.return_value = "fake_api_key"
+        mock_load_config.return_value = mock_config
+
+        mock_client_instance = MagicMock()
         mock_model1 = MagicMock()
         mock_model1.name = "gemini-pro"
         mock_model2 = MagicMock()
         mock_model2.name = "gemini-flash"
-        mock_list.return_value = [mock_model1, mock_model2]
+        mock_client_instance.models.list.return_value = [mock_model1, mock_model2]
+        mock_genai_client.return_value = mock_client_instance
 
-        models = GeminiClient.list_models()
+        client = GeminiClient(model_name="gemini-pro")
+
+        models = client.list_models()
 
         self.assertEqual(len(models), 2)
 
@@ -302,10 +307,19 @@ class TestEvaluateModels(unittest.TestCase):
     def test_evaluate_models(self, mock_list_models, mock_init, mock_time, mock_print):
         """Test evaluate_models function."""
         mock_list_models.return_value = [{"model": "llama2"}, {"model": "mistral"}]
+        from manage_agenda.utils import Args
+        args = Args(
+            interactive=False,
+            delete=None,
+            source=None,
+            verbose=False,
+            destination=None,
+            text=None,
+        )
 
         # Mock generate_text method
         with patch.object(OllamaClient, "generate_text", return_value="Test response"):
-            evaluate_models("test prompt")
+            evaluate_models(args, prompt="test prompt")
 
         # list_models should be called once
         mock_list_models.assert_called_once()
@@ -313,6 +327,55 @@ class TestEvaluateModels(unittest.TestCase):
         self.assertEqual(mock_init.call_count, 2)
         # Should print results
         self.assertGreater(mock_print.call_count, 0)
+
+    @patch("builtins.print")
+    @patch("manage_agenda.utils_llm.OllamaClient.__init__", return_value=None)
+    @patch.object(OllamaClient, "list_models")
+    @patch("manage_agenda.utils.process_email_cli")
+    @patch("manage_agenda.utils.process_web_cli")
+    @patch("manage_agenda.utils.process_txt_cli")
+    def test_evaluate_models_by_type(
+        self,
+        mock_process_txt,
+        mock_process_web,
+        mock_process_email,
+        mock_list_models,
+        mock_init,
+        mock_print,
+    ):
+        """Test evaluate_models function with eval_type option."""
+        mock_list_models.return_value = [{"model": "llama2"}]
+        from manage_agenda.utils import Args
+        args = Args(
+            interactive=False,
+            delete=None,
+            source=None,
+            verbose=False,
+            destination=None,
+            text=None,
+        )
+
+        # Test email
+        evaluate_models(args, eval_type="email")
+        mock_process_email.assert_called_once()
+        mock_process_web.assert_not_called()
+        mock_process_txt.assert_not_called()
+
+        mock_process_email.reset_mock()
+
+        # Test web
+        evaluate_models(args, eval_type="web")
+        mock_process_email.assert_not_called()
+        mock_process_web.assert_called_once()
+        mock_process_txt.assert_not_called()
+
+        mock_process_web.reset_mock()
+
+        # Test txt
+        evaluate_models(args, eval_type="txt")
+        mock_process_email.assert_not_called()
+        mock_process_web.assert_not_called()
+        mock_process_txt.assert_called_once()
 
 
 if __name__ == "__main__":

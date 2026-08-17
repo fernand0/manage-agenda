@@ -1,3 +1,4 @@
+import sys
 import unittest
 from unittest.mock import MagicMock, patch, call
 from collections import namedtuple
@@ -55,7 +56,7 @@ class TestProcessWebCli(unittest.TestCase):
         self.assertEqual(page, mock_page)
 
     @patch("manage_agenda.utils._get_pages_from_urls")
-    @patch("manage_agenda.utils.moduleRules.moduleRules")
+    @patch("manage_agenda.utils.moduleRules")
     @patch("manage_agenda.utils.reduce_html")
     @patch("manage_agenda.utils.write_file")
     @patch("manage_agenda.utils.print_first_10_lines")
@@ -101,12 +102,10 @@ class TestProcessWebCli(unittest.TestCase):
 
     @patch("manage_agenda.utils._get_pages_from_urls")
     @patch("manage_agenda.utils._get_links_from_notes")
-    @patch("note_app.NoteManager")
     @patch("manage_agenda.utils._process_common_flow")
     def test_process_web_cli_deletes_note(
         self,
         mock_process_flow,
-        mock_note_manager_class,
         mock_get_links,
         mock_get_pages
     ):
@@ -114,24 +113,27 @@ class TestProcessWebCli(unittest.TestCase):
         url = "http://example.com/note_url"
         mock_get_links.return_value = {url: ["note_title"]}
         
-        mock_manager = MagicMock()
-        mock_note_manager_class.return_value = mock_manager
-        
         mock_page = MagicMock()
         mock_get_pages.return_value = (mock_page, ["post_obj"])
         
+        # Mock NoteManager for the dynamic import
+        mock_manager = MagicMock()
+        mock_note_manager_class = MagicMock(return_value=mock_manager)
+        
         # Intercept _process_common_flow to trigger item_cleaner
-        def side_effect(args, model, items, metadata_extractor, content_extractor, item_cleaner=None):
+        def side_effect(args, model, items, metadata_extractor, content_extractor, item_cleaner=None, rules=None):
             if item_cleaner:
                 item_cleaner("post_obj", 0, "post_id")
             return True
         mock_process_flow.side_effect = side_effect
         
-        # Execute - simulating empty input to trigger _get_links_from_notes
-        with patch("builtins.input", return_value=""):
+        # Execute - patch the dynamic import and simulate empty input to trigger _get_links_from_notes
+        with patch("builtins.input", return_value=""), \
+             patch.dict("sys.modules", {"note_app": MagicMock(NoteManager=mock_note_manager_class)}):
             process_web_cli(self.args, self.model)
             
         # Verify
+        mock_manager.delete_note.assert_called_with("note_title")
         mock_manager.delete_note.assert_called_with("note_title")
 
 if __name__ == "__main__":

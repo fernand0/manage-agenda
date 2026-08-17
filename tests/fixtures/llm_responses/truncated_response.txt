@@ -1,0 +1,8 @@
+JSON:
+```json
+{
+  "summary": "Example incomplete response",
+  "timestamp": "2030-06-01 11:00:00",
+  "topics": [
+    "Example topic one",
+    "Example topic two",

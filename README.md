@@ -6,26 +6,32 @@
 
 A tool for adding entries to your Google Calendar from email messages and web pages using Large Language Models (LLMs) to extract event information.
 
+![Architecture diagram showing the system flow for LLM-driven event extraction and multi-account calendar management](docs/architecture.jpg)
+
 ## Features
 
-- **Email Integration**: Automatically extract event information from Gmail messages
-- **Web Page Processing**: Extract events from URLs/web pages, including structured data (JSON-LD, script tags)
-- **Multi-Event Extraction**: Extract multiple events from a single source (email or web page)
-- **Note-Taker Integration**: Batch-process URLs from `~/notes` via [note-taker](https://github.com/fernand0/another-note-taking-app) integration
-- **Multi-LLM Support**: Works with Gemini, Mistral, and Ollama (local models)
-- **LLM Model Evaluation**: Compare multiple Ollama models side-by-side with the `llm evaluate` command
-- **Smart Date Recognition**: Advanced date parsing for complex scheduling scenarios
-- **Interactive Fallback**: When LLM extraction fails, retry, provide a text snippet, or skip
-- **Memory Error Handling**: Automatic fallback when LLM models require more memory
-- **AI Model Metadata**: Calendar events include metadata about which AI model processed them
-- **Google Calendar Sync**: Seamlessly add events to your Google Calendar
-- **Flexible Configuration**: Support for multiple email and calendar accounts
-- **Calendar Management**: Clean, copy, move, delete, and update calendar events
-- **Enhanced Event Selection**: Select events by number or by entering text to match event titles
-- **Cache Bypass Option**: Force refresh web content to bypass cache with `--force-refresh` flag
-- **Retry Option**: Retry LLM processing during date confirmation with 'r' option
-- **Meaningful Identifiers**: Use meaningful IDs for filenames when available instead of numeric identifiers
-- **Error Page Detection**: Automatically skips error pages and empty content from URLs
+- **Automatically extract event information from:**
+  - **Gmail** messages
+  - **IMAP** email accounts
+  - **Web pages** and URLs, including structured data (JSON-LD, script tags). Supports batch-processing URLs from `~/notes` via [note-taker](https://github.com/fernand0/another-note-taking-app) integration
+  - **Text files** stored locally
+  - Extraction features available for all sources:
+    - **Multi-event extraction**: Extract multiple events from a single source
+    - **Smart date recognition**: Advanced date parsing for complex scheduling scenarios
+    - **Cache bypass**: Force refresh web content to bypass cache with `--force-refresh` flag
+- **LLM-powered event extraction:**
+  - Supports **Ollama** (local models), **Gemini**, and **Mistral**
+  - **Model evaluation**: Compare multiple Ollama models side-by-side with the `llm evaluate` command
+  - **Interactive fallback**: When extraction fails, retry, provide a text snippet, or skip
+  - **Retry option**: Retry LLM processing during date confirmation with 'r' option
+  - **Memory error handling**: Automatic fallback when models require more memory
+  - **AI model metadata**: Calendar events include metadata about which model processed them
+- **Calendar management:**
+  - **Sync**: Seamlessly add events to your Google Calendar
+  - **Flexible output**: Add events directly to Google Calendar or save as JSON files
+  - **Multiple accounts**: Support for multiple email and calendar accounts
+  - **Event operations**: Clean, copy, move, delete, and update calendar events
+  - **Enhanced event selection**: Select events by number or by entering text to match event titles
 - **Auth Helper**: The `auth` command guides you through Google API credential setup
 
 ## Installation
@@ -42,11 +48,21 @@ cd manage-agenda
 uv sync  # or pip install -e .
 ```
 
+### Install Browser (for web page processing)
+```bash
+# Install the default browser engine (Firefox) for Playwright
+uv run manage-agenda install
+
+# Or install a different browser
+uv run manage-agenda install -b chromium
+```
+
 ### Configuration
 1. Install [socialModules](https://github.com/fernand0/socialModules) for email/calendar integration
 2. Configure your email and calendar accounts using socialModules
 3. Set up API keys for LLM providers (if using cloud models)
-4. Optionally install [note-taker](https://github.com/fernand0/another-note-taking-app) for batch URL processing from notes
+4. Copy `.env.example` to `.env` and fill in your values (see [Environment Variables](#environment-variables))
+5. Optionally install [note-taker](https://github.com/fernand0/another-note-taking-app) for batch URL processing from notes
 
 ## Usage
 
@@ -64,10 +80,22 @@ uv run manage-agenda add -i
 uv run manage-agenda add
 
 # Add events with a specific LLM
-uv run manage-agenda add -s mistral
+uv run manage-agenda add -a gemini
+uv run manage-agenda add -a mistral
+
+# Add events from a specific source
+uv run manage-agenda add -s web
+uv run manage-agenda add -s imap
+uv run manage-agenda add -s text
 
 # Add events with force refresh (bypass cache)
 uv run manage-agenda add -i -f
+
+# Save events to JSON files instead of adding to calendar
+uv run manage-agenda add -o file
+
+# Add events to a specific calendar
+uv run manage-agenda add -d "My Calendar"
 
 # Copy events between calendars
 uv run manage-agenda copy
@@ -83,6 +111,9 @@ uv run manage-agenda llm evaluate
 
 # Check/setup Google API authentication
 uv run manage-agenda auth -i
+
+# Install Playwright browser
+uv run manage-agenda install
 ```
 
 ### Interactive Event Processing
@@ -90,7 +121,7 @@ When running in interactive mode (`-i`):
 
 1. Select an AI model (Local/mistral/gemini) (l/m/g)
 2. Choose a specific model from the available options
-3. Select a source: email account or web
+3. Select a source: email account, web, or text files
 4. For web sources:
    - Enter URLs directly, or
    - Press Enter to automatically extract URLs from `~/notes` (requires note-taker)
@@ -114,12 +145,15 @@ When LLM extraction fails, in interactive mode you get options:
 ## Commands
 
 ### `add` - Add Events
-Add entries to your calendar from email or web sources. In interactive mode, presents a unified source selection menu (email accounts and web).
+Add entries to your calendar from email, web, or text file sources. In interactive mode, presents a unified source selection menu (email accounts, web, and text files).
 
 #### Options
 - `-i, --interactive`: Running in interactive mode
-- `-s, --source`: Select LLM (default: gemini)
+- `-a, --ai`: Select LLM provider (default: `ollama`). Options: `ollama`, `gemini`, `mistral`
+- `-s, --source`: Select data source (default: `gmail`). Options: `gmail`, `imap`, `web`, `text`
 - `-f, --force-refresh`: Force refresh web content to bypass cache
+- `-d, --destination`: Select destination calendar by name
+- `-o, --output`: Output destination (default: `calendar`). Options: `calendar`, `file`, `files`
 
 ### `llm` - LLM Operations
 Group command for LLM-related operations.
@@ -127,14 +161,31 @@ Group command for LLM-related operations.
 #### `llm evaluate`
 Evaluate multiple Ollama models by running the same prompt through each and comparing responses and timing. Optionally accepts a prompt argument; if not provided, allows selecting an email to use as prompt.
 
+##### Options
+- `-t, --type`: Evaluation input type (default: `txt`). Options: `email`, `web`, `txt`
+- `-o, --output`: Output destination (default: `file`). Options: `calendar`, `file`, `files`
+- `PROMPT` (optional argument): Text prompt to evaluate directly
+
 ### `auth` - Authentication Setup
 Check Google API authentication status and display setup instructions if credentials are missing. Shows step-by-step guidance for enabling the Gmail/Calendar API and creating OAuth credentials.
 
 #### Options
 - `-i, --interactive`: Running in interactive mode
 
+### `install` - Install Browser
+Install the Playwright browser engine needed for web page processing.
+
+#### Options
+- `-b, --browser`: Which browser to install (default: `firefox`). Options: `chromium`, `firefox`, `webkit`, `chrome`, `chrome-beta`
+
 ### `clean` - Clean Calendar Entries
 Combined command that allows users to select between copy or delete operations in a single workflow. This command provides an interactive menu to choose between copying events to another calendar or deleting them, with filtering capabilities.
+
+#### Options
+- `-i, --interactive`: Running in interactive mode
+- `-s, --source`: Select source calendar
+- `-d, --destination`: Select destination calendar
+- `-t, --text`: Filter events by title text
 
 **Event Selection:**
 - Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
@@ -144,6 +195,12 @@ Combined command that allows users to select between copy or delete operations i
 ### `copy` - Copy Events
 Copy events from one calendar to another with filtering capabilities.
 
+#### Options
+- `-i, --interactive`: Running in interactive mode
+- `-s, --source`: Select source calendar
+- `-d, --destination`: Select destination calendar
+- `-t, --text`: Filter events by title text
+
 **Event Selection:**
 - Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
 - Enter `all` to select all events
@@ -151,6 +208,11 @@ Copy events from one calendar to another with filtering capabilities.
 
 ### `delete` - Delete Events
 Delete events from a calendar with text-based filtering.
+
+#### Options
+- `-i, --interactive`: Running in interactive mode
+- `-s, --source`: Select source calendar
+- `-t, --text`: Filter events by title text
 
 **Event Selection:**
 - Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
@@ -160,6 +222,12 @@ Delete events from a calendar with text-based filtering.
 ### `move` - Move Events
 Move events between calendars (equivalent to copy + delete).
 
+#### Options
+- `-i, --interactive`: Running in interactive mode
+- `-s, --source`: Select source calendar
+- `-d, --destination`: Select destination calendar
+- `-t, --text`: Filter events by title text
+
 **Event Selection:**
 - Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
 - Enter `all` to select all events
@@ -167,6 +235,11 @@ Move events between calendars (equivalent to copy + delete).
 
 ### `update-status` - Update Event Status
 Change event status from busy to available (free) for selected events. This command allows users to update the transparency of calendar events from "opaque" (busy) to "transparent" (available), making them appear as free time on your calendar.
+
+#### Options
+- `-i, --interactive`: Running in interactive mode
+- `-s, --source`: Select source calendar
+- `-t, --text`: Filter events by title text
 
 **Event Selection:**
 - Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
@@ -176,18 +249,39 @@ Change event status from busy to available (free) for selected events. This comm
 ### `gcalendar` - List Calendar Events
 Display events from your Google Calendar.
 
+#### Options
+- `-i, --interactive`: Running in interactive mode
+
 ### `gmail` - List Emails
 Display emails from your Gmail account.
+
+#### Options
+- `-i, --interactive`: Running in interactive mode
 
 ## Supported LLM Providers
 
 The tool supports multiple LLM providers:
 
+- **Ollama** (default): Local models with automatic memory error handling
 - **Google Gemini**: Via Gemini API Python SDK
 - **Mistral**: Via Mistral Python Client
-- **Ollama**: Local models with automatic memory error handling
 
 Each provider requires specific configuration and API keys (for cloud services).
+
+## Environment Variables
+
+Configuration can be set via environment variables or a `.env` file. See [`.env.example`](.env.example) for a template.
+
+| Variable | Description | Default |
+|---|---|---|
+| `GEMINI_API_KEY` | API key for Google Gemini | — |
+| `MISTRAL_API_KEY` | API key for Mistral AI | — |
+| `OLLAMA_HOST` | Ollama server URL | `http://localhost:11434` |
+| `OLLAMA_DEFAULT_MODEL` | Default Ollama model | `llama2` |
+| `DEFAULT_TIMEZONE` | IANA timezone for events | `Europe/Berlin` |
+| `LOG_LEVEL` | Logging level | `INFO` |
+| `LOG_FILE` | Path to log file | `manage_agenda.log` |
+| `DEFAULT_EMAIL_TAG` | Gmail label/tag for event emails | `zAgenda` |
 
 ## Key Improvements
 
@@ -252,6 +346,7 @@ Each provider requires specific configuration and API keys (for cloud services).
 - [socialModules](https://github.com/fernand0/socialModules): Email and calendar integration
 - [note-taker](https://github.com/fernand0/another-note-taking-app): Note management for batch URL processing
 - [BeautifulSoup4](https://www.crummy.com/software/BeautifulSoup/bs4/doc/): HTML parsing
+- [Playwright](https://playwright.dev/python/): Browser automation for web page processing
 - [Google Generative AI SDK](https://ai.google.dev/gemini-api/docs/quickstart?lang=python): Gemini integration
 - [Mistral Python Client](https://github.com/mistralai/client-python): Mistral integration
 - [Ollama Python Client](https://github.com/ollama/ollama): Local model integration
@@ -275,6 +370,12 @@ pip install -e '.[dev]'
 ### Running Tests
 ```bash
 python -m pytest
+```
+
+Run the LLM response regression fixtures only:
+
+```bash
+python -m pytest tests/test_llm_responses.py
 ```
 
 ### Contributing

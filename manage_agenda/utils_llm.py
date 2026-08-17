@@ -1,17 +1,16 @@
 import configparser
 import logging
 import os
-import time
+import requests
 import types
 
-# TODO: Migrate from google.generativeai to google-cloud-aiplatform due to deprecation
-# The google.generativeai package is deprecated. Need to migrate to Vertex AI SDK.
 try:
-    import google.generativeai as genai
+    from google import genai
 except Exception:
     genai = types.SimpleNamespace(
         configure=lambda *args, **kwargs: None,
         GenerativeModel=lambda *args, **kwargs: None,
+        Client=lambda *args, **kwargs: None,
         list_models=lambda: [],
     )
 try:
@@ -32,34 +31,51 @@ except Exception:
         def __init__(self, *args, **kwargs):
             raise RuntimeError("mistralai is not installed")
 
-# from manage_agenda.utils_base import select_from_list
 from socialModules.configMod import CONFIGDIR, select_from_list
 
 
-def evaluate_models(prompt):
+def evaluate_models(args, prompt=None, eval_type=None):
     """
     Evaluates multiple Ollama models and prints their responses and timings.
     """
+    from manage_agenda.config import config
+
     results = []
     models = OllamaClient.list_models()
+    if not models:
+        print("No models available")
     for model_info in models:
         model_name = model_info["model"]
         print(f"Evaluating model: {model_name}")
         client = OllamaClient(model_name=model_name)
 
-        start_time = time.time()
-        response = client.generate_text(prompt)
-        end_time = time.time()
+        if eval_type == "email":
+            from .utils import process_email_cli
+            print(f"Cli (email): {process_email_cli(args, client)}")
+        elif eval_type == "web":
+            from .utils import process_web_cli
+            print(f"Cli (web): {process_web_cli(args, client)}")
+        elif eval_type == "txt":
+            from .utils import process_txt_cli
+            print(f"Cli (txt): {process_txt_cli(args, client, source_name=config.MSG_TXT_DIR)}")
+        else:
+            if prompt:
+                import time
+                print(f"Prompt: {prompt}")
+                start_time = time.time()
+                response = client.generate_text(prompt)
+                end_time = time.time()
 
-        duration = end_time - start_time
-        results.append({"model": model_name, "response": response, "duration": duration})
+                duration = end_time - start_time
+                results.append({"model": model_name, "response": response, "duration": duration})
 
-    print("\n--- Evaluation Results ---")
-    for result in results:
-        print(f"Model: {result['model']}")
-        print(f"Time taken: {result['duration']:.2f} seconds")
-        print(f"Response: {result['response']}")
-        print("--------------------")
+    if results:
+        print("\n--- Evaluation Results ---")
+        for result in results:
+            print(f"Model: {result['model']}")
+            print(f"Time taken: {result['duration']:.2f} seconds")
+            print(f"Response: {result['response']}")
+            print("--------------------")
 
 
 # This shouln't go here?
@@ -117,8 +133,17 @@ class OllamaClient(LLMClient):
 
         iss = isinstance(model_name,int)
         if not iss and not model_name:
-            models = self.list_models()
-            _, self.model_name = select_from_list(models, identifier="model")
+            models = None
+            while not models:
+                try:
+                    models = self.list_models()
+                except: 
+                    import subprocess
+                    subprocess.Popen(["ollama", "serve"], 
+                                     stdout=subprocess.DEVNULL, 
+                                     stderr=subprocess.DEVNULL)
+
+            _, self.model_name = select_from_list(models, identifier="model", title="Available models")
         else:
             if isinstance(model_name,int):
                 self.model_name = self.list_models()[0].model
@@ -130,8 +155,13 @@ class OllamaClient(LLMClient):
             response: ChatResponse = chat(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
-                options={"num_ctx": len(prompt)},
+                options={"num_ctx": len(prompt),
+                },
+                keep_alive = 0,
             )
+            # To unload a model from memory in Ollama, you must use the
+            # keep_alive parameter with a value of 0 via the API.
+            # curl http://localhost:11434/api/generate -d '{"model": "llama3.2", "keep_alive": 0}'
             return response.message.content
         except Exception as e:
             logging.error(f"Error generating text with Ollama: {e}")
@@ -153,7 +183,7 @@ class GeminiClient(LLMClient):
 
         super().__init__(name_class)
 
-        genai.configure(api_key=self.api_key)
+        self.client = genai.Client(api_key=self.api_key)
         if not model_name:
             # names = [el.name for el in genai.list_models()]
             models = self.list_models()
@@ -163,23 +193,29 @@ class GeminiClient(LLMClient):
                 selector="gemini",
                 default="models/gemini-2.0-flash",
             )
+            print(name)
             self.model_name = name.split("/")[1]
         else:
             self.model_name = model_name
 
-        self.client = genai.GenerativeModel(self.model_name)
+        #self.client = genai.GenerativeModel(self.model_name)
 
     def generate_text(self, prompt):
         try:
-            response = self.client.generate_content(prompt)
+            #response = self.client.generate_content(prompt)
+            response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt
+                    )
             return response.text
         except Exception as e:
             logging.error(f"Error generating text with Gemini: {e}")
             return None
 
-    @staticmethod
-    def list_models():
-        return list(genai.list_models())
+    #@staticmethod
+    def list_models(self):
+        #return list(genai.list_models())
+        return list(self.client.models.list())
 
 
 class MistralClient(LLMClient):
@@ -210,3 +246,35 @@ class MistralClient(LLMClient):
     @staticmethod
     def list_models(self):
         return self.client.models.list()
+
+
+def select_llm(args):
+    """Selects and initializes the appropriate LLM client."""
+    if args.interactive:
+        llm_options = ["ollama", "gemini", "mistral"]
+        sel, ai = select_from_list(llm_options, title="Select model provider", default="ollama")
+    else:
+        ai = getattr(args, 'ai', None) or "gemini"
+    print(f"Selected AI: {ai}")
+
+    if ai == "ollama":
+        if args.interactive:
+            model = None
+            while not model:
+                model = OllamaClient()
+                
+        else:
+            model = OllamaClient('granite4:latest')
+        return model
+    elif ai == "gemini":
+        if args.interactive:
+            model = GeminiClient()
+        else:
+            model = GeminiClient("gemini-2.5-flash")
+        return model
+    elif ai == "mistral":
+        model = MistralClient()
+        return model
+    else:
+        logging.error(f"Invalid LLM source: {ai}")
+        return None
