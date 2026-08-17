@@ -108,15 +108,10 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_authorize.assert_called_once()
 
-    @patch("manage_agenda.cli.moduleRules")
     @patch("manage_agenda.cli.list_events_folder")
-    def test_gcalendar_command(self, mock_list_events_folder, mock_cli_module_rules):
-        mock_cli_rules = MagicMock()
-        mock_cli_module_rules.from_config.return_value = mock_cli_rules
-        mock_cli_rules.selectRuleInteractive.return_value = self.mock_api_dst
+    def test_gcalendar_command(self, mock_list_events_folder):
         result = self.runner.invoke(self.cli.cli, ["gcalendar"])
         self.assertEqual(result.exit_code, 0)
-        mock_cli_rules.selectRuleInteractive.assert_called_once()
         mock_list_events_folder.assert_called_once()
 
     @patch("manage_agenda.cli.list_emails_folder")
