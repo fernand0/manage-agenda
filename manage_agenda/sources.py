@@ -393,8 +393,10 @@ def process_email_cli(args, model, source_name=None, api_src=None, rules=None):
     if not api_src:
         if source_name:
             rules = rules or moduleRules.from_config()
-            source_details = rules.more.get(source_name, {})
-            api_src = rules.readConfigSrc("", source_name, source_details)
+            api_src = select_api(args, "gmail", rules=rules)
+            #source_details = rules.more.get(source_name, {})
+            # print(f"Sourceeee: {source_details}")
+            #api_src = rules.readConfigSrc("", source_name, source_details)
         else:
             api_src = select_api(args, "email", rules=rules)
 
@@ -620,4 +622,4 @@ def add_events_cli(args, rules=None):
                 file_list = selected.split(" ")
             process_txt_cli(args, model, source_name=file_list, rules=rules)
         else:
-            process_email_cli(args, model, api_src=selected, rules=rules)
+            process_email_cli(args, model, source_name=args.source, api_src=None, rules=rules)
