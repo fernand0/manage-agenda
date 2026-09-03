@@ -9,6 +9,7 @@ import dateparser
 from socialModules import moduleHtml
 from socialModules.moduleContent import display_posts
 from socialModules.moduleRules import moduleRules
+from socialModules.configMod import CONFIGDIR, select_from_list
 
 from manage_agenda.base import write_file
 from manage_agenda.config import config
@@ -579,31 +580,22 @@ def add_events_cli(args, rules=None):
 
     print(f"Selected model: {model.model_name}")
 
-    # source = args.source or ""
-    # if source in ("email", "gmail", "imap"):
-    #    api_src = select_source_by_type(args, source, rules=rules)
-    #    process_email_cli(args, model, api_src=api_src, rules=rules)
-    # elif source == "web":
-    #    process_web_cli(args, model, force_refresh=args.force_refresh)
-    # elif source == "text":
-    #    process_txt_cli(args, model, rules=rules)
-    # else:
-    # if True:
-    #    # Fallback: select from all sources interactively
     sources, more_options = get_add_sources(rules=rules)
-    sources = ["gmail", "imap"]
     if args.verbose:
+        print(f"Source: {args.source}")
         print(f"Sources: {sources}")
+        print(f"More options: {more_options}")
+    if args.source:
+        matches = [item for item in sources if args.source in item] 
+        if not matches and more_options: 
+            matches = [item for item in more_options if args.source in str(item)]
     if args.interactive:
-        # sel, selected = select_from_list(sources, more_options=more_options, title="Sources of information")
-        selected = rules.selectRuleInteractive(
-            sources, title="Select Rule", more_options=more_options
-        )
+        sel, selected = select_from_list(sources, more_options=more_options, title="Sources of information")
+        # selected = rules.selectRuleInteractive(
+        #     sources, title="Select Rule", more_options=more_options
+        # )
     else:
-        print(f"Selecting: {args.source}")
-        matches = [item for item in sources if args.source in item]
         selected = matches[0] if matches else None
-        print(f"Selected: {selected}")
     if selected:
         print(f"\nSelected source: {selected}")
         if hasattr(selected, "__iter__") and (
@@ -615,7 +607,8 @@ def add_events_cli(args, rules=None):
             process_web_cli(
                 args, model, urls=url_list, force_refresh=args.force_refresh, rules=rules
             )
-        elif hasattr(selected, "__iter__") and (("text" in selected) or os.path.exists(selected)):
+        elif hasattr(selected, "__iter__") and (
+                ("text" in str(selected)) or os.path.exists(str(selected))):
             file_list = None
             if isinstance(selected, str) and "." in selected:
                 file_list = selected.split(" ")
