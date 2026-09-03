@@ -613,7 +613,8 @@ def add_events_cli(args, rules=None):
             process_web_cli(
                 args, model, urls=url_list, force_refresh=args.force_refresh, rules=rules
             )
-        elif hasattr(selected, "__iter__") and (("text" in selected) or os.path.exists(selected)):
+        elif hasattr(selected, "__iter__") and (
+                ("text" in str(selected)) or os.path.exists(str(selected))):
             file_list = None
             if isinstance(selected, str) and "." in selected:
                 file_list = selected.split(" ")
