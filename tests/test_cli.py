@@ -9,7 +9,7 @@ class TestCliCommands(unittest.TestCase):
 
     # Class-level patchers
     mock_module_rules_patcher = patch("manage_agenda.sources.moduleRules")
-    mock_select_from_list_patcher = patch("manage_agenda.connections.select_from_list")
+    mock_select_from_list_patcher = patch("manage_agenda.sources.select_from_list")
 
     @classmethod
     def setUpClass(cls):
@@ -147,22 +147,22 @@ class TestCliCommands(unittest.TestCase):
 
     def test_add_interactive_web(self):
         """Test add command in interactive mode with web source."""
-        self.mock_rules_instance.selectRuleInteractive.return_value = "web"
+        self.mock_select_from_list.return_value = (0, ("web/http", "set", "(Enter URLs or leave empty)"))
 
         result = self.runner.invoke(self.cli.cli, ["add", "-i", "-s", "web"])
 
         self.assertEqual(result.exit_code, 0)
-        self.mock_rules_instance.selectRuleInteractive.assert_called_once()
+        self.mock_select_from_list.assert_called_once()
         self.mock_process_web_cli.assert_called_once()
 
     def test_add_interactive_email(self):
         """Test add command in interactive mode selecting email source."""
-        self.mock_rules_instance.selectRuleInteractive.return_value = "gmail1"
+        self.mock_select_from_list.return_value = (0, "gmail1")
 
         result = self.runner.invoke(self.cli.cli, ["add", "-i"])
 
         self.assertEqual(result.exit_code, 0)
-        self.mock_rules_instance.selectRuleInteractive.assert_called()
+        self.mock_select_from_list.assert_called()
         self.mock_process_email_cli.assert_called_once()
 
     def test_add_with_destination_and_output(self):
