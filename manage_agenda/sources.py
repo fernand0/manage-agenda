@@ -400,6 +400,9 @@ def process_email_cli(args, model, source_name=None, api_src=None, rules=None):
             #api_src = rules.readConfigSrc("", source_name, source_details)
         else:
             api_src = select_api(args, "email", rules=rules)
+    else:
+        api_src = rules.readConfigSrc("", api_src, None)
+
 
     posts = _get_emails_from_folder(args, api_src)
 
@@ -614,4 +617,4 @@ def add_events_cli(args, rules=None):
                 file_list = selected.split(" ")
             process_txt_cli(args, model, source_name=file_list, rules=rules)
         else:
-            process_email_cli(args, model, source_name=args.source, api_src=None, rules=rules)
+            process_email_cli(args, model, source_name=args.source, api_src=selected, rules=rules)
