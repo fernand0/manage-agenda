@@ -32,7 +32,7 @@ class TestProcessEmailCli(unittest.TestCase):
     ):
         args = self.Args(
             interactive=False,
-            delete=True,
+            delete=None,
             source="gemini",
             verbose=False,
             destination="",
@@ -305,16 +305,19 @@ class TestSourceUtilities(unittest.TestCase):
 
         mock_api_src.modifyLabels.assert_called_once()
 
-    def test_delete_email_non_interactive_no_delete(self):
-        """Test _delete_email non-interactive without delete flag."""
+    def test_delete_email_non_interactive_auto_confirms(self):
+        """Test _delete_email automatically confirms outside interactive mode."""
         from manage_agenda.sources import _delete_email
 
         args = Args(interactive=False, delete=False)
         mock_api_src = MagicMock()
+        mock_api_src.service = "gmail"
+        mock_api_src.getChannel.return_value = "test_folder"
+        mock_api_src.getLabels.return_value = [{"id": "label_1"}]
 
         _delete_email(args, mock_api_src, "post123", "test_source")
 
-        mock_api_src.modifyLabels.assert_not_called()
+        mock_api_src.modifyLabels.assert_called_once()
         mock_api_src.deletePostId.assert_not_called()
 
     def test_delete_email_imap(self):
