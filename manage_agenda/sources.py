@@ -187,7 +187,7 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
         confirmation = input("Do you want to remove the label from the email? (y/n): ")
         if confirmation.lower() == "y":
             delete_confirmed = True
-    elif args.delete:  # Only auto-confirm if not interactive but delete flag is set
+    else:
         delete_confirmed = True
 
     if delete_confirmed:
