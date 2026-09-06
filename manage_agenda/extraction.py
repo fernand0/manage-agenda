@@ -13,7 +13,6 @@ import googleapiclient
 from socialModules.configMod import safe_get
 
 from manage_agenda.base import format_time, write_file
-from manage_agenda.sources import print_first_lines
 from manage_agenda.connections import select_api, select_calendar
 from manage_agenda.llm import select_llm
 
@@ -59,6 +58,7 @@ def _get_text_snippet(original_content):
 
 def _print_context_and_options(content, options_prompt, verbose=False):
     """Display the source context and return the selected fallback action."""
+    from manage_agenda.sources import print_first_lines
     for line in content.splitlines():
         if line.startswith("Url: "):
             print(line)
@@ -83,6 +83,7 @@ def extract_json(text):
 
 def get_event_from_llm(model, prompt, post_id, verbose=False):
     """Get event data from an LLM and parse its calendar JSON response."""
+    from manage_agenda.sources import print_first_lines
     print(f"Calling LLM {model.model_name}")
     event, vcal_json = None, None
     start_time = time.time()
@@ -253,6 +254,7 @@ def _extract_event_with_llm_retry(
 ):
     """Extract, normalize, and optionally retry an LLM-generated event."""
     from manage_agenda.events import adjust_event_times
+    from manage_agenda.sources import print_first_lines
 
     original_content = content_text
     prompt_content = content_text
