@@ -13,6 +13,7 @@ import googleapiclient
 from socialModules.configMod import safe_get
 
 from manage_agenda.base import format_time, write_file
+from manage_agenda.sources import print_first_lines
 from manage_agenda.connections import select_api, select_calendar
 from manage_agenda.llm import select_llm
 
@@ -63,10 +64,7 @@ def _print_context_and_options(content, options_prompt, verbose=False):
             print(line)
             break
     if verbose:
-        print("\n--- First 10 lines of source text ---")
-        for line in content.splitlines()[:10]:
-            print(line)
-        print("-------------------------------------\n")
+        print_first_lines(content, content_type="source text")
     return input(options_prompt).lower().strip()
 
 
@@ -105,15 +103,14 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
         memory_error_occurred = True
     else:
         if verbose:
-            print(f"Reply:\n{llm_response}")
-            print("End Reply")
+            print_first_lines(llm_response, n=None, title="Reply")
         try:
             vcal_json = ast.literal_eval(extract_json(llm_response.replace("\n", " ")))
             write_file(
                 f"log/{model.model_name}/{post_id}_vcal_extracted.txt", json.dumps(vcal_json)
             )
             if verbose:
-                print(f"Json:\n{vcal_json}")
+                print_first_lines(vcal_json, n=None, title="Json")
             event = vcal_json
             json_error_occurred = False
         except json.JSONDecodeError as error:
@@ -210,7 +207,7 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
         (event[0] if isinstance(event, (list, tuple)) else event)["start"]["dateTime"]
         != event_old["start"]["dateTime"]
     ):
-        print("Events matching")
+        print("Events matching, we'll add the event to the calendar")
     if not event and retries >= max_retries:
         vcal_json = "RetryError"
         print("Max retries reached. Skipping event processing.")
@@ -264,15 +261,14 @@ def _extract_event_with_llm_retry(
         prompt = _create_llm_prompt(prompt_content, reference_date_time)
         write_file(f"log/{post_identifier}_prompt.txt", prompt)
         if args.verbose:
-            print(f"Prompt:\n{prompt}")
-            print("\nEnd Prompt:")
+            print_first_lines(prompt, n=None, title="Prompt")
 
         event, vcal_json, elapsed_time = get_event_from_llm_with_retry(
             model, prompt, post_identifier, args
         )
         total_elapsed_time += elapsed_time
         if args.verbose:
-            print(f"Event: {event}")
+            print_first_lines(event, n=None, title="Event")
         if event is None and vcal_json in {"MemoryError", "RetryError"}:
             return event, vcal_json, total_elapsed_time, False, False, False
 
@@ -281,14 +277,14 @@ def _extract_event_with_llm_retry(
                 event = [event]
             processed_events = []
             for single_event in event:
-                if args.verbose:
-                    print(f"Single event: {single_event}")
+                if args.verbose and len(event) > 1:
+                    print_first_lines(single_event, title="Single event")
                 if isinstance(single_event, dict):
                     single_event = add_message_to_event_description(single_event, original_content)
                     processed_events.append(adjust_event_times(single_event))
             event = processed_events or None
             if args.verbose:
-                print(f"Proc event: {processed_events}")
+                print_first_lines(processed_events, title="Proc event")
             break
 
         write_file(

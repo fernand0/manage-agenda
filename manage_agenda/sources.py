@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -43,14 +44,28 @@ def get_add_sources(rules=None):
     ]
 
 
-def print_first_10_lines(content, content_type="content"):
-    """Prints the first 10 lines of the given content."""
-    print(f"\n--- First 10 lines of {content_type} ---")
+def print_first_lines(content, content_type="content", *, n=10, title=None):
+    """Prints the first n lines of the given content, or all lines if n is None."""
+    if not isinstance(content, str):
+        if isinstance(content, list) and content and isinstance(content[0], dict):
+            for i, item in enumerate(content):
+                print_first_lines(item, n=n, title=f"{title or content_type} {i + 1}/{len(content)}")
+            return
+        if isinstance(content, (dict, list)):
+            content = json.dumps(content, indent=2)
+        else:
+            content = str(content)
+    header = title or f"First {n} lines of {content_type}"
+    print(f"\n--- {header} ---")
     for i, line in enumerate(content.splitlines()):
-        if i >= 10:
+        if n is not None and i >= n:
             break
         print(line)
     print("-------------------------------------\n")
+
+
+# Backward-compatible alias
+print_first_10_lines = print_first_lines
 
 
 def _get_msgs_from_folder(args, source_name, rules=None):
@@ -569,8 +584,8 @@ def add_events_cli(args, rules=None):
     sources, more_options = get_add_sources(rules=rules)
     if args.verbose:
         print(f"Source: {args.source}")
-        print(f"Sources: {sources}")
-        print(f"More options: {more_options}")
+        loggign.debug(f"Sources: {sources}")
+        logging.debug(f"More options: {more_options}")
     if args.source:
         matches = [item for item in sources if args.source in item]
         if not matches and more_options:
@@ -585,7 +600,7 @@ def add_events_cli(args, rules=None):
     else:
         selected = matches[0] if matches else None
     if selected:
-        print(f"\nSelected source: {selected}")
+        print(f"Selected source: {selected}")
         if hasattr(selected, "__iter__") and (
             ("web" in str(selected)) or ("http" in str(selected))
         ):
