@@ -584,7 +584,7 @@ def add_events_cli(args, rules=None):
     sources, more_options = get_add_sources(rules=rules)
     if args.verbose:
         print(f"Source: {args.source}")
-        loggign.debug(f"Sources: {sources}")
+        logging.debug(f"Sources: {sources}")
         logging.debug(f"More options: {more_options}")
     if args.source:
         matches = [item for item in sources if args.source in item]
