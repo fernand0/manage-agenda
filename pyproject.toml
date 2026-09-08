@@ -42,11 +42,11 @@ test = ["pytest", "pytest-cov", "pytest-mock"]
 dev = ["pytest", "pytest-cov", "pytest-mock", "pre-commit", "black", "isort", "ruff", "bandit"]
 
 [tool.uv]
-dev-dependencies = ["pytest", "pytest-cov", "pytest-mock", "pre-commit", "black", "isort", "ruff"]
+dev-dependencies = ["pytest", "pytest-cov", "pytest-mock", "pre-commit", "black", "isort", "ruff", "bandit"]
 
 [tool.black]
 line-length = 100
-target-version = ['py39', 'py310', 'py311']
+target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 
 [tool.isort]
@@ -55,7 +55,7 @@ line_length = 100
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
