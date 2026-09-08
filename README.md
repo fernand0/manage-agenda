@@ -2,7 +2,7 @@
 
 [![Changelog](https://img.shields.io/github/v/release/fernand0/manage-agenda?include_prereleases&label=changelog)](https://github.com/fernand0/manage-agenda/releases)
 [![Tests](https://github.com/fernand0/manage-agenda/actions/workflows/test.yml/badge.svg)](https://github.com/fernand0/manage-agenda/actions/workflows/test.yml)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/fernand0/manage-agenda/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/fernand0/manage-agenda/blob/main/LICENSE)
 
 A tool for adding entries to your Google Calendar from email messages and web pages using Large Language Models (LLMs) to extract event information.
 
@@ -187,11 +187,6 @@ Combined command that allows users to select between copy or delete operations i
 - `-d, --destination`: Select destination calendar
 - `-t, --text`: Filter events by title text
 
-**Event Selection:**
-- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
-- Enter `all` to select all events
-- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
-
 ### `copy` - Copy Events
 Copy events from one calendar to another with filtering capabilities.
 
@@ -201,11 +196,6 @@ Copy events from one calendar to another with filtering capabilities.
 - `-d, --destination`: Select destination calendar
 - `-t, --text`: Filter events by title text
 
-**Event Selection:**
-- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
-- Enter `all` to select all events
-- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
-
 ### `delete` - Delete Events
 Delete events from a calendar with text-based filtering.
 
@@ -213,11 +203,6 @@ Delete events from a calendar with text-based filtering.
 - `-i, --interactive`: Running in interactive mode
 - `-s, --source`: Select source calendar
 - `-t, --text`: Filter events by title text
-
-**Event Selection:**
-- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
-- Enter `all` to select all events
-- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
 
 ### `move` - Move Events
 Move events between calendars (equivalent to copy + delete).
@@ -228,11 +213,6 @@ Move events between calendars (equivalent to copy + delete).
 - `-d, --destination`: Select destination calendar
 - `-t, --text`: Filter events by title text
 
-**Event Selection:**
-- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
-- Enter `all` to select all events
-- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
-
 ### `update-status` - Update Event Status
 Change event status from busy to available (free) for selected events. This command allows users to update the transparency of calendar events from "opaque" (busy) to "transparent" (available), making them appear as free time on your calendar.
 
@@ -241,10 +221,10 @@ Change event status from busy to available (free) for selected events. This comm
 - `-s, --source`: Select source calendar
 - `-t, --text`: Filter events by title text
 
-**Event Selection:**
-- Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
-- Enter `all` to select all events
-- Enter text to match events containing that text (e.g., `meeting` to select all events with "meeting" in the title)
+> **Event Selection** (applies to `clean`, `copy`, `delete`, `move`, `update-status`):
+> - Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
+> - Enter `all` to select all events
+> - Enter text to match events containing that text (e.g., `meeting` selects all events with "meeting" in the title)
 
 ### `gcalendar` - List Calendar Events
 Display events from your Google Calendar.
@@ -277,69 +257,22 @@ Configuration can be set via environment variables or a `.env` file. See [`.env.
 | `GEMINI_API_KEY` | API key for Google Gemini | — |
 | `MISTRAL_API_KEY` | API key for Mistral AI | — |
 | `OLLAMA_HOST` | Ollama server URL | `http://localhost:11434` |
-| `OLLAMA_DEFAULT_MODEL` | Default Ollama model | `llama2` |
+| `OLLAMA_DEFAULT_MODEL` | Default Ollama model | `llama3.1` |
 | `DEFAULT_TIMEZONE` | IANA timezone for events | `Europe/Berlin` |
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `LOG_FILE` | Path to log file | `manage_agenda.log` |
 | `DEFAULT_EMAIL_TAG` | Gmail label/tag for event emails | `zAgenda` |
 
-## Key Improvements
+## Key Capabilities
 
-### Multi-Event Extraction
-- A single email or web page can contain multiple events
-- The LLM extracts all events and each is processed and added to the calendar individually
-- Supports both list and tuple formats from LLM responses
+- **Multi-event extraction** from a single source, with individual processing per event
+- **Structured data extraction** from JSON-LD and script tags in web pages, with full-text fallback
+- **Smart date parsing** handling complex formats, multiple languages, relative dates, and time information
+- **Memory error handling** with automatic fallback to lighter Ollama models
+- **External prompt management** for customization without code changes
+- **AI model metadata** tracked in calendar events (model name, processing time)
 
-### Structured Data Extraction
-- Extracts event data from JSON-LD (`<script type="application/ld+json">`) tags in web pages
-- Also processes other structured data objects embedded in script tags
-- Falls back to full-text extraction when structured data is not available
-
-### Note-Taker Integration
-- Batch-process URLs stored in `~/notes` using the [note-taker](https://github.com/fernand0/another-note-taking-app) app
-- Automatically extracts links from notes when no URLs are provided
-- Deletes processed notes after successful calendar event creation
-
-### Smart Date Extraction
-- Prioritizes main event dates over background/historical dates
-- Handles complex date formats in multiple languages
-- Distinguishes between relative dates and explicit dates
-- Includes time information when specified (e.g., '19:00h')
-- Uses ISO dateTime format for consistent parsing
-
-### AI Model Metadata
-- Calendar events include metadata about which AI model was used for extraction
-- Tracks processing time for each event
-
-### Memory Error Handling
-- Detects when Ollama models require more memory than available
-- Prompts for alternative models or automatically switches to lighter models
-- Prevents infinite retry loops with memory-constrained models
-
-### External Prompt Management
-- Stores prompts in external files for easy modification
-- Allows prompt customization without code changes
-- Maintains prompt versioning alongside code
-
-### Cache Management
-- **Force Refresh Option**: The `--force-refresh` flag bypasses cache comparison and returns full content for reprocessing
-- **Improved Web Processing**: Allows reprocessing of web pages for better AI results when cached content would return zero content
-
-### Interactive Features
-- **Retry Option**: Users can retry LLM processing during date confirmation with the 'r' option
-- **Interactive Fallback**: When extraction fails, users can retry, provide a snippet, or skip
-- **Enhanced User Experience**: More flexible options during interactive date confirmation
-
-### Calendar Management Utilities
-- **Combined Operations**: The `clean` command provides both copy and delete functionality in a single workflow
-- **Status Updates**: The `update-status` command allows changing event visibility from busy to available
-- **Interactive Filtering**: Both new commands support text-based filtering and selective processing
-- **Enhanced Selection**: All calendar management commands now support selecting events by number or by entering text to match event titles
-
-### File Management
-- **Meaningful Identifiers**: Uses meaningful IDs for filenames when available instead of numeric identifiers
-- **Better Organization**: More descriptive filenames for cached content and processed events
-- **Error Page Detection**: Automatically detects and skips error pages and empty content from URLs
+For a detailed history of changes, see the [Changelog](https://github.com/fernand0/manage-agenda/releases).
 
 ## Dependencies
 

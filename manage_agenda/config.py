@@ -38,7 +38,7 @@ class Config:
 
     # Ollama
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    OLLAMA_DEFAULT_MODEL: str = os.getenv("OLLAMA_DEFAULT_MODEL", "llama2")
+    OLLAMA_DEFAULT_MODEL: str = os.getenv("OLLAMA_DEFAULT_MODEL", "llama3.1")
 
     # Paths
     GOOGLE_CREDENTIALS_DIR: Path = CONFIG_DIR
