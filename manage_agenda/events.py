@@ -452,11 +452,12 @@ def process_calendar_events(
     today = datetime.datetime.now()
     today = datetime.datetime.now(datetime.timezone.utc)
 
+
     # Fetch events from calendar using socialModules methods
     all_posts = []
     try:
         api_cal.setPostsType("posts")
-        api_cal.setPosts("2008-01-01")
+        api_cal.setPosts(today)
         all_posts = api_cal.getPosts()
     except Exception:
         all_posts = []
