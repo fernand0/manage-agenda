@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ import dateparser
 from socialModules import moduleHtml
 from socialModules.moduleContent import display_posts
 from socialModules.moduleRules import moduleRules
+from socialModules.configMod import CONFIGDIR, select_from_list
 
 from manage_agenda.base import write_file
 from manage_agenda.config import config
@@ -42,14 +44,28 @@ def get_add_sources(rules=None):
     ]
 
 
-def print_first_10_lines(content, content_type="content"):
-    """Prints the first 10 lines of the given content."""
-    print(f"\n--- First 10 lines of {content_type} ---")
+def print_first_lines(content, content_type="content", *, n=10, title=None):
+    """Prints the first n lines of the given content, or all lines if n is None."""
+    if not isinstance(content, str):
+        if isinstance(content, list) and content and isinstance(content[0], dict):
+            for i, item in enumerate(content):
+                print_first_lines(item, n=n, title=f"{title or content_type} {i + 1}/{len(content)}")
+            return
+        if isinstance(content, (dict, list)):
+            content = json.dumps(content, indent=2)
+        else:
+            content = str(content)
+    header = title or f"First {n} lines of {content_type}"
+    print(f"\n--- {header} ---")
     for i, line in enumerate(content.splitlines()):
-        if i >= 10:
+        if n is not None and i >= n:
             break
         print(line)
     print("-------------------------------------\n")
+
+
+# Backward-compatible alias
+print_first_10_lines = print_first_lines
 
 
 def _get_msgs_from_folder(args, source_name, rules=None):
@@ -79,6 +95,7 @@ def _get_msgs_from_folder(args, source_name, rules=None):
 
     return None, posts
 
+
 def _get_events_from_calendar(args, api_src, calendar=None):
     """Helper function to get events from a specific calendar."""
     "FIXME: maybe a folder argument?"
@@ -88,7 +105,7 @@ def _get_events_from_calendar(args, api_src, calendar=None):
     api_src.setPosts()
     posts = api_src.getPosts()
 
-    return(posts)
+    return posts
 
 
 def _get_emails_from_folder(args, api_src, folder=None):
@@ -124,18 +141,6 @@ def list_folder(args, service):
     else:
         raise ValueError(f"Unsupported folder service: {service}")
     display_posts(api_src, posts)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def _get_post_datetime_and_diff(post_date):
@@ -197,7 +202,7 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
         confirmation = input("Do you want to remove the label from the email? (y/n): ")
         if confirmation.lower() == "y":
             delete_confirmed = True
-    elif args.delete:  # Only auto-confirm if not interactive but delete flag is set
+    else:
         delete_confirmed = True
 
     if delete_confirmed:
@@ -387,18 +392,15 @@ def process_txt_cli(args, model, source_name=None, rules=None):
     return False  # Default return if something went wrong before the main logic
 
 
-def process_email_cli(args, model, source_name=None, api_src=None, rules=None):
+def process_email_cli(args, model, selected_source=None, rules=None):
     """Processes emails and creates calendar events."""
 
-    if not api_src:
-        if source_name:
-            rules = rules or moduleRules.from_config()
-            api_src = select_api(args, "gmail", rules=rules)
-            #source_details = rules.more.get(source_name, {})
-            # print(f"Sourceeee: {source_details}")
-            #api_src = rules.readConfigSrc("", source_name, source_details)
-        else:
-            api_src = select_api(args, "email", rules=rules)
+    rules = rules or moduleRules.from_config()
+    if selected_source:
+        source_details = rules.more.get(selected_source, {})
+        api_src = rules.readConfigSrc("", selected_source, source_details)
+    else:
+        api_src = select_api(args, "email", rules=rules)
 
     posts = _get_emails_from_folder(args, api_src)
 
@@ -426,7 +428,7 @@ def process_email_cli(args, model, source_name=None, api_src=None, rules=None):
                 post_pos = i + 1
             else:
                 post_pos = post_id
-            _delete_email(args, api_src, post_pos, source_name, rules=rules)
+            _delete_email(args, api_src, post_pos, selected_source, rules=rules)
 
         return _process_common_flow(
             args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
@@ -579,33 +581,26 @@ def add_events_cli(args, rules=None):
 
     print(f"Selected model: {model.model_name}")
 
-    # source = args.source or ""
-    # if source in ("email", "gmail", "imap"):
-    #    api_src = select_source_by_type(args, source, rules=rules)
-    #    process_email_cli(args, model, api_src=api_src, rules=rules)
-    # elif source == "web":
-    #    process_web_cli(args, model, force_refresh=args.force_refresh)
-    # elif source == "text":
-    #    process_txt_cli(args, model, rules=rules)
-    # else:
-    # if True:
-    #    # Fallback: select from all sources interactively
     sources, more_options = get_add_sources(rules=rules)
-    sources = ["gmail", "imap"]
     if args.verbose:
-        print(f"Sources: {sources}")
-    if args.interactive:
-        # sel, selected = select_from_list(sources, more_options=more_options, title="Sources of information")
-        selected = rules.selectRuleInteractive(
-            sources, title="Select Rule", more_options=more_options
-        )
-    else:
-        print(f"Selecting: {args.source}")
+        print(f"Source: {args.source}")
+        logging.debug(f"Sources: {sources}")
+        logging.debug(f"More options: {more_options}")
+    if args.source:
         matches = [item for item in sources if args.source in item]
+        if not matches and more_options:
+            matches = [item for item in more_options if args.source in str(item)]
+    if args.interactive:
+        sel, selected = select_from_list(
+            sources, more_options=more_options, title="Sources of information"
+        )
+        # selected = rules.selectRuleInteractive(
+        #     sources, title="Select Rule", more_options=more_options
+        # )
+    else:
         selected = matches[0] if matches else None
-        print(f"Selected: {selected}")
     if selected:
-        print(f"\nSelected source: {selected}")
+        print(f"Selected source: {selected}")
         if hasattr(selected, "__iter__") and (
             ("web" in str(selected)) or ("http" in str(selected))
         ):
@@ -616,10 +611,11 @@ def add_events_cli(args, rules=None):
                 args, model, urls=url_list, force_refresh=args.force_refresh, rules=rules
             )
         elif hasattr(selected, "__iter__") and (
-                ("text" in str(selected)) or os.path.exists(str(selected))):
+            ("text" in str(selected)) or os.path.exists(str(selected))
+        ):
             file_list = None
             if isinstance(selected, str) and "." in selected:
                 file_list = selected.split(" ")
             process_txt_cli(args, model, source_name=file_list, rules=rules)
         else:
-            process_email_cli(args, model, source_name=args.source, api_src=None, rules=rules)
+            process_email_cli(args, model, selected_source=selected, rules=rules)

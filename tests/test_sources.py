@@ -32,7 +32,7 @@ class TestProcessEmailCli(unittest.TestCase):
     ):
         args = self.Args(
             interactive=False,
-            delete=True,
+            delete=None,
             source="gemini",
             verbose=False,
             destination="",
@@ -68,6 +68,48 @@ class TestProcessEmailCli(unittest.TestCase):
         mock_select_calendar.assert_called_once()
         mock_api_dst.publishPost.assert_called_once()
         mock_api_src.modifyLabels.assert_called_once()
+
+    @patch("manage_agenda.sources.select_api")
+    @patch("manage_agenda.sources._get_emails_from_folder")
+    def test_process_email_cli_fallback_selects_any_email_service(
+        self, mock_get_emails_from_folder, mock_select_api
+    ):
+        args = self.Args(
+            interactive=False,
+            delete=False,
+            source=None,
+            verbose=False,
+            destination="",
+            text="",
+        )
+        rules = MagicMock()
+        mock_get_emails_from_folder.return_value = []
+
+        process_email_cli(args, MagicMock(), rules=rules)
+
+        mock_select_api.assert_called_once_with(args, "email", rules=rules)
+
+    @patch("manage_agenda.sources.moduleRules")
+    @patch("manage_agenda.sources._get_emails_from_folder")
+    def test_process_email_cli_selected_source_loads_default_rules(
+        self, mock_get_emails_from_folder, mock_module_rules
+    ):
+        args = self.Args(
+            interactive=False,
+            delete=False,
+            source=None,
+            verbose=False,
+            destination="",
+            text="",
+        )
+        rules = mock_module_rules.from_config.return_value
+        source_details = {"service": "imap"}
+        rules.more = {"mail-account": source_details}
+        mock_get_emails_from_folder.return_value = []
+
+        process_email_cli(args, MagicMock(), selected_source="mail-account")
+
+        rules.readConfigSrc.assert_called_once_with("", "mail-account", source_details)
 
         self.Args = namedtuple(
             "args",
@@ -263,16 +305,19 @@ class TestSourceUtilities(unittest.TestCase):
 
         mock_api_src.modifyLabels.assert_called_once()
 
-    def test_delete_email_non_interactive_no_delete(self):
-        """Test _delete_email non-interactive without delete flag."""
+    def test_delete_email_non_interactive_auto_confirms(self):
+        """Test _delete_email automatically confirms outside interactive mode."""
         from manage_agenda.sources import _delete_email
 
         args = Args(interactive=False, delete=False)
         mock_api_src = MagicMock()
+        mock_api_src.service = "gmail"
+        mock_api_src.getChannel.return_value = "test_folder"
+        mock_api_src.getLabels.return_value = [{"id": "label_1"}]
 
         _delete_email(args, mock_api_src, "post123", "test_source")
 
-        mock_api_src.modifyLabels.assert_not_called()
+        mock_api_src.modifyLabels.assert_called_once()
         mock_api_src.deletePostId.assert_not_called()
 
     def test_delete_email_imap(self):
@@ -307,6 +352,7 @@ class TestSourceUtilities(unittest.TestCase):
             _delete_email(args, mock_api_src, "post123", "test_source")
 
             self.assertEqual(mock_api_src.deletePostId.call_count, 1)
+            mock_rules.readConfigSrc.assert_called_once_with("", "test_source", {})
             mock_new_api_src.deletePostId.assert_called_once_with("post123")
 
     def test_delete_email_retry_failure(self):
