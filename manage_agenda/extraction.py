@@ -182,7 +182,7 @@ def get_event_from_llm_with_retry(model, prompt, post_id, args):
             source = None if args.interactive else model.model_name
             if not args.interactive:
                 print("Trying to switch to a lighter model automatically...")
-            print(f"Source: {source}")
+            logging.debug("Source: %s", source)
             new_model = select_llm(_with_source(args, source))
             if new_model:
                 model = new_model
@@ -464,11 +464,11 @@ def _process_event_with_llm_and_calendar(
                     success = True
                     write_file(file_name, json.dumps(single_event))
 
-        print(f"Success: {success}")
+        logging.debug("Success: %s", success)
         if success:
             if args.verbose:
-                print(f"Events: {events}")
-                print(f"Results: {calendar_results}")
+                logging.debug("Events: %s", events)
+                logging.debug("Results: %s", calendar_results)
             return events, calendar_results
         return None, None
     return None, None

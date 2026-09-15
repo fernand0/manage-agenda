@@ -210,11 +210,10 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
         label = None
         for attempt in range(max_retries + 1):
             try:
-                print(f"Service: {api_src.service.lower()}")
+                logging.debug("Service: %s", api_src.service.lower())
                 res = ""
                 if "imap" not in api_src.service.lower():
-                    print(f"label: {api_src.getChannel()}")
-                    logging.info(f"label: {api_src.getChannel()}")
+                    logging.info("label: %s", api_src.getChannel())
                     folder = api_src.getChannel()
                     label = api_src.getLabels(folder)
                     logging.info(f"label: {label}")
@@ -332,8 +331,6 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             else:
                 post_id = post[0]
 
-            # print(f"Post id: {post_id}")
-            # print(f"Post id: {post_id}")
             lines_txt = post[1].split("\n")
             import re
 
@@ -440,7 +437,7 @@ def _get_pages_from_urls(args, urls):
 
     page = moduleHtml.moduleHtml()
     if args.verbose:
-        print(f"Urls: {urls}")
+            logging.debug("Urls: %s", urls)
     page.setUrl(urls)
     page.setApiPosts()
     posts = page.getPosts()
@@ -500,10 +497,10 @@ def process_web_cli(args, model, urls=None, force_refresh=False, rules=None):
             if not url_to_notes:
                 print("No links found in ~/notes.")
                 return False
-            print(f"Found notes: {url_to_notes}")
+            logging.debug("Found notes: %s", url_to_notes)
             urls = list(url_to_notes.keys())
-            print(f"Found total of links: {len(urls)}")
-            print(f"Found links: {urls}")
+            logging.debug("Found total of links: %d", len(urls))
+            logging.debug("Found links: %s", urls)
         else:
             urls = urls_input
 
@@ -583,7 +580,7 @@ def add_events_cli(args, rules=None):
 
     sources, more_options = get_add_sources(rules=rules)
     if args.verbose:
-        print(f"Source: {args.source}")
+        logging.debug("Source: %s", args.source)
         logging.debug(f"Sources: {sources}")
         logging.debug(f"More options: {more_options}")
     if args.source:

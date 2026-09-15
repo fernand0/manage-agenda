@@ -81,7 +81,7 @@ def setup_logging(verbose: bool = False) -> None:
     Args:
         verbose: Enable verbose (DEBUG level) logging.
     """
-    print("Setting logging")
+    logging.debug("Setting logging")
 
     # Determine log file location
     if not LOGDIR:

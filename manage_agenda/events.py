@@ -124,11 +124,11 @@ def _parse_event_times(event):
 
     current_start = _parse_datetime_to_utc(start_str, start_tz)
     if start_str and current_start is None:
-        print("Could not parse start time, using empty value")
+        logging.warning("Could not parse start time, using empty value")
 
     current_end = _parse_datetime_to_utc(end_str, end_tz)
     if end_str and current_end is None:
-        print("Could not parse end time, using empty value")
+        logging.warning("Could not parse end time, using empty value")
 
     return current_start, current_end
 
@@ -473,7 +473,7 @@ def process_calendar_events(
         future_events = []
         for post in all_posts:
             post_date = api_cal.getPostDate(post)
-            print(f"Date: {post_date}")
+            logging.debug("Date: %s", post_date)
 
             if not isinstance(post_date, str):
                 if isinstance(post, dict):

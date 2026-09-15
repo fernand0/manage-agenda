@@ -255,11 +255,9 @@ def reduce_html(url, post, force_refresh=False):
         elif len(words) == 1 and any(char.isdigit() for char in words[0]):
             newResult = newResult + "\n" + line
 
-    print(f"Orig: {result}")
-    print("End Orig")
+    logging.debug("Orig: %s", result)
     result = newResult
-    print(f"Res: {result}")
-    print("End Res")
+    logging.debug("Res: %s", result)
 
     # if extra_script_data:
     #     result = f"{result}\n\n--- Extra Data Found in Scripts ---\n{extra_script_data}"

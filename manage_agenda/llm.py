@@ -155,7 +155,7 @@ class GeminiClient(LLMClient):
                 selector="gemini",
                 default="models/gemini-2.0-flash",
             )
-            print(name)
+            logging.debug("Selected model: %s", name)
             self.model_name = name.split("/")[1]
         else:
             self.model_name = model_name

@@ -1,3 +1,4 @@
+import logging
 import sys
 from runpy import run_module
 
@@ -160,7 +161,7 @@ def auth(ctx, interactive):
         text=None,
     )
     if verbose:
-        print(f"Args: {args}")
+        logging.debug("Args: %s", args)
     api_src = authorize(args)
     if not api_src.getClient():
         msg = (
