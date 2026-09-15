@@ -49,7 +49,7 @@ def load_config(config_file):
     if os.path.exists(config_file):
         config.read(config_file)
     else:
-        logging.error(f"Configuration file not found: {config_file}")
+        logging.error("Configuration file not found: %s", config_file)
         raise FileNotFoundError(f"Config file not found: {config_file}")
     return config
 
@@ -126,9 +126,9 @@ class OllamaClient(LLMClient):
             # curl http://localhost:11434/api/generate -d '{"model": "llama3.2", "keep_alive": 0}'
             return response.message.content
         except Exception as e:
-            logging.error(f"Error generating text with Ollama: {e}")
+            logging.error("Error generating text with Ollama: %s", e)
             if "model requires more system memory" in str(e) or "out of memory" in str(e).lower():
-                logging.error(f"Ollama model {self.model_name} requires more memory than available: {e}")
+                logging.error("Ollama model %s requires more memory than available: %s", self.model_name, e)
                 return "Memory"
             return None
 
@@ -171,7 +171,7 @@ class GeminiClient(LLMClient):
                     )
             return response.text
         except Exception as e:
-            logging.error(f"Error generating text with Gemini: {e}")
+            logging.error("Error generating text with Gemini: %s", e)
             return None
 
     #@staticmethod
@@ -202,7 +202,7 @@ class MistralClient(LLMClient):
             )
             return response.choices[0].message.content
         except Exception as e:
-            logging.error(f"Error generating text with Mistral: {e}")
+            logging.error("Error generating text with Mistral: %s", e)
             return None
 
     @staticmethod
@@ -237,5 +237,5 @@ def select_llm(args):
         model = MistralClient()
         return model
     else:
-        logging.error(f"Invalid LLM source: {ai}")
+        logging.error("Invalid LLM source: %s", ai)
         return None

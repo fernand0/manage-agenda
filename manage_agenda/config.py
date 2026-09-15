@@ -64,7 +64,7 @@ class Config:
 
         if issues:
             for issue in issues:
-                logging.warning(f"Configuration issue: {issue}")
+                logging.warning("Configuration issue: %s", issue)
             return False
 
         return True
@@ -79,7 +79,7 @@ class Config:
 
         key = key_map.get(service.lower())
         if not key:
-            logging.warning(f"No API key configured for {service}")
+            logging.warning("No API key configured for %s", service)
         return key
 
 

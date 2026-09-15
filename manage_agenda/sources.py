@@ -187,9 +187,9 @@ def _get_post_datetime_and_diff(post_date):
         now_aware = datetime.datetime.now(madrid_tz)
 
         time_difference = now_aware - post_date_time
-        logging.debug(f"Date: {post_date_time} Diff: {time_difference.days}")
+        logging.debug("Date: %s Diff: %s", post_date_time, time_difference.days)
     except Exception as e:
-        logging.error(f"Error processing post date: {e}")
+        logging.error("Error processing post date: %s", e)
         time_difference = datetime.timedelta(0)
 
     return post_date_time, time_difference
@@ -216,25 +216,25 @@ def _delete_email(args, api_src, post_id, source_name, rules=None):
                     logging.info("label: %s", api_src.getChannel())
                     folder = api_src.getChannel()
                     label = api_src.getLabels(folder)
-                    logging.info(f"label: {label}")
+                    logging.info("Label: %s", label)
                     res = api_src.modifyLabels(post_id, label[0], None)
-                    logging.info(f"Label removed from email {post_id}.")
+                    logging.info("Label removed from email %s", post_id)
                 else:
                     label = api_src.getChannel()
                     api_src.getClient().select(label)
                     res = api_src.deletePostId(post_id)
-                    logging.info(f"State: {api_src.getClient().state}")
-                logging.info(f"Res: {res}")
+                    logging.info("State: %s", api_src.getClient().state)
+                logging.info("Res: %s", res)
                 if "Fail!" not in res:
-                    logging.info(f"Email {post_id} processed successfully.")
+                    logging.info("Email %s processed successfully", post_id)
                     return  # Success
             except Exception as e:
-                logging.warning(f"Attempt {attempt + 1} of {max_retries + 1} failed: {e}")
+                logging.warning("Attempt %d of %d failed: %s", attempt + 1, max_retries + 1, e)
                 if attempt < max_retries:
                     logging.info("Retrying to connect to the email server...")
 
                     rules = rules or moduleRules.from_config()
-                    logging.info(f"Source: {source_name}")
+                    logging.info("Source: %s", source_name)
                     source_details = rules.more.get(source_name, {})
                     api_src = rules.readConfigSrc("", source_name, source_details)
                     if label:
@@ -361,7 +361,7 @@ def process_txt_cli(args, model, source_name=None, rules=None):
                 title = next((i for i, s in enumerate(lines_txt) if "Subject: " in s), -1)
             else:
                 title = lines_txt[0]
-            logging.info(f"Extracted info. PostId: {post_id} Title: {title} Date: {date}")
+            logging.info("Extracted info. PostId: %s Title: %s Date: %s", post_id, title, date)
             return post_id, title, date
 
         def content_extractor(post, i, post_date_time, post_title):
@@ -456,7 +456,7 @@ def _get_links_from_notes():
 
         notes_dir = os.path.expanduser("~/notes")
         if not os.path.exists(notes_dir):
-            logging.warning(f"Notes directory {notes_dir} does not exist.")
+            logging.warning("Notes directory %s does not exist", notes_dir)
             return {}
 
         manager = NoteManager(storage_dir=notes_dir)
@@ -477,7 +477,7 @@ def _get_links_from_notes():
         logging.warning("note_app not found. Cannot extract links from notes.")
         return {}
     except Exception as e:
-        logging.error(f"Error extracting links from notes: {e}")
+        logging.error("Error extracting links from notes: %s", e)
         return {}
 
 
@@ -581,8 +581,8 @@ def add_events_cli(args, rules=None):
     sources, more_options = get_add_sources(rules=rules)
     if args.verbose:
         logging.debug("Source: %s", args.source)
-        logging.debug(f"Sources: {sources}")
-        logging.debug(f"More options: {more_options}")
+        logging.debug("Sources: %s", sources)
+        logging.debug("More options: %s", more_options)
     if args.source:
         matches = [item for item in sources if args.source in item]
         if not matches and more_options:

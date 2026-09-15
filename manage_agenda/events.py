@@ -24,7 +24,7 @@ DATETIME_INPUT_PROMPT = "Enter new {field} time (YYYY-MM-DD HH:MM:SS) or leave e
 try:
     DEFAULT_NAIVE_TIMEZONE = pytz.timezone(config.DEFAULT_TIMEZONE)
 except pytz.exceptions.UnknownTimeZoneError:
-    logging.error(f"Invalid timezone '{config.DEFAULT_TIMEZONE}' in config. Falling back to UTC.")
+    logging.error("Invalid timezone '%s' in config. Falling back to UTC.", config.DEFAULT_TIMEZONE)
     DEFAULT_NAIVE_TIMEZONE = pytz.utc
 
 
@@ -95,7 +95,7 @@ def _parse_datetime_to_utc(dt_str, tz_name=None):
         try:
             dt_obj = datetime.datetime.strptime(normalized_str, DATETIME_FORMAT)
         except ValueError as parse_err:
-            logging.error(f"Invalid datetime format: '{dt_str}'. Error: {parse_err}")
+            logging.error("Invalid datetime format: '%s'. Error: %s", dt_str, parse_err)
             return None
 
     if dt_obj.tzinfo is None:

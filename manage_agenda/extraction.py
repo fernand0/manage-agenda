@@ -115,14 +115,14 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
             event = vcal_json
             json_error_occurred = False
         except json.JSONDecodeError as error:
-            logging.error(f"Invalid JSON in vCal data: {vcal_json}")
-            logging.error(f"Error: {error}")
+            logging.error("Invalid JSON in vCal data: %s", vcal_json)
+            logging.error("Error: %s", error)
         except SyntaxError as error:
-            logging.error(f"Syntax error: {vcal_json}")
-            logging.error(f"Error: {error}")
+            logging.error("Syntax error: %s", vcal_json)
+            logging.error("Error: %s", error)
         except ValueError as error:
-            logging.error(f"Value error: {vcal_json}")
-            logging.error(f"Error: {error}")
+            logging.error("Value error: %s", vcal_json)
+            logging.error("Error: %s", error)
 
     if memory_error_occurred or json_error_occurred:
         event = None
@@ -484,7 +484,7 @@ def _publish_event_to_calendar(api_dst, event, selected_calendar):
             api=api_dst,
         )
     except googleapiclient.errors.HttpError as error:
-        logging.error(f"Error creating calendar event: {error}")
+        logging.error("Error creating calendar event: %s", error)
         if "Invalid time zone definition for end time'" in str(error):
             logging.info(
                 "Detected invalid timezone definition for end time. Correcting event timezones and retrying."
@@ -496,7 +496,7 @@ def _publish_event_to_calendar(api_dst, event, selected_calendar):
                     api=api_dst,
                 )
             except Exception as retry_error:
-                logging.error(f"Retry after timezone correction failed: {retry_error}")
+                logging.error("Retry after timezone correction failed: %s", retry_error)
     return False, None
 
 

@@ -33,7 +33,7 @@ def write_file(filename, content):
         # if it contains '..' components that could traverse up the directory
         # tree
         if os.path.isabs(normalized_filename) or '..' in normalized_filename.split(os.sep):
-            logging.error(f"Invalid filename: {filename} - contains path traversal attempts")
+            logging.error("Invalid filename: %s - contains path traversal attempts", filename)
             return False
 
         # Construct the full path using os.path.join for safety
@@ -48,12 +48,12 @@ def write_file(filename, content):
             # Ensure the resolved file path is within the resolved default
             # directory
             if not full_path_real.startswith(default_dir_real + os.sep) and full_path_real != default_dir_real:
-                logging.error(f"Invalid filename: {filename} - resolves outside allowed directory")
+                logging.error("Invalid filename: %s - resolves outside allowed directory", filename)
                 return False
         except OSError:
             # If realpath fails (e.g., path doesn't exist), we can't do the security check,
             # but we can still proceed with the original path check if we're careful
-            logging.warning(f"Could not resolve real paths for security check: {filename}")
+            logging.warning("Could not resolve real paths for security check: %s", filename)
             # We'll continue anyway, but this is less secure
 
         # Ensure the directory exists
@@ -64,14 +64,14 @@ def write_file(filename, content):
         except OSError as dir_error:
             # If directory creation fails, we log it but continue to try opening the file
             # This allows tests with fake directories to work while still providing security
-            logging.warning(f"Could not create directory for {filename}: {dir_error}")
+            logging.warning("Could not create directory for %s: %s", filename, dir_error)
 
         with open(full_path, "w") as file:
             file.write(content)
-        logging.info(f"File written: {filename}")
+        logging.info("File written: %s", filename)
         return True
     except Exception as e:
-        logging.error(f"Error writing file {filename}: {e}")
+        logging.error("Error writing file %s: %s", filename, e)
         return False
 
 

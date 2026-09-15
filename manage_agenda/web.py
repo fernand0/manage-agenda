@@ -118,7 +118,7 @@ def reduce_html(url, post, force_refresh=False):
         force_refresh: If True, bypass cache comparison and return full content
     """
     if not post or not post.strip():
-        logging.warning(f"Empty content received for {url}")
+        logging.warning("Empty content received for %s", url)
         return None
 
     if not os.path.exists(CACHE_DIR):
@@ -130,13 +130,13 @@ def reduce_html(url, post, force_refresh=False):
     cached_file_path = os.path.join(CACHE_DIR, safe_filename)
 
     new_html = post
-    logging.debug(f"Post: {post}")
+    logging.debug("Post: %s", post)
 
     soup = BeautifulSoup(new_html, "html.parser")
 
     # Detect error pages
     if is_error_content(soup):
-        logging.warning(f"Error page detected for {url}")
+        logging.warning("Error page detected for %s", url)
         return None
 
     # Extract relevant script content before they are decomposed

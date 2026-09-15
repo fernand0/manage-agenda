@@ -21,7 +21,7 @@ def authorize(args, rules=None):
         return None
     source_name = rules_all[0]
     source_details = rules.more.get(source_name, {})
-    logging.info(f"Source: {source_name} - {source_details}")
+    logging.info("Source: %s - %s", source_name, source_details)
     return rules.readConfigSrc("", source_name, source_details)
 
 
@@ -37,11 +37,11 @@ def select_api(args, api_type, rules=None, title=""):
 
     sources = rules.selectRule(service, "")
     if not sources:
-        logging.warning(f"No {api_type} sources configured.")
+        logging.warning("No %s sources configured", api_type)
         return None
     selected_source = sources[0]
     source_details = rules.more.get(selected_source, {})
-    logging.info(f"Source: {selected_source} - {source_details}")
+    logging.info("Source: %s - %s", selected_source, source_details)
     return rules.readConfigSrc("", selected_source, source_details)
 
 
@@ -70,7 +70,7 @@ def select_calendar(calendar_api, title="", args=None):
             raise CalendarError(f"Invalid calendar selection: {selection}")
 
         calendar_id = eligible_calendars[selection]["id"]
-        logging.info(f"Selected calendar: {safe_get(calendar, ['summary'])} (ID: {calendar_id})")
+        logging.info("Selected calendar: %s (ID: %s)", safe_get(calendar, ["summary"]), calendar_id)
         return calendar_id
     except (KeyError, IndexError, TypeError) as error:
         raise CalendarError(f"Failed to select calendar: {error}") from error
