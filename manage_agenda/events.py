@@ -456,7 +456,7 @@ def process_calendar_events(
     all_posts = []
     try:
         api_cal.setPostsType("posts")
-        api_cal.setPosts("2008-01-01")
+        api_cal.setPosts(date="2008-01-01")
         all_posts = api_cal.getPosts()
     except Exception:
         all_posts = []
