@@ -394,7 +394,7 @@ def _process_event_with_llm_and_calendar(
 
         events = list(event)
         if getattr(args, "output", "calendar") == "calendar":
-            api_dst = select_api(args, "gcalendar", rules=rules, title=f"Select Calendar {events[0]['summary']}")
+            api_dst = select_api(args, "gcalendar", rules=rules, title=f"Select Calendar for: {events[0]['summary']}")
             selected_calendar = select_calendar(api_dst, title=events[0]["summary"], args=args)
         else:
             api_dst = None
