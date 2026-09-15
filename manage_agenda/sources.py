@@ -437,7 +437,7 @@ def _get_pages_from_urls(args, urls):
 
     page = moduleHtml.moduleHtml()
     if args.verbose:
-            logging.debug("Urls: %s", urls)
+        logging.debug("Urls: %s", urls)
     page.setUrl(urls)
     page.setApiPosts()
     posts = page.getPosts()
