@@ -556,3 +556,49 @@ class TestSourceUtilities(unittest.TestCase):
         )
         mock_get_emails.assert_called_once_with(args, mock_api_src)
         mock_display_posts.assert_called_once_with(mock_api_src, posts)
+
+    @patch("manage_agenda.sources.print_events_summary")
+    @patch("manage_agenda.sources.process_email_cli")
+    @patch("manage_agenda.sources.get_add_sources")
+    @patch("manage_agenda.sources.select_llm")
+    def test_add_events_cli_non_interactive_prints_summary(
+        self, mock_select_llm, mock_get_sources, mock_process_email, mock_print_summary
+    ):
+        """Test add_events_cli calls print_events_summary in non-interactive mode."""
+        from manage_agenda.sources import add_events_cli
+
+        args = Args(interactive=False, source="gmail", verbose=False)
+        mock_get_sources.return_value = (["gmail"], [])
+        mock_llm = MagicMock()
+        mock_select_llm.return_value = mock_llm
+        added_events = [{"summary": "Test Event"}]
+        mock_process_email.return_value = added_events
+
+        result = add_events_cli(args)
+
+        self.assertEqual(result, added_events)
+        mock_print_summary.assert_called_once_with(added_events)
+
+    @patch("manage_agenda.sources.print_events_summary")
+    @patch("manage_agenda.sources.process_email_cli")
+    @patch("manage_agenda.sources.select_from_list")
+    @patch("manage_agenda.sources.get_add_sources")
+    @patch("manage_agenda.sources.select_llm")
+    def test_add_events_cli_interactive_does_not_print_summary(
+        self, mock_select_llm, mock_get_sources, mock_select_from_list, mock_process_email, mock_print_summary
+    ):
+        """Test add_events_cli does NOT call print_events_summary in interactive mode."""
+        from manage_agenda.sources import add_events_cli
+
+        args = Args(interactive=True, source=None, verbose=False)
+        mock_get_sources.return_value = (["gmail"], [])
+        mock_select_from_list.return_value = (0, "gmail")
+        mock_llm = MagicMock()
+        mock_select_llm.return_value = mock_llm
+        added_events = [{"summary": "Test Event"}]
+        mock_process_email.return_value = added_events
+
+        result = add_events_cli(args)
+
+        self.assertEqual(result, added_events)
+        mock_print_summary.assert_not_called()

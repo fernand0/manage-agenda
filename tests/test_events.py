@@ -195,3 +195,114 @@ class TestEvents(unittest.TestCase):
 
         mock_client.events().insert.assert_called()
         mock_client.events().delete.assert_called()
+
+    def test_parse_datetime_value(self):
+        """Test _parse_datetime_value handles datetimes, dates, and strings."""
+        from manage_agenda.events import _parse_datetime_value
+
+        dt, is_date = _parse_datetime_value(None)
+        self.assertIsNone(dt)
+        self.assertFalse(is_date)
+
+        now = datetime.datetime(2026, 9, 20, 10, 0, 0)
+        dt, is_date = _parse_datetime_value(now)
+        self.assertEqual(dt, now)
+        self.assertFalse(is_date)
+
+        today = datetime.date(2026, 9, 20)
+        dt, is_date = _parse_datetime_value(today)
+        self.assertEqual(dt.date(), today)
+        self.assertTrue(is_date)
+
+        dt, is_date = _parse_datetime_value("2026-09-20")
+        self.assertEqual(dt.strftime("%Y-%m-%d"), "2026-09-20")
+        self.assertTrue(is_date)
+
+        dt, is_date = _parse_datetime_value("2026-09-20T10:00:00")
+        self.assertEqual(dt.strftime("%Y-%m-%d %H:%M"), "2026-09-20 10:00")
+        self.assertFalse(is_date)
+
+    def test_format_event_time_range(self):
+        """Test format_event_time_range for same-day, cross-day, and date-only ranges."""
+        from manage_agenda.events import format_event_time_range
+
+        same_day = format_event_time_range("2026-09-20T10:00:00", "2026-09-20T11:00:00")
+        self.assertEqual(same_day, "2026-09-20 10:00 to 11:00")
+
+        diff_days = format_event_time_range("2026-09-20T10:00:00", "2026-09-21T11:00:00")
+        self.assertEqual(diff_days, "2026-09-20 10:00 to 2026-09-21 11:00")
+
+        date_only_same = format_event_time_range("2026-09-20", "2026-09-20")
+        self.assertEqual(date_only_same, "2026-09-20")
+
+        date_only_diff = format_event_time_range("2026-09-20", "2026-09-22")
+        self.assertEqual(date_only_diff, "2026-09-20 to 2026-09-22")
+
+        start_only = format_event_time_range("2026-09-20T10:00:00", None)
+        self.assertEqual(start_only, "2026-09-20 10:00")
+
+    def test_format_event_summary(self):
+        """Test format_event_summary formats event dict properly."""
+        from manage_agenda.events import format_event_summary
+
+        event = {
+            "summary": "Project Sync",
+            "start": {"dateTime": "2026-09-20T10:00:00"},
+            "end": {"dateTime": "2026-09-20T11:00:00"},
+        }
+        res = format_event_summary(event)
+        self.assertEqual(res, "- Project Sync (2026-09-20 10:00 to 11:00)")
+
+        event_no_dates = {"summary": "Quick Note"}
+        res_no_dates = format_event_summary(event_no_dates)
+        self.assertEqual(res_no_dates, "- Quick Note")
+
+    def test_print_events_summary(self):
+        """Test print_events_summary outputs summary to stdout."""
+        import io
+        import sys
+        from manage_agenda.events import print_events_summary
+
+        events = [
+            {
+                "summary": "Meeting with Alice",
+                "start": {"dateTime": "2026-09-20T10:00:00"},
+                "end": {"dateTime": "2026-09-20T11:00:00"},
+            },
+            {
+                "summary": "Conference Day",
+                "start": {"date": "2026-09-22"},
+                "end": {"date": "2026-09-22"},
+            },
+        ]
+
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = captured
+            print_events_summary(events)
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured.getvalue()
+        self.assertIn("Summary of events added:", output)
+        self.assertIn("- Meeting with Alice (2026-09-20 10:00 to 11:00)", output)
+        self.assertIn("- Conference Day (2026-09-22)", output)
+
+    def test_print_events_summary_empty(self):
+        """Test print_events_summary when no events are added."""
+        import io
+        import sys
+        from manage_agenda.events import print_events_summary
+
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = captured
+            print_events_summary([])
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured.getvalue()
+        self.assertIn("Summary of events added:", output)
+        self.assertIn("No events were added.", output)

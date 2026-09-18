@@ -15,6 +15,7 @@ from socialModules.configMod import CONFIGDIR, select_from_list
 from manage_agenda.base import write_file
 from manage_agenda.config import config
 from manage_agenda.connections import select_api
+from manage_agenda.events import print_events_summary
 from manage_agenda.extraction import _process_event_with_llm_and_calendar
 from manage_agenda.llm import select_llm
 from manage_agenda.web import reduce_html
@@ -272,7 +273,7 @@ def _process_common_flow(
     content_extractor: func(item, index, post_date_time, post_title) -> content_text
     item_cleaner: func(item, index, post_id) -> void
     """
-    processed_any_event = False
+    added_events = []
     for i, item in enumerate(items):
         # 1. Metadata
         post_id, post_title, post_date = metadata_extractor(item, i)
@@ -302,17 +303,22 @@ def _process_common_flow(
         # processed_event = True
 
         if processed_event:
-            processed_any_event = True
+            if isinstance(processed_event, list):
+                added_events.extend(processed_event)
+            elif isinstance(processed_event, dict):
+                added_events.append(processed_event)
+            else:
+                added_events.append({"summary": post_title})
             # 6. Post-process
             if item_cleaner:
                 item_cleaner(item, i, post_id)
 
-    return processed_any_event
+    return added_events
 
 
 def process_txt_cli(args, model, source_name=None, rules=None):
     """Processes txt files and creates calendar events."""
-
+    res = []
     if not source_name:
         source_name = input(
             f"Enter filenames separated by spaces (leave empty to use {config.MSG_TXT_DIR}): "
@@ -383,15 +389,15 @@ def process_txt_cli(args, model, source_name=None, rules=None):
         def item_cleaner(post, i, post_id):
             pass
 
-        return _process_common_flow(
+        res = _process_common_flow(
             args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
         )
-    return False  # Default return if something went wrong before the main logic
+    return res
 
 
 def process_email_cli(args, model, selected_source=None, rules=None):
     """Processes emails and creates calendar events."""
-
+    res = []
     rules = rules or moduleRules.from_config()
     if selected_source:
         source_details = rules.more.get(selected_source, {})
@@ -427,10 +433,10 @@ def process_email_cli(args, model, selected_source=None, rules=None):
                 post_pos = post_id
             _delete_email(args, api_src, post_pos, selected_source, rules=rules)
 
-        return _process_common_flow(
+        res = _process_common_flow(
             args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
         )
-    return False  # Default return if something went wrong before the main logic
+    return res
 
 
 def _get_pages_from_urls(args, urls):
@@ -483,7 +489,7 @@ def _get_links_from_notes():
 
 def process_web_cli(args, model, urls=None, force_refresh=False, rules=None):
     """Processes web pages and creates calendar events."""
-
+    res = []
     url_to_notes = {}
     urls_input = None
     if not urls:
@@ -496,78 +502,80 @@ def process_web_cli(args, model, urls=None, force_refresh=False, rules=None):
             url_to_notes = _get_links_from_notes()
             if not url_to_notes:
                 print("No links found in ~/notes.")
-                return False
-            logging.debug("Found notes: %s", url_to_notes)
-            urls = list(url_to_notes.keys())
-            logging.debug("Found total of links: %d", len(urls))
-            logging.debug("Found links: %s", urls)
+            else:
+                logging.debug("Found notes: %s", url_to_notes)
+                urls = list(url_to_notes.keys())
+                logging.debug("Found total of links: %d", len(urls))
+                logging.debug("Found links: %s", urls)
         else:
             urls = urls_input
 
-    api_src, posts = _get_pages_from_urls(args, urls)
+    if urls:
+        api_src, posts = _get_pages_from_urls(args, urls)
 
-    if posts:
-        # Instantiate manager if we might need to delete notes
-        manager = None
-        if url_to_notes:
-            try:
-                from note_app import NoteManager
+        if posts:
+            # Instantiate manager if we might need to delete notes
+            manager = None
+            if url_to_notes:
+                try:
+                    from note_app import NoteManager
 
-                notes_dir = os.path.expanduser("~/notes")
-                manager = NoteManager(storage_dir=notes_dir)
-            except ImportError:
-                pass
+                    notes_dir = os.path.expanduser("~/notes")
+                    manager = NoteManager(storage_dir=notes_dir)
+                except ImportError:
+                    pass
 
-        def metadata_extractor(post, i):
-            title = api_src.getPostTitle(post)
-            if not title:
-                title = urls[i]
+            def metadata_extractor(post, i):
+                title = api_src.getPostTitle(post)
+                if not title:
+                    title = urls[i]
 
-            # Generate a safe, readable filename from the URL
-            import re
+                # Generate a safe, readable filename from the URL
+                import re
 
-            from .web import extract_domain_and_path_from_url
+                from .web import extract_domain_and_path_from_url
 
-            processed_url = extract_domain_and_path_from_url(urls[i])
-            # Replace unsafe characters with underscores
-            safe_id = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
+                processed_url = extract_domain_and_path_from_url(urls[i])
+                # Replace unsafe characters with underscores
+                safe_id = re.sub(r"[^a-zA-Z0-9.-]", "_", processed_url)
 
-            hash_value = hash(urls[i])
+                hash_value = hash(urls[i])
 
-            # Truncate to a safe length (e.g., 150 chars) to avoid "File name
-            # too long" errors
-            if len(safe_id) > 130:
-                safe_id = safe_id[:130]
-            safe_id = f"{safe_id}_{hash_value}"
+                # Truncate to a safe length (e.g., 150 chars) to avoid "File name
+                # too long" errors
+                if len(safe_id) > 130:
+                    safe_id = safe_id[:130]
+                safe_id = f"{safe_id}_{hash_value}"
 
-            return safe_id, title, datetime.datetime.now()
+                return safe_id, title, datetime.datetime.now()
 
-        def content_extractor(post, i, post_date_time, post_title):
-            web_content_reduced = reduce_html(urls[i], post, force_refresh=force_refresh)
-            if not web_content_reduced:
-                print(f"Could not process {urls[i]}, skipping.")
-                return None
+            def content_extractor(post, i, post_date_time, post_title):
+                web_content_reduced = reduce_html(urls[i], post, force_refresh=force_refresh)
+                extracted_content = None
+                if not web_content_reduced:
+                    print(f"Could not process {urls[i]}, skipping.")
+                else:
+                    date_message = str(post_date_time).split(" ")[0]
+                    extracted_content = (
+                        f"Url: {urls[i]}\n"
+                        f"Subject: {post_title}\n"
+                        f"Message: {web_content_reduced}\n"
+                        f"Message date: {date_message}\n"
+                    )
+                return extracted_content
 
-            date_message = str(post_date_time).split(" ")[0]
-            return (
-                f"Url: {urls[i]}\n"
-                f"Subject: {post_title}\n"
-                f"Message: {web_content_reduced}\n"
-                f"Message date: {date_message}\n"
+            def item_cleaner(post, i, post_id):
+                url = urls[i]
+                if url in url_to_notes and manager:
+                    for note_title in url_to_notes[url]:
+                        print(f"Deleting note: {note_title}")
+                        manager.delete_note(note_title)
+
+            res = _process_common_flow(
+                args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
             )
 
-        def item_cleaner(post, i, post_id):
-            url = urls[i]
-            if url in url_to_notes and manager:
-                for note_title in url_to_notes[url]:
-                    print(f"Deleting note: {note_title}")
-                    manager.delete_note(note_title)
-
-        return _process_common_flow(
-            args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
-        )
-
-    return False  # Default return if something went wrong before the main logic
+    return res
 
 
 def add_events_cli(args, rules=None):
@@ -583,6 +591,7 @@ def add_events_cli(args, rules=None):
         logging.debug("Source: %s", args.source)
         logging.debug("Sources: %s", sources)
         logging.debug("More options: %s", more_options)
+    matches = []
     if args.source:
         matches = [item for item in sources if args.source in item]
         if not matches and more_options:
@@ -591,11 +600,10 @@ def add_events_cli(args, rules=None):
         sel, selected = select_from_list(
             sources, more_options=more_options, title="Sources of information"
         )
-        # selected = rules.selectRuleInteractive(
-        #     sources, title="Select Rule", more_options=more_options
-        # )
     else:
         selected = matches[0] if matches else None
+
+    events_added = []
     if selected:
         print(f"Selected source: {selected}")
         if hasattr(selected, "__iter__") and (
@@ -604,7 +612,7 @@ def add_events_cli(args, rules=None):
             url_list = None
             if isinstance(selected, str) and "http" in selected:
                 url_list = selected.split(" ")
-            process_web_cli(
+            raw_result = process_web_cli(
                 args, model, urls=url_list, force_refresh=args.force_refresh, rules=rules
             )
         elif hasattr(selected, "__iter__") and (
@@ -613,6 +621,16 @@ def add_events_cli(args, rules=None):
             file_list = None
             if isinstance(selected, str) and "." in selected:
                 file_list = selected.split(" ")
-            process_txt_cli(args, model, source_name=file_list, rules=rules)
+            raw_result = process_txt_cli(args, model, source_name=file_list, rules=rules)
         else:
-            process_email_cli(args, model, selected_source=selected, rules=rules)
+            raw_result = process_email_cli(args, model, selected_source=selected, rules=rules)
+
+        if isinstance(raw_result, list):
+            events_added = raw_result
+        elif isinstance(raw_result, dict):
+            events_added = [raw_result]
+
+    if not getattr(args, "interactive", False):
+        print_events_summary(events_added)
+
+    return events_added

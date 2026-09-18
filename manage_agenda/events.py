@@ -645,3 +645,112 @@ def update_event_status_cli(args):
 def clean_events_cli(args):
     """Combined command to clean calendar entries (select between copy or delete)."""
     process_calendar_events(args, "clean", clean_action, destination_needed=True)
+
+
+def _parse_datetime_value(val):
+    """Parse a datetime value (string, datetime, or date) into a (datetime, is_date_only) tuple."""
+    dt = None
+    is_date_only = False
+    if val:
+        if isinstance(val, datetime.datetime):
+            dt = val
+            if dt.tzinfo is not None:
+                dt = dt.astimezone()
+        elif isinstance(val, datetime.date):
+            dt = datetime.datetime(val.year, val.month, val.day)
+            is_date_only = True
+        else:
+            val_str = str(val).strip()
+            import re
+
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", val_str):
+                try:
+                    d = datetime.date.fromisoformat(val_str)
+                    dt = datetime.datetime(d.year, d.month, d.day)
+                    is_date_only = True
+                except ValueError:
+                    pass
+
+            if dt is None:
+                try:
+                    dt_parsed = datetime.datetime.fromisoformat(val_str)
+                    if dt_parsed.tzinfo is not None:
+                        dt_parsed = dt_parsed.astimezone()
+                    dt = dt_parsed
+                except ValueError:
+                    pass
+
+            if dt is None:
+                try:
+                    dt_parsed = dateparser.parse(val_str)
+                    if dt_parsed is not None:
+                        if dt_parsed.tzinfo is not None:
+                            dt_parsed = dt_parsed.astimezone()
+                        dt = dt_parsed
+                except Exception:
+                    pass
+    return dt, is_date_only
+
+
+def format_event_time_range(start_val, end_val):
+    """Format event start and end times into a readable range string."""
+    start_dt, start_is_date = _parse_datetime_value(start_val)
+    end_dt, end_is_date = _parse_datetime_value(end_val)
+
+    if start_dt and end_dt:
+        if start_is_date and end_is_date:
+            if start_dt.date() == end_dt.date():
+                res = start_dt.strftime("%Y-%m-%d")
+            else:
+                res = f"{start_dt.strftime('%Y-%m-%d')} to {end_dt.strftime('%Y-%m-%d')}"
+        elif start_dt.date() == end_dt.date():
+            res = f"{start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%H:%M')}"
+        else:
+            res = f"{start_dt.strftime('%Y-%m-%d %H:%M')} to {end_dt.strftime('%Y-%m-%d %H:%M')}"
+    elif start_dt:
+        if start_is_date:
+            res = start_dt.strftime("%Y-%m-%d")
+        else:
+            res = start_dt.strftime("%Y-%m-%d %H:%M")
+    elif start_val and end_val:
+        res = f"{start_val} to {end_val}"
+    elif start_val:
+        res = str(start_val)
+    elif end_val:
+        res = str(end_val)
+    else:
+        res = ""
+    return res
+
+
+def format_event_summary(event):
+    """Format a single event summary line for display."""
+    summary = event.get("summary") or "(untitled)"
+    start = event.get("start", {})
+    end = event.get("end", {})
+    start_val = (
+        start.get("dateTime") or start.get("date") if isinstance(start, dict) else None
+    )
+    end_val = (
+        end.get("dateTime") or end.get("date") if isinstance(end, dict) else None
+    )
+    time_str = format_event_time_range(start_val, end_val)
+    if time_str:
+        formatted = f"- {summary} ({time_str})"
+    else:
+        formatted = f"- {summary}"
+    return formatted
+
+
+def print_events_summary(events):
+    """Print a summary list of added events to standard output."""
+    output_lines = ["Summary of events added:"]
+    if events:
+        for event in events:
+            output_lines.append(format_event_summary(event))
+    else:
+        output_lines.append("No events were added.")
+    for line in output_lines:
+        print(line)
+    return output_lines
+
