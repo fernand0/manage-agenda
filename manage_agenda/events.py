@@ -742,11 +742,29 @@ def format_event_summary(event):
     return formatted
 
 
+def _get_event_sort_key(event):
+    """Return a sort key tuple (datetime, summary) for an event based on its start date."""
+    if not isinstance(event, dict):
+        return (datetime.datetime.max.replace(tzinfo=datetime.timezone.utc), "")
+    start = event.get("start", {})
+    start_val = (
+        start.get("dateTime") or start.get("date") if isinstance(start, dict) else None
+    )
+    dt, _ = _parse_datetime_value(start_val)
+    if dt is None:
+        dt_key = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
+    else:
+        dt_key = dt.astimezone(datetime.timezone.utc)
+    summary = str(event.get("summary") or "")
+    return (dt_key, summary)
+
+
 def print_events_summary(events):
-    """Print a summary list of added events to standard output."""
+    """Print a summary list of added events to standard output, sorted by start date."""
     output_lines = ["Summary of events added:"]
     if events:
-        for event in events:
+        sorted_events = sorted(events, key=_get_event_sort_key)
+        for event in sorted_events:
             output_lines.append(format_event_summary(event))
     else:
         output_lines.append("No events were added.")

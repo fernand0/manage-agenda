@@ -79,7 +79,7 @@ class Config:
 
         key = key_map.get(service.lower())
         if not key:
-            logging.warning("No API key configured for %s", service)
+            logging.warning(f"No API key configured for {service}")
         return key
 
 

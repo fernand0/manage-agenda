@@ -68,7 +68,7 @@ def write_file(filename, content):
 
         with open(full_path, "w") as file:
             file.write(content)
-        logging.info("File written: %s", filename)
+        logging.info(f"File written: {filename}")
         return True
     except Exception as e:
         logging.error("Error writing file %s: %s", filename, e)
