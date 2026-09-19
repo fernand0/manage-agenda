@@ -34,6 +34,7 @@ class Args:
     text: Optional[str] = None
     output: str = "calendar"
     force_refresh: bool = False
+    start_date: Optional[str] = None
 
 
 def get_add_sources(rules=None):

@@ -449,9 +449,17 @@ def process_calendar_events(
     # Set the active calendar using socialModules method
     api_cal.setActive(selected_calendar)
 
-    today = datetime.datetime.now()
-    today = datetime.datetime.now(datetime.timezone.utc)
-
+    # Determine the start date for fetching events
+    start_date_str = getattr(args, "start_date", None)
+    if start_date_str:
+        parsed = dateparser.parse(start_date_str)
+        if parsed is not None:
+            today = parsed.astimezone(datetime.timezone.utc)
+        else:
+            logging.warning("Could not parse start_date '%s', falling back to today.", start_date_str)
+            today = datetime.datetime.now(datetime.timezone.utc)
+    else:
+        today = datetime.datetime.now(datetime.timezone.utc)
 
     # Fetch events from calendar using socialModules methods
     all_posts = []
@@ -461,9 +469,6 @@ def process_calendar_events(
         all_posts = api_cal.getPosts()
     except Exception:
         all_posts = []
-
-    today = datetime.datetime.now()
-    today = datetime.datetime.now(datetime.timezone.utc)
 
     # If interactive, present all fetched posts (tests expect interactive flows
     # to show items regardless of date)

@@ -262,8 +262,14 @@ def gmail(ctx, interactive):
     default=None,
     help="Select text in title",
 )
+@click.option(
+    "-D",
+    "--start-date",
+    default=None,
+    help="First date to search events from (e.g. '2024-01-01'). Defaults to today.",
+)
 @click.pass_context
-def copy(ctx, interactive, source, destination, text):
+def copy(ctx, interactive, source, destination, text, start_date):
     """Copy entries from one calendar to another"""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
@@ -273,6 +279,7 @@ def copy(ctx, interactive, source, destination, text):
         verbose=verbose,
         destination=destination,
         text=text,
+        start_date=start_date,
     )
 
     copy_events_cli(args)
@@ -304,8 +311,14 @@ def copy(ctx, interactive, source, destination, text):
     default=None,
     help="Select text in title",
 )
+@click.option(
+    "-D",
+    "--start-date",
+    default=None,
+    help="First date to search events from (e.g. '2024-01-01'). Defaults to today.",
+)
 @click.pass_context
-def clean(ctx, interactive, source, destination, text):
+def clean(ctx, interactive, source, destination, text, start_date):
     """Clean calendar entries (select between copy or delete)"""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
@@ -315,6 +328,7 @@ def clean(ctx, interactive, source, destination, text):
         verbose=verbose,
         destination=destination,
         text=text,
+        start_date=start_date,
     )
 
     clean_events_cli(args)
@@ -340,8 +354,14 @@ def clean(ctx, interactive, source, destination, text):
     default=None,
     help="Select text in title",
 )
+@click.option(
+    "-D",
+    "--start-date",
+    default=None,
+    help="First date to search events from (e.g. '2024-01-01'). Defaults to today.",
+)
 @click.pass_context
-def delete(ctx, interactive, source, text):
+def delete(ctx, interactive, source, text, start_date):
     """Delete entries from a calendar"""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
@@ -351,6 +371,7 @@ def delete(ctx, interactive, source, text):
         verbose=verbose,
         destination=None,
         text=text,
+        start_date=start_date,
     )
 
     delete_events_cli(args)
@@ -382,8 +403,14 @@ def delete(ctx, interactive, source, text):
     default=None,
     help="Select text in title",
 )
+@click.option(
+    "-D",
+    "--start-date",
+    default=None,
+    help="First date to search events from (e.g. '2024-01-01'). Defaults to today.",
+)
 @click.pass_context
-def move(ctx, interactive, source, destination, text):
+def move(ctx, interactive, source, destination, text, start_date):
     """Move entries from one calendar to another"""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
@@ -393,6 +420,7 @@ def move(ctx, interactive, source, destination, text):
         verbose=verbose,
         destination=destination,
         text=text,
+        start_date=start_date,
     )
 
     move_events_cli(args)
