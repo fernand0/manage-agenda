@@ -9,7 +9,7 @@ from socialModules.moduleContent import display_posts
 
 from manage_agenda import connections
 from manage_agenda.config import config
-from manage_agenda.connections import select_calendar
+from manage_agenda.connections import select_calendar, select_calendar_from_all_rules
 
 # Constants for date confirmation and interactive date/time modification.
 DATE_CONFIRM_PROMPT = (
@@ -440,11 +440,13 @@ def process_calendar_events(
         None
     """
     # Initialize API and calendar
-    api_cal = connections.select_api(args, "gcalendar", rules=None, title="Select Rule")
     if getattr(args, "source", None):
+        api_cal = connections.select_api(args, "gcalendar", rules=None, title="Select Rule")
         selected_calendar = args.source
     else:
-        selected_calendar = select_calendar(api_cal, title="Select calendar", args=args)
+        api_cal, selected_calendar = select_calendar_from_all_rules(
+            args, title="Select calendar"
+        )
 
     # Set the active calendar using socialModules method
     api_cal.setActive(selected_calendar)
@@ -538,14 +540,14 @@ def process_calendar_events(
 
     # Handle destination calendar if needed
     if destination_needed:
-        my_calendar_dst = connections.select_api(
-            args, "gcalendar", rules=None, title="Select rule"
-        )
         if getattr(args, "destination", None):
+            my_calendar_dst = connections.select_api(
+                args, "gcalendar", rules=None, title="Select rule"
+            )
             my_calendar = args.destination
         else:
-            my_calendar = select_calendar(
-                my_calendar_dst, title="Select destination calendar", args=args
+            my_calendar_dst, my_calendar = select_calendar_from_all_rules(
+                args, title="Select destination calendar"
             )
     else:
         my_calendar = None
@@ -595,12 +597,11 @@ def move_events_cli(args):
 
 def update_event_status_cli(args):
     """Update event status from busy to available for selected events."""
-    api_cal = connections.select_api(args, "gcalendar", rules=None, title="Select Rule")
-
     if args.source:
+        api_cal = connections.select_api(args, "gcalendar", rules=None, title="Select Rule")
         my_calendar = args.source
     else:
-        my_calendar = select_calendar(api_cal)
+        api_cal, my_calendar = select_calendar_from_all_rules(args)
 
     api_cal.setActive(my_calendar)
     api_cal.setPosts(max_results=None, event_types="default", show_active=False)
