@@ -33,16 +33,17 @@ def select_api(args, api_type, rules=None, title=""):
     )
 
     if args.interactive:
-        return rules.selectRuleInteractive(service, title=title)
-
-    sources = rules.selectRule(service, "")
-    if not sources:
-        logging.warning("No %s sources configured", api_type)
-        return None
-    selected_source = sources[0]
-    source_details = rules.more.get(selected_source, {})
-    logging.info("Source: %s - %s", selected_source, source_details)
-    return rules.readConfigSrc("", selected_source, source_details)
+        result = rules.selectRuleInteractive(service, title=title)
+    else:
+        sources = rules.selectRule(service, "")
+        if not sources:
+            logging.warning("No %s sources configured", api_type)
+            return None
+        selected_source = sources[0]
+        source_details = rules.more.get(selected_source, {})
+        logging.info("Source: %s - %s", selected_source, source_details)
+        result = rules.readConfigSrc("", selected_source, source_details)
+    return result
 
 
 def select_calendar(calendar_api, title="", args=None):
