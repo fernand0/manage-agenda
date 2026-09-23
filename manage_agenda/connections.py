@@ -94,7 +94,10 @@ def select_calendar_from_all_rules(args, title="", rules=None):
         raise CalendarError("No gcalendar sources configured")
 
     # Collect (api, calendar_dict, rule_name) for every writable calendar.
-    entries = []
+    # Use an ordered dict keyed by display label so that the entry can be
+    # retrieved by label after select_from_list returns — avoiding any
+    # index mismatch that could arise if select_from_list deduplicates labels.
+    label_to_entry = {}
     for rule_name in rule_names:
         source_details = rules.more.get(rule_name, {})
         api = rules.readConfigSrc("", rule_name, source_details)
@@ -109,28 +112,22 @@ def select_calendar_from_all_rules(args, title="", rules=None):
             continue
         for cal in calendars:
             if "reader" not in cal.get("accessRole", ""):
-                entries.append((api, cal, rule_name))
+                label = f"{safe_get(cal, ['summary'])} ({rule_name})"
+                label_to_entry[label] = (api, cal)
 
-    if not entries:
+    if not label_to_entry:
         raise CalendarError("No writable calendars found across all configured rules")
 
-    # Build display labels: "Summary (rule-name)"
-    labels = [
-        f"{safe_get(cal, ['summary'])} ({rule_name})"
-        for _api, cal, rule_name in entries
-    ]
+    _selection, selected_label = select_from_list(list(label_to_entry.keys()), title=title)
 
-    selection, _label = select_from_list(labels, title=title)
+    if not selected_label or selected_label not in label_to_entry:
+        raise CalendarError(f"Invalid calendar selection: {selected_label!r}")
 
-    if selection < 0 or selection >= len(entries):
-        raise CalendarError(f"Invalid calendar selection: {selection}")
-
-    selected_api, selected_cal, rule_name = entries[selection]
+    selected_api, selected_cal = label_to_entry[selected_label]
     calendar_id = selected_cal["id"]
     logging.info(
-        "Selected calendar: %s (ID: %s, rule: %s)",
+        "Selected calendar: %s (ID: %s)",
         safe_get(selected_cal, ["summary"]),
         calendar_id,
-        rule_name,
     )
     return selected_api, calendar_id
