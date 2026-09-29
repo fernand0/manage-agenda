@@ -1,3 +1,4 @@
+import subprocess
 import sys
 import unittest
 from collections import namedtuple
@@ -53,12 +54,16 @@ class TestLLMClient(unittest.TestCase):
 
 
 class TestOllamaClient(unittest.TestCase):
+    @patch.object(OllamaClient, "ensure_server")
     @patch("manage_agenda.llm.select_from_list")
     @patch("manage_agenda.llm.OllamaClient.list_models")
-    def test_ollama_init_with_model_name(self, mock_list_models, mock_select):
+    def test_ollama_init_with_model_name(
+        self, mock_list_models, mock_select, mock_ensure_server
+    ):
         """Test OllamaClient initialization with model name."""
         client = OllamaClient(model_name="llama2")
         self.assertEqual(client.model_name, "llama2")
+        mock_ensure_server.assert_called_once()
         mock_list_models.assert_not_called()
         mock_select.assert_not_called()
 
@@ -73,6 +78,14 @@ class TestOllamaClient(unittest.TestCase):
         mock_list_models.assert_called_once()
         mock_select.assert_called_once()
         self.assertIsNotNone(client.model_name)
+
+    @patch("manage_agenda.llm.OllamaClient.list_models")
+    def test_ollama_init_with_index(self, mock_list_models):
+        """Test OllamaClient initialization with integer index."""
+        mock_list_models.return_value = [{"model": "llama2"}, {"model": "mistral"}]
+        client = OllamaClient(model_name=1)
+        self.assertEqual(client.model_name, "mistral")
+        mock_list_models.assert_called_once()
 
     @patch("manage_agenda.llm.chat")
     def test_ollama_generate_text_success(self, mock_chat):
@@ -104,6 +117,88 @@ class TestOllamaClient(unittest.TestCase):
 
         self.assertEqual(len(models), 2)
         self.assertEqual(models[0]["model"], "llama2")
+
+    @patch("manage_agenda.llm.ollama.list")
+    def test_ollama_is_server_running(self, mock_list):
+        """Test is_server_running helper."""
+        mock_list.return_value = {"models": []}
+        self.assertTrue(OllamaClient.is_server_running())
+
+        mock_list.side_effect = Exception("Not running")
+        self.assertFalse(OllamaClient.is_server_running())
+
+    @patch.object(OllamaClient, "is_server_running", return_value=True)
+    def test_ollama_start_server_already_running(self, mock_is_running):
+        """Test start_server returns True if already running."""
+        self.assertTrue(OllamaClient.start_server())
+
+    @patch("manage_agenda.llm.shutil.which", return_value=None)
+    @patch.object(OllamaClient, "is_server_running", return_value=False)
+    def test_ollama_start_server_binary_not_found(self, mock_is_running, mock_which):
+        """Test start_server returns False if ollama binary is not found."""
+        self.assertFalse(OllamaClient.start_server())
+
+    @patch("manage_agenda.llm.time.sleep", return_value=None)
+    @patch("manage_agenda.llm.subprocess.Popen")
+    @patch("manage_agenda.llm.shutil.which", return_value="/usr/bin/ollama")
+    @patch.object(OllamaClient, "is_server_running", side_effect=[False, False, True])
+    def test_ollama_start_server_success(
+        self, mock_is_running, mock_which, mock_popen, mock_sleep
+    ):
+        """Test start_server spawns ollama serve and waits until running."""
+        self.assertTrue(OllamaClient.start_server())
+        mock_popen.assert_called_once_with(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    @patch("manage_agenda.llm.time.sleep", return_value=None)
+    @patch("manage_agenda.llm.subprocess.Popen")
+    @patch("manage_agenda.llm.shutil.which", return_value="/usr/bin/ollama")
+    @patch.object(OllamaClient, "is_server_running", return_value=False)
+    def test_ollama_start_server_timeout(
+        self, mock_is_running, mock_which, mock_popen, mock_sleep
+    ):
+        """Test start_server returns False on timeout."""
+        self.assertFalse(OllamaClient.start_server(timeout=0.1))
+
+    @patch.object(OllamaClient, "start_server", return_value=True)
+    @patch("manage_agenda.llm.chat")
+    def test_ollama_generate_text_recovers_when_server_started(
+        self, mock_chat, mock_start_server
+    ):
+        """Test generate_text starts server and retries when connection fails."""
+        mock_response = MagicMock()
+        mock_response.message.content = "Recovered response"
+        mock_chat.side_effect = [
+            ConnectionError("Failed to connect to Ollama. Please check that Ollama is downloaded"),
+            mock_response,
+        ]
+
+        client = OllamaClient(model_name="llama2")
+        result = client.generate_text("test prompt")
+
+        self.assertEqual(result, "Recovered response")
+        mock_start_server.assert_called_once()
+        self.assertEqual(mock_chat.call_count, 2)
+
+    @patch.object(OllamaClient, "start_server", return_value=True)
+    @patch("manage_agenda.llm.ollama.list")
+    def test_ollama_list_models_starts_server_on_failure(
+        self, mock_list, mock_start_server
+    ):
+        """Test list_models starts server if initial call fails."""
+        mock_list.side_effect = [
+            Exception("Connection refused"),
+            {"models": [{"model": "llama3"}]},
+        ]
+
+        models = OllamaClient.list_models()
+        self.assertEqual(len(models), 1)
+        self.assertEqual(models[0]["model"], "llama3")
+        mock_start_server.assert_called_once()
+
 
 
 class TestGeminiClient(unittest.TestCase):

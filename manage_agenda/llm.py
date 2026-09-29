@@ -1,6 +1,9 @@
 import configparser
 import logging
 import os
+import shutil
+import subprocess
+import time
 import types
 
 try:
@@ -83,58 +86,130 @@ class LLMClient:
 
 
 class OllamaClient(LLMClient):
+    @classmethod
+    def is_server_running(cls):
+        """Checks if the Ollama server is running and accessible."""
+        try:
+            ollama.list()
+            return True
+        except Exception:
+            return False
+
+    @classmethod
+    def start_server(cls, timeout=10):
+        """Starts the Ollama server if it is not already running.
+
+        Args:
+            timeout (int): Maximum seconds to wait for server to start.
+
+        Returns:
+            bool: True if server is running or successfully started, False otherwise.
+        """
+        if cls.is_server_running():
+            return True
+
+        if not shutil.which("ollama"):
+            logging.error("Ollama executable not found in PATH.")
+            return False
+
+        logging.info("Ollama server is not running. Starting 'ollama serve'...")
+        try:
+            subprocess.Popen(
+                ["ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception as e:
+            logging.error("Failed to start Ollama server: %s", e)
+            return False
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            time.sleep(0.5)
+            if cls.is_server_running():
+                logging.info("Ollama server started successfully.")
+                return True
+
+        logging.error("Timed out waiting for Ollama server to start.")
+        return False
+
+    ensure_server = start_server
+
     def __init__(self, model_name=""):
         name_class = self.__class__.__name__
         self.config = False
         super().__init__(name_class)
 
-        iss = isinstance(model_name, int)
-        if not iss and not model_name:
-            models = None
-            while not models:
-                try:
-                    models = self.list_models()
-                except Exception:
-                    import subprocess
+        self.ensure_server()
 
-                    subprocess.Popen(
-                        ["ollama", "serve"],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-
-            _, self.model_name = select_from_list(
-                models, identifier="model", title="Available models"
-            )
+        if isinstance(model_name, str) and model_name:
+            self.model_name = model_name
         else:
+            models = []
+            try:
+                models = self.list_models()
+            except Exception as e:
+                logging.error("Could not retrieve Ollama models: %s", e)
+
             if isinstance(model_name, int):
-                self.model_name = self.list_models()[0].model
+                if models and len(models) > model_name:
+                    item = models[model_name]
+                    self.model_name = getattr(item, "model", None) or (
+                        item.get("model") if isinstance(item, dict) else str(item)
+                    )
+                else:
+                    self.model_name = ""
+            elif models:
+                _, self.model_name = select_from_list(
+                    models, identifier="model", title="Available models"
+                )
             else:
-                self.model_name = model_name
+                self.model_name = ""
 
     def generate_text(self, prompt):
-        try:
-            response: ChatResponse = chat(
+        def _chat():
+            return chat(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
-                options={"num_ctx": len(prompt),
-                },
+                options={"num_ctx": len(prompt)},
                 keep_alive=0,
             )
+
+        try:
+            response: ChatResponse = _chat()
             # To unload a model from memory in Ollama, you must use the
             # keep_alive parameter with a value of 0 via the API.
             # curl http://localhost:11434/api/generate -d '{"model": "llama3.2", "keep_alive": 0}'
-            return response.message.content
+            return response.message.content if response else None
         except Exception as e:
+            is_conn_error = (
+                isinstance(e, ConnectionError)
+                or "Failed to connect to Ollama" in str(e)
+                or "connection refused" in str(e).lower()
+            )
+            if is_conn_error:
+                logging.info("Ollama is not running. Attempting to start Ollama server...")
+                if self.start_server():
+                    try:
+                        response: ChatResponse = _chat()
+                        return response.message.content if response else None
+                    except Exception as retry_err:
+                        e = retry_err
+
             logging.error("Error generating text with Ollama: %s", e)
             if "model requires more system memory" in str(e) or "out of memory" in str(e).lower():
                 logging.error("Ollama model %s requires more memory than available: %s", self.model_name, e)
                 return "Memory"
             return None
 
-    @staticmethod
-    def list_models():
-        return ollama.list()["models"]
+    @classmethod
+    def list_models(cls):
+        try:
+            return ollama.list()["models"]
+        except Exception:
+            if cls.start_server():
+                return ollama.list()["models"]
+            raise
 
 
 class GeminiClient(LLMClient):
