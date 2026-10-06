@@ -4,7 +4,12 @@ import time
 
 from manage_agenda.config import config
 from manage_agenda.llm import OllamaClient
-from manage_agenda.sources import process_email_cli, process_txt_cli, process_web_cli
+from manage_agenda.sources import (
+    process_email_cli,
+    process_img_cli,
+    process_txt_cli,
+    process_web_cli,
+)
 
 
 def evaluate_models(args, prompt=None, eval_type=None):
@@ -24,6 +29,8 @@ def evaluate_models(args, prompt=None, eval_type=None):
             print(f"Cli (web): {process_web_cli(args, client)}")
         elif eval_type == "txt":
             print(f"Cli (txt): {process_txt_cli(args, client, source_name=config.MSG_TXT_DIR)}")
+        elif eval_type == "image":
+            print(f"Cli (image): {process_img_cli(args, client, source_name=config.MSG_IMG_DIR)}")
         elif prompt:
             print(f"Prompt: {prompt}")
             start_time = time.time()

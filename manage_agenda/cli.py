@@ -50,9 +50,9 @@ def llm(ctx):
     "-t",
     "--type",
     "type_",
-    type=click.Choice(["email", "web", "txt"]),
+    type=click.Choice(["email", "web", "txt", "image"]),
     default="txt",
-    help="Type of evaluation to run (email, web, txt)",
+    help="Type of evaluation to run (email, web, txt, image)",
 )
 @click.option(
     "-o",
@@ -104,9 +104,9 @@ def evaluate(ctx, type_, output, prompt):
 @click.option(
     "-s",
     "--source",
-    type=click.Choice(["email", "gmail", "imap", "web", "text"]),
+    type=click.Choice(["email", "gmail", "imap", "web", "text", "image"]),
     default=None,
-    help="Source of data: email, gmail, imap, web, or text files",
+    help="Source of data: email, gmail, imap, web, text files, or images",
 )
 @click.option(
     "-d",

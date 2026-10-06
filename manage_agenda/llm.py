@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import time
 import types
+from pathlib import Path
 
 try:
     from google import genai
@@ -36,6 +37,18 @@ except Exception:
             raise RuntimeError("mistralai is not installed")
 
 from socialModules.configMod import CONFIGDIR, select_from_list
+
+
+def get_image_ocr_prompt():
+    """Returns the prompt template for extracting text from images."""
+    prompt_file = Path(__file__).parent / "prompts" / "image_ocr_prompt.txt"
+    if prompt_file.exists():
+        return prompt_file.read_text(encoding="utf-8").strip()
+    return (
+        "Extract all the text contained in this image faithfully and completely. "
+        "Return only the extracted text verbatim, without any explanations, summaries, "
+        "translations, or added commentary."
+    )
 
 
 # This shouln't go here?
@@ -79,6 +92,9 @@ class LLMClient:
         self.model_name = None
 
     def generate_text(self, prompt):
+        raise NotImplementedError("Subclasses must implement this method")
+
+    def generate_text_from_image(self, image_path, prompt=None):
         raise NotImplementedError("Subclasses must implement this method")
 
     def get_name(self):
@@ -211,6 +227,44 @@ class OllamaClient(LLMClient):
                 return ollama.list()["models"]
             raise
 
+    def generate_text_from_image(self, image_path, prompt=None):
+        prompt = prompt or get_image_ocr_prompt()
+        image_path = str(image_path)
+
+        def _chat():
+            return chat(
+                model=self.model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                        "images": [image_path],
+                    }
+                ],
+                keep_alive=0,
+            )
+
+        try:
+            response: ChatResponse = _chat()
+            return response.message.content if response else None
+        except Exception as e:
+            is_conn_error = (
+                isinstance(e, ConnectionError)
+                or "Failed to connect to Ollama" in str(e)
+                or "connection refused" in str(e).lower()
+            )
+            if is_conn_error:
+                logging.info("Ollama is not running. Attempting to start Ollama server...")
+                if self.start_server():
+                    try:
+                        response: ChatResponse = _chat()
+                        return response.message.content if response else None
+                    except Exception as retry_err:
+                        e = retry_err
+
+            logging.error("Error generating text from image with Ollama: %s", e)
+            return None
+
 
 class GeminiClient(LLMClient):
     # def __init__(self, model_name="gemini-1.5-flash-latest"):
@@ -249,6 +303,29 @@ class GeminiClient(LLMClient):
             logging.error("Error generating text with Gemini: %s", e)
             return None
 
+    def generate_text_from_image(self, image_path, prompt=None):
+        prompt = prompt or get_image_ocr_prompt()
+        try:
+            import mimetypes
+            from google.genai import types
+
+            mime_type, _ = mimetypes.guess_type(str(image_path))
+            if not mime_type:
+                mime_type = "image/jpeg"
+
+            with open(image_path, "rb") as f:
+                image_bytes = f.read()
+
+            image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=[image_part, prompt],
+            )
+            return response.text
+        except Exception as e:
+            logging.error("Error generating text from image with Gemini: %s", e)
+            return None
+
     #@staticmethod
     def list_models(self):
         #return list(genai.list_models())
@@ -278,6 +355,39 @@ class MistralClient(LLMClient):
             return response.choices[0].message.content
         except Exception as e:
             logging.error("Error generating text with Mistral: %s", e)
+            return None
+
+    def generate_text_from_image(self, image_path, prompt=None):
+        prompt = prompt or get_image_ocr_prompt()
+        try:
+            import base64
+            import mimetypes
+
+            mime_type, _ = mimetypes.guess_type(str(image_path))
+            if not mime_type:
+                mime_type = "image/jpeg"
+
+            with open(image_path, "rb") as f:
+                b64_image = base64.b64encode(f.read()).decode("utf-8")
+
+            response = self.client.chat.complete(
+                model=self.model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": f"data:{mime_type};base64,{b64_image}",
+                            },
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
+                ],
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logging.error("Error generating text from image with Mistral: %s", e)
             return None
 
     @staticmethod

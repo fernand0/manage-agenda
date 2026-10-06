@@ -68,7 +68,15 @@ class TestCliCommands(unittest.TestCase):
         # Individual patches that apply per test method
         self.mock_get_add_sources_patcher = patch("manage_agenda.sources.get_add_sources")
         self.mock_get_add_sources = self.mock_get_add_sources_patcher.start()
-        self.mock_get_add_sources.return_value = (["gmail1", "imap1"], ["web", ("http", "set", "(Enter URLs or leave empty)"), ("text", "set", "(enter filenames or leave empty)")])
+        self.mock_get_add_sources.return_value = (
+            ["gmail1", "imap1"],
+            [
+                "web",
+                ("http", "set", "(Enter URLs or leave empty)"),
+                ("text", "set", "(enter filenames or leave empty)"),
+                ("image", "set", "(enter filenames or leave empty)"),
+            ],
+        )
 
         self.mock_select_llm_patcher = patch("manage_agenda.sources.select_llm")
         self.mock_select_llm = self.mock_select_llm_patcher.start()
@@ -84,19 +92,22 @@ class TestCliCommands(unittest.TestCase):
         self.mock_process_web_cli = self.mock_process_web_cli_patcher.start()
         self.mock_process_web_cli.return_value = True
 
+        self.mock_process_img_cli_patcher = patch("manage_agenda.sources.process_img_cli")
+        self.mock_process_img_cli = self.mock_process_img_cli_patcher.start()
+        self.mock_process_img_cli.return_value = True
+
         self.mock_select_api_patcher = patch("manage_agenda.sources.select_api")
         self.mock_select_api = self.mock_select_api_patcher.start()
         self.mock_api_dst = MagicMock()
         self.mock_api_dst.getClient.return_value = True
         self.mock_select_api.return_value = self.mock_api_dst
 
-
-
     def tearDown(self):
         self.mock_get_add_sources_patcher.stop()
         self.mock_select_llm_patcher.stop()
         self.mock_process_email_cli_patcher.stop()
         self.mock_process_web_cli_patcher.stop()
+        self.mock_process_img_cli_patcher.stop()
         self.mock_select_api_patcher.stop()
 
         super().tearDown()
@@ -178,6 +189,22 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.mock_select_from_list.assert_called()
         self.mock_process_email_cli.assert_called_once()
+
+    def test_add_non_interactive_image(self):
+        """Test add command with --source image in non-interactive mode."""
+        result = self.runner.invoke(self.cli.cli, ["add", "-s", "image"])
+        self.assertEqual(result.exit_code, 0)
+        self.mock_process_img_cli.assert_called_once()
+
+    def test_add_interactive_image(self):
+        """Test add command in interactive mode selecting image source."""
+        self.mock_select_from_list.return_value = (0, ("image", "set", "(enter filenames or leave empty)"))
+
+        result = self.runner.invoke(self.cli.cli, ["add", "-i", "-s", "image"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.mock_select_from_list.assert_called_once()
+        self.mock_process_img_cli.assert_called_once()
 
     def test_add_with_destination_and_output(self):
         """Test add command with both --destination and --output options."""

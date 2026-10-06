@@ -268,6 +268,7 @@ class TestSourceUtilities(unittest.TestCase):
         self.assertIn("web", str(sources[1]))
         self.assertIn("http", str(sources[1]))
         self.assertIn(("text", "set", "(enter filenames or leave empty)"), sources[1])
+        self.assertIn(("image", "set", "(enter filenames or leave empty)"), sources[1])
 
     def test_get_post_datetime_and_diff_timestamp(self):
         """Test _get_post_datetime_and_diff with timestamp."""
@@ -602,3 +603,154 @@ class TestSourceUtilities(unittest.TestCase):
 
         self.assertEqual(result, added_events)
         mock_print_summary.assert_not_called()
+
+
+class TestProcessImgCli(unittest.TestCase):
+    """Tests for image processing functionality."""
+
+    def setUp(self):
+        self.args = Args(
+            interactive=False,
+            delete=None,
+            source=None,
+            verbose=False,
+            destination=None,
+            text=None,
+        )
+        self.mock_model = MagicMock()
+        self.mock_model.model_name = "test-model"
+
+    # --- _get_images_from_folder ---
+
+    def test_get_images_from_folder_no_dir(self):
+        """Returns None when the default image directory does not exist."""
+        from manage_agenda.sources import _get_images_from_folder
+
+        with patch("manage_agenda.sources.config") as mock_cfg:
+            mock_cfg.MSG_IMG_DIR = "/nonexistent/img"
+            mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+            result = _get_images_from_folder(self.args, source_name=None)
+        self.assertIsNone(result)
+
+    def test_get_images_from_folder_no_images(self):
+        """Returns None when directory exists but has no images."""
+        import tempfile
+
+        from manage_agenda.sources import _get_images_from_folder
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch("manage_agenda.sources.config") as mock_cfg:
+                mock_cfg.MSG_IMG_DIR = tmp_dir
+                mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+                result = _get_images_from_folder(self.args, source_name=None)
+        self.assertIsNone(result)
+
+    def test_get_images_from_folder_from_list(self):
+        """Returns only valid image files from an explicit list."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import _get_images_from_folder
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            img1 = Path(tmp_dir) / "photo1.jpg"
+            img1.write_bytes(b"fake-image-data")
+            img2 = Path(tmp_dir) / "photo2.png"
+            img2.write_bytes(b"fake-image-data")
+            txt_file = Path(tmp_dir) / "notes.txt"
+            txt_file.write_text("not an image")
+
+            with patch("manage_agenda.sources.config") as mock_cfg:
+                mock_cfg.MSG_IMG_DIR = tmp_dir
+                mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+                result = _get_images_from_folder(
+                    self.args, source_name=[str(img1), str(img2)]
+                )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 2)
+        names = {f.name for f in result}
+        self.assertIn("photo1.jpg", names)
+        self.assertIn("photo2.png", names)
+
+    def test_get_images_from_folder_from_dir(self):
+        """Returns image files when scanning a directory."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import _get_images_from_folder
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            img = Path(tmp_dir) / "event.jpg"
+            img.write_bytes(b"fake-image-data")
+
+            with patch("manage_agenda.sources.config") as mock_cfg:
+                mock_cfg.MSG_IMG_DIR = tmp_dir
+                mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+                result = _get_images_from_folder(self.args, source_name=None)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].name, "event.jpg")
+
+    # --- process_img_cli ---
+
+    @patch("manage_agenda.sources.process_txt_cli")
+    def test_process_img_cli_no_images(self, mock_txt):
+        """Returns empty list when no images are found."""
+        from manage_agenda.sources import process_img_cli
+
+        with patch("manage_agenda.sources._get_images_from_folder", return_value=None):
+            result = process_img_cli(self.args, self.mock_model)
+        self.assertEqual(result, [])
+        mock_txt.assert_not_called()
+
+    @patch("manage_agenda.sources.process_txt_cli", return_value=[{"summary": "Test"}])
+    def test_process_img_cli_extracts_and_delegates(self, mock_txt):
+        """Extracts text from each image and then calls process_txt_cli."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import process_img_cli
+
+        self.mock_model.generate_text_from_image.return_value = "Some extracted text"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            img = Path(tmp_dir) / "poster.jpg"
+            img.write_bytes(b"fake-image-data")
+
+            with patch("manage_agenda.sources.config") as mock_cfg:
+                mock_cfg.MSG_IMG_DIR = tmp_dir
+                mock_cfg.MSG_TXT_DIR = tmp_dir
+                mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+                with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
+                    result = process_img_cli(self.args, self.mock_model)
+
+        self.mock_model.generate_text_from_image.assert_called_once_with(img)
+        mock_txt.assert_called_once()
+        self.assertEqual(result, [{"summary": "Test"}])
+
+    @patch("manage_agenda.sources.process_txt_cli", return_value=[])
+    def test_process_img_cli_skips_empty_extraction(self, mock_txt):
+        """Skips images that return no extracted text."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import process_img_cli
+
+        self.mock_model.generate_text_from_image.return_value = ""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            img = Path(tmp_dir) / "blank.jpg"
+            img.write_bytes(b"fake-image-data")
+
+            with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
+                with patch("manage_agenda.sources.config") as mock_cfg:
+                    mock_cfg.MSG_IMG_DIR = tmp_dir
+                    mock_cfg.MSG_TXT_DIR = tmp_dir
+                    mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+                    result = process_img_cli(self.args, self.mock_model)
+
+        # process_txt_cli should not be called because no txt files were created
+        mock_txt.assert_not_called()
+        self.assertEqual(result, [])

@@ -36,8 +36,10 @@ class TestEvaluateModels(unittest.TestCase):
     @patch("manage_agenda.evaluation.process_email_cli")
     @patch("manage_agenda.evaluation.process_web_cli")
     @patch("manage_agenda.evaluation.process_txt_cli")
+    @patch("manage_agenda.evaluation.process_img_cli")
     def test_evaluate_models_by_type(
         self,
+        mock_process_img,
         mock_process_txt,
         mock_process_web,
         mock_process_email,
@@ -60,6 +62,7 @@ class TestEvaluateModels(unittest.TestCase):
         mock_process_email.assert_called_once()
         mock_process_web.assert_not_called()
         mock_process_txt.assert_not_called()
+        mock_process_img.assert_not_called()
 
         mock_process_email.reset_mock()
 
@@ -67,6 +70,7 @@ class TestEvaluateModels(unittest.TestCase):
         mock_process_email.assert_not_called()
         mock_process_web.assert_called_once()
         mock_process_txt.assert_not_called()
+        mock_process_img.assert_not_called()
 
         mock_process_web.reset_mock()
 
@@ -74,3 +78,12 @@ class TestEvaluateModels(unittest.TestCase):
         mock_process_email.assert_not_called()
         mock_process_web.assert_not_called()
         mock_process_txt.assert_called_once()
+        mock_process_img.assert_not_called()
+
+        mock_process_txt.reset_mock()
+
+        evaluate_models(args, eval_type="image")
+        mock_process_email.assert_not_called()
+        mock_process_web.assert_not_called()
+        mock_process_txt.assert_not_called()
+        mock_process_img.assert_called_once()

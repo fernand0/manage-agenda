@@ -43,6 +43,22 @@ class Config:
     # Paths
     GOOGLE_CREDENTIALS_DIR: Path = CONFIG_DIR
     MSG_TXT_DIR: str = os.getenv("MSG_TXT_DIR", os.path.expanduser("~/Documents/txt/"))
+    _default_img_dir: str = (
+        os.path.expanduser("~/Documents/img/")
+        if not os.path.exists(os.path.expanduser("~/Documents/images/"))
+        and os.path.exists(os.path.expanduser("~/Documents/img/"))
+        else os.path.expanduser("~/Documents/images/")
+    )
+    MSG_IMG_DIR: str = os.getenv("MSG_IMG_DIR", os.getenv("MSG_IMAGE_DIR", _default_img_dir))
+    SUPPORTED_IMAGE_EXTENSIONS: tuple[str, ...] = (
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".bmp",
+        ".gif",
+        ".tiff",
+    )
 
     @classmethod
     def validate(cls) -> bool:

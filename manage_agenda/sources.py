@@ -43,6 +43,8 @@ def get_add_sources(rules=None):
     email_sources = rules.selectRule(["gmail", "imap"])
     return email_sources, [("web/http", "set", "(Enter URLs or leave empty)")] + [
         ("text", "set", "(enter filenames or leave empty)")
+    ] + [
+        ("image", "set", "(enter filenames or leave empty)")
     ]
 
 
@@ -396,6 +398,102 @@ def process_txt_cli(args, model, source_name=None, rules=None):
     return res
 
 
+def _get_images_from_folder(args, source_name=None):
+    """Helper function to get images stored in a folder or from file list."""
+    image_extensions = getattr(
+        config,
+        "SUPPORTED_IMAGE_EXTENSIONS",
+        (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff"),
+    )
+
+    if source_name and isinstance(source_name, list):
+        image_files = [Path(p) for p in source_name]
+    elif source_name and isinstance(source_name, (str, Path)):
+        p = Path(source_name)
+        if p.is_dir():
+            image_files = [
+                f for f in p.iterdir() if f.suffix.lower() in image_extensions
+            ]
+        else:
+            image_files = [p]
+    else:
+        target_dir = Path(config.MSG_IMG_DIR)
+        if not target_dir.exists():
+            print(f"There is no {target_dir} directory")
+            return None
+        image_files = [
+            f for f in target_dir.iterdir() if f.suffix.lower() in image_extensions
+        ]
+
+    valid_files = [f for f in image_files if f.is_file()]
+    if not valid_files:
+        if not source_name:
+            target_dir = Path(config.MSG_IMG_DIR)
+            if target_dir.exists():
+                print(f"There are no images in {target_dir}")
+        else:
+            print(f"No valid image files found in {source_name}")
+        return None
+
+    return sorted(valid_files)
+
+
+def process_img_cli(args, model, source_name=None, rules=None):
+    """Processes images by extracting text via AI and processing with existing text modules."""
+    if not source_name:
+        if getattr(args, "interactive", False):
+            source_input = input(
+                f"Enter filenames separated by spaces (leave empty to use {config.MSG_IMG_DIR}): "
+            ).split()
+            if source_input:
+                source_name = source_input
+            else:
+                print(f"No filenames entered. Extracting images from {config.MSG_IMG_DIR}...")
+        else:
+            print(f"Extracting images from {config.MSG_IMG_DIR}...")
+
+    images = _get_images_from_folder(args, source_name)
+    if not images:
+        return []
+
+    target_txt_dir = Path(config.MSG_TXT_DIR)
+    target_txt_dir.mkdir(parents=True, exist_ok=True)
+
+    txt_files = []
+    for img_path in images:
+        print(f"Extracting text from {img_path.name} with {model.model_name}...")
+        extracted_text = model.generate_text_from_image(img_path)
+        if not extracted_text or not extracted_text.strip():
+            print(f"Could not extract text from {img_path.name}, skipping.")
+            continue
+
+        try:
+            mtime = img_path.stat().st_mtime
+            date_str = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        txt_content = (
+            f"{img_path.stem}\n"
+            f"Date: {date_str}\n\n"
+            f"{extracted_text.strip()}\n\n"
+            f"Date: {date_str}\n"
+        )
+        txt_path = target_txt_dir / f"{img_path.stem}.txt"
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write(txt_content)
+        txt_files.append(str(txt_path))
+
+    if not txt_files:
+        print("No text files generated from images.")
+        return []
+
+    return process_txt_cli(args, model, source_name=txt_files, rules=rules)
+
+
+process_image_cli = process_img_cli
+
+
 def process_email_cli(args, model, selected_source=None, rules=None):
     """Processes emails and creates calendar events."""
     res = []
@@ -616,6 +714,25 @@ def add_events_cli(args, rules=None):
             raw_result = process_web_cli(
                 args, model, urls=url_list, force_refresh=args.force_refresh, rules=rules
             )
+        elif hasattr(selected, "__iter__") and (
+            ("image" in str(selected))
+            or ("img" in str(selected))
+            or (
+                isinstance(selected, str)
+                and any(
+                    selected.lower().endswith(ext)
+                    for ext in getattr(
+                        config,
+                        "SUPPORTED_IMAGE_EXTENSIONS",
+                        (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff"),
+                    )
+                )
+            )
+        ):
+            file_list = None
+            if isinstance(selected, str) and "." in selected:
+                file_list = selected.split(" ")
+            raw_result = process_img_cli(args, model, source_name=file_list, rules=rules)
         elif hasattr(selected, "__iter__") and (
             ("text" in str(selected)) or os.path.exists(str(selected))
         ):

@@ -1,0 +1,2 @@
+Extract all the text contained in this image faithfully and completely.
+Return only the extracted text verbatim, without any explanations, summaries, translations, or added commentary.
