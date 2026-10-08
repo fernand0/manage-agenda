@@ -681,11 +681,8 @@ def add_events_cli(args, rules=None):
     """Add entries to the calendar from various sources (email, web, text)."""
     rules = rules or moduleRules.from_config()
 
-    model = select_llm(args)
-
-    print(f"Selected model: {model.model_name}")
-
     sources, more_options = get_add_sources(rules=rules)
+
     if args.verbose:
         logging.debug("Source: %s", args.source)
         logging.debug("Sources: %s", sources)
@@ -701,6 +698,9 @@ def add_events_cli(args, rules=None):
         )
     else:
         selected = matches[0] if matches else None
+
+    model = select_llm(args)
+    print(f"Selected model: {model.model_name}")
 
     events_added = []
     if selected:
