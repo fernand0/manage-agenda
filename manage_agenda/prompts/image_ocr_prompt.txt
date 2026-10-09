@@ -1,6 +1,6 @@
 1. You should try to find blocks of letters.
-2. You will generate a new image with these blocks marked.
-3. You should manage each block as an indepedent set of letters.
+2. You will generate a new image with these blocks marked
+3. In this new image you should manage each block as an indepedent set of letters.
 4. Extract all the text contained in these boxes faithfully and completely.
 Be careful with the spaces, when characters are separated and be repectful with the different lines.
 Take into account that we will be looking for dates and times.
