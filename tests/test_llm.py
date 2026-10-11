@@ -549,8 +549,25 @@ class TestSelectLlm(unittest.TestCase):
                 {"model": "custom-model", "details": {"families": ["clip"]}}
             )
         )
+        self.assertTrue(
+            OllamaClient.is_multimodal_model(
+                {"model": "custom-model", "capabilities": ["vision"]}
+            )
+        )
         self.assertFalse(OllamaClient.is_multimodal_model("granite4:latest"))
         self.assertFalse(OllamaClient.is_multimodal_model("llama3.1:8b"))
+
+    @patch("manage_agenda.llm.ollama.show")
+    def test_ollama_is_multimodal_model_with_show_capabilities(self, mock_show):
+        mock_show.return_value = MagicMock(capabilities=["completion", "vision"])
+        self.assertTrue(OllamaClient.is_multimodal_model("unknown-model"))
+        mock_show.assert_called_with("unknown-model")
+
+        mock_show.return_value = {"capabilities": ["completion"]}
+        self.assertFalse(OllamaClient.is_multimodal_model("text-only-model"))
+
+        mock_show.side_effect = Exception("Ollama show failed")
+        self.assertFalse(OllamaClient.is_multimodal_model("text-only-model"))
 
     def test_gemini_is_multimodal_model(self):
         self.assertTrue(GeminiClient.is_multimodal_model("models/gemini-2.0-flash"))

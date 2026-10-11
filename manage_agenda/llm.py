@@ -19,7 +19,10 @@ except Exception:
 try:
     import ollama
 except Exception:
-    ollama = types.SimpleNamespace(list=lambda: {"models": []})
+    ollama = types.SimpleNamespace(
+        list=lambda: {"models": []},
+        show=lambda *args, **kwargs: {},
+    )
 
 try:
     from ollama import ChatResponse, chat
@@ -236,6 +239,30 @@ class OllamaClient(LLMClient):
         else:
             model_name = getattr(model_info, "model", None) or getattr(model_info, "name", None) or ""
             details = getattr(model_info, "details", None)
+
+        # Check capabilities directly if present on model_info
+        caps = getattr(model_info, "capabilities", None)
+        if caps is None and isinstance(model_info, dict):
+            caps = model_info.get("capabilities", [])
+        if any(str(c).lower() in ("vision", "multimodal") for c in (caps or [])):
+            return True
+
+        # Check capabilities via ollama.show()
+        if model_name:
+            try:
+                result = ollama.show(model_name)
+                caps = getattr(result, "capabilities", None)
+                if caps is None and isinstance(result, dict):
+                    caps = result.get("capabilities", [])
+                caps = caps or []
+                if any(str(c).lower() in ("vision", "multimodal") for c in caps):
+                    return True
+                if details is None:
+                    details = getattr(result, "details", None) or (
+                        result.get("details") if isinstance(result, dict) else None
+                    )
+            except Exception:
+                pass
 
         name_lower = str(model_name).lower()
 
