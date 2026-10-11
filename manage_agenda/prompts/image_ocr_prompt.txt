@@ -1,2 +1,6 @@
-Extract all the text contained in this image faithfully and completely.
+1. You should try to find blocks of letters.
+2. You should manage each block as an indepedent set of letters.
+3. Extract all the text contained in these boxes faithfully and completely.
+Be careful with the spaces, when characters are separated and be repectful with the different lines.
+Take into account that we will be looking for dates and times.
 Return only the extracted text verbatim, without any explanations, summaries, translations, or added commentary.
