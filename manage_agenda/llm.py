@@ -47,7 +47,8 @@ def get_image_ocr_prompt():
     return (
         "Extract all the text contained in this image faithfully and completely. "
         "Return only the extracted text verbatim, without any explanations, summaries, "
-        "translations, or added commentary."
+        "translations, or added commentary. Be careful with spaces, when characters "
+        "have enough space between them."
     )
 
 

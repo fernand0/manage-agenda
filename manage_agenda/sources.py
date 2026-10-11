@@ -379,7 +379,7 @@ def process_txt_cli(args, model, source_name=None, rules=None):
                 post_title = next((i for i, s in enumerate(lines_txt) if "Subject: " in s), -1)
             else:
                 post_title = lines_txt[0]
-            full_email_content = "".join(lines_txt[3:-1])
+            full_email_content = "\n".join(lines_txt[3:-1])
             date_message = lines_txt[-1].split(" ")[-1]
             # FIXME is this ok?
             date_message = datetime.datetime.today()
@@ -466,6 +466,13 @@ def process_img_cli(args, model, source_name=None, rules=None):
         if not extracted_text or not extracted_text.strip():
             print(f"Could not extract text from {img_path.name}, skipping.")
             continue
+
+        extracted_text = (
+            extracted_text.replace("\\r\\n", "\n")
+            .replace("\\n", "\n")
+            .replace("\r\n", "\n")
+            .replace("\r", "\n")
+        )
 
         try:
             mtime = img_path.stat().st_mtime
