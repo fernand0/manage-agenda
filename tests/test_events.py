@@ -41,11 +41,9 @@ class TestEvents(unittest.TestCase):
 
     @patch("manage_agenda.events.select_events_by_user_input", return_value=[])
     @patch("manage_agenda.events.display_posts")
-    @patch("manage_agenda.events.select_calendar", return_value="calendar-id")
-    @patch("manage_agenda.events.connections.select_api")
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
     def test_update_event_status_uses_calendar_posts(
         self,
-        mock_select_api,
         mock_select_calendar,
         mock_display_posts,
         mock_select_events,
@@ -55,7 +53,7 @@ class TestEvents(unittest.TestCase):
         events = [{"summary": "Event", "transparency": "opaque"}]
         api_cal.getPosts.return_value = events
         api_cal.getPostTitle.return_value = "Event"
-        mock_select_api.return_value = api_cal
+        mock_select_calendar.return_value = (api_cal, "calendar-id")
 
         update_event_status_cli(args)
 
@@ -93,10 +91,9 @@ class TestEvents(unittest.TestCase):
         # Should fallback to default timezone
         self.assertEqual(result["start"]["timeZone"], "UTC")
 
-    @patch("manage_agenda.events.connections.select_api")
-    @patch("manage_agenda.events.select_calendar", return_value="calendar1")
-    @patch("builtins.input", side_effect=["meeting", "0", "calendar2"])
-    def test_copy_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    @patch("builtins.input", side_effect=["meeting", "0"])
+    def test_copy_events_cli_basic(self, mock_input, mock_select_cal):
         """Test copy_events_cli basic flow."""
         from manage_agenda.events import copy_events_cli
 
@@ -121,16 +118,15 @@ class TestEvents(unittest.TestCase):
         mock_client.events().list().execute.return_value = mock_events
         mock_api.getPostTitle.return_value = "Team meeting"
         mock_api.getPosts.return_value = mock_events["items"]
-        mock_select_api.return_value = mock_api
+        mock_select_cal.side_effect = [(mock_api, "calendar1"), (mock_api, "calendar2")]
 
         copy_events_cli(args)
 
         mock_client.events().insert.assert_called()
 
-    @patch("manage_agenda.events.connections.select_api")
-    @patch("manage_agenda.events.select_calendar", return_value="calendar1")
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
     @patch("builtins.input", side_effect=["", "0"])
-    def test_delete_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
+    def test_delete_events_cli_basic(self, mock_input, mock_select_cal):
         """Test delete_events_cli basic flow."""
         from manage_agenda.events import delete_events_cli
 
@@ -155,16 +151,15 @@ class TestEvents(unittest.TestCase):
         mock_client.events().list().execute.return_value = mock_events
         mock_api.getPostTitle.return_value = "Old meeting"
         mock_api.getPosts.return_value = mock_events["items"]
-        mock_select_api.return_value = mock_api
+        mock_select_cal.return_value = (mock_api, "calendar1")
 
         delete_events_cli(args)
 
         mock_client.events().delete.assert_called()
 
-    @patch("manage_agenda.events.connections.select_api")
-    @patch("manage_agenda.events.select_calendar", return_value="calendar1")
-    @patch("builtins.input", side_effect=["", "0", "calendar2"])
-    def test_move_events_cli_basic(self, mock_input, mock_select_cal, mock_select_api):
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    @patch("builtins.input", side_effect=["", "0"])
+    def test_move_events_cli_basic(self, mock_input, mock_select_cal):
         """Test move_events_cli basic flow."""
         from manage_agenda.events import move_events_cli
 
@@ -189,7 +184,7 @@ class TestEvents(unittest.TestCase):
         mock_client.events().list().execute.return_value = mock_events
         mock_api.getPostTitle.return_value = "Moving meeting"
         mock_api.getPosts.return_value = mock_events["items"]
-        mock_select_api.return_value = mock_api
+        mock_select_cal.side_effect = [(mock_api, "calendar1"), (mock_api, "calendar2")]
 
         move_events_cli(args)
 

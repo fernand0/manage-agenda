@@ -604,6 +604,43 @@ class TestSourceUtilities(unittest.TestCase):
         self.assertEqual(result, added_events)
         mock_print_summary.assert_not_called()
 
+    @patch("manage_agenda.sources.print_events_summary")
+    @patch("manage_agenda.sources.process_img_cli")
+    @patch("manage_agenda.sources.get_add_sources")
+    @patch("manage_agenda.sources.select_llm")
+    def test_add_events_cli_image_source_selects_multimodal_llm(
+        self, mock_select_llm, mock_get_sources, mock_process_img, mock_print_summary
+    ):
+        """Test add_events_cli passes multimodal=True to select_llm when source is image."""
+        from manage_agenda.sources import add_events_cli
+
+        args = Args(interactive=False, source="image", verbose=False)
+        mock_get_sources.return_value = ([], [("image", "set", "")])
+        mock_llm = MagicMock()
+        mock_select_llm.return_value = mock_llm
+        added_events = [{"summary": "Image Event"}]
+        mock_process_img.return_value = added_events
+
+        result = add_events_cli(args)
+
+        self.assertEqual(result, added_events)
+        mock_select_llm.assert_called_once_with(args, multimodal=True)
+        mock_process_img.assert_called_once()
+
+    def test_is_image_source(self):
+        """Test _is_image_source detection helper."""
+        from manage_agenda.sources import _is_image_source
+
+        self.assertTrue(_is_image_source("image"))
+        self.assertTrue(_is_image_source("img"))
+        self.assertTrue(_is_image_source(("image", "set", "prompt")))
+        self.assertTrue(_is_image_source("poster.png"))
+        self.assertTrue(_is_image_source("flyer.JPEG"))
+        self.assertFalse(_is_image_source("gmail"))
+        self.assertFalse(_is_image_source("text"))
+        self.assertFalse(_is_image_source("web"))
+        self.assertFalse(_is_image_source(None))
+
 
 class TestProcessImgCli(unittest.TestCase):
     """Tests for image processing functionality."""

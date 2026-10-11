@@ -523,6 +523,43 @@ class TestSelectLlm(unittest.TestCase):
         mock_mistral_client.assert_not_called()
         mock_ollama_client.assert_not_called()
 
+    @patch("manage_agenda.llm.select_from_list", return_value=(0, "ollama"))
+    @patch("manage_agenda.llm.OllamaClient")
+    def test_select_llm_interactive_multimodal(self, mock_ollama_client, mock_sfl):
+        from manage_agenda.llm import select_llm
+
+        args = self.Args(
+            interactive=True,
+            delete=False,
+            source="image",
+            verbose=False,
+            destination="",
+            text="",
+        )
+        model = select_llm(args, multimodal=True)
+        mock_ollama_client.assert_called_once_with(multimodal=True)
+        self.assertEqual(model, mock_ollama_client.return_value)
+
+    def test_ollama_is_multimodal_model(self):
+        self.assertTrue(OllamaClient.is_multimodal_model("llava:latest"))
+        self.assertTrue(OllamaClient.is_multimodal_model("llama3.2-vision:latest"))
+        self.assertTrue(OllamaClient.is_multimodal_model("qwen2.5-vl:7b"))
+        self.assertTrue(
+            OllamaClient.is_multimodal_model(
+                {"model": "custom-model", "details": {"families": ["clip"]}}
+            )
+        )
+        self.assertFalse(OllamaClient.is_multimodal_model("granite4:latest"))
+        self.assertFalse(OllamaClient.is_multimodal_model("llama3.1:8b"))
+
+    def test_gemini_is_multimodal_model(self):
+        self.assertTrue(GeminiClient.is_multimodal_model("models/gemini-2.0-flash"))
+        self.assertFalse(GeminiClient.is_multimodal_model("models/text-embedding-004"))
+
+    def test_mistral_is_multimodal_model(self):
+        self.assertTrue(MistralClient.is_multimodal_model("pixtral-12b-2409"))
+        self.assertFalse(MistralClient.is_multimodal_model("mistral-small-latest"))
+
 
 if __name__ == "__main__":
     unittest.main()
