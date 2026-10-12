@@ -1,7 +1,5 @@
-1. You should try to find blocks of letters.
-2. You will generate a new image with these blocks marked
-3. In this new image you should manage each block as an indepedent set of letters.
-4. Extract all the text contained in these boxes faithfully and completely.
-Be careful with the spaces, when characters are separated and be repectful with the different lines.
-Take into account that we will be looking for dates and times.
-Return only the extracted text verbatim, without any explanations, summaries, translations, or added commentary.
+Extract all visible text from the image. 
+Maintain the original structure and line breaks.
+Do not describe the images, graphics, or layout.
+Do not add any introductory or concluding remarks.
+Output only the raw text found in the poster. 
