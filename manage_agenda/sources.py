@@ -379,7 +379,7 @@ def process_txt_cli(args, model, source_name=None, rules=None):
                 post_title = next((i for i, s in enumerate(lines_txt) if "Subject: " in s), -1)
             else:
                 post_title = lines_txt[0]
-            full_email_content = "".join(lines_txt[3:-1])
+            full_email_content = "\n".join(lines_txt[3:-1])
             date_message = lines_txt[-1].split(" ")[-1]
             # FIXME is this ok?
             date_message = datetime.datetime.today()
@@ -396,6 +396,28 @@ def process_txt_cli(args, model, source_name=None, rules=None):
             args, model, posts, metadata_extractor, content_extractor, item_cleaner, rules=rules
         )
     return res
+
+
+def _is_image_source(source):
+    """Checks whether the selected source is an image or image file."""
+    if not source:
+        return False
+    source_str = str(source).lower()
+    if "image" in source_str or "img" in source_str:
+        return True
+    extensions = getattr(
+        config,
+        "SUPPORTED_IMAGE_EXTENSIONS",
+        (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff"),
+    )
+    if isinstance(source, (str, Path)) and any(source_str.endswith(ext) for ext in extensions):
+        return True
+    if isinstance(source, (list, tuple)) and any(
+        isinstance(item, (str, Path)) and any(str(item).lower().endswith(ext) for ext in extensions)
+        for item in source
+    ):
+        return True
+    return False
 
 
 def _get_images_from_folder(args, source_name=None):
@@ -466,6 +488,13 @@ def process_img_cli(args, model, source_name=None, rules=None):
         if not extracted_text or not extracted_text.strip():
             print(f"Could not extract text from {img_path.name}, skipping.")
             continue
+
+        extracted_text = (
+            extracted_text.replace("\\r\\n", "\n")
+            .replace("\\n", "\n")
+            .replace("\r\n", "\n")
+            .replace("\r", "\n")
+        )
 
         try:
             mtime = img_path.stat().st_mtime
@@ -699,7 +728,8 @@ def add_events_cli(args, rules=None):
     else:
         selected = matches[0] if matches else None
 
-    model = select_llm(args)
+    is_img = _is_image_source(selected)
+    model = select_llm(args, multimodal=is_img)
     print(f"Selected model: {model.model_name}")
 
     events_added = []
@@ -714,21 +744,7 @@ def add_events_cli(args, rules=None):
             raw_result = process_web_cli(
                 args, model, urls=url_list, force_refresh=args.force_refresh, rules=rules
             )
-        elif hasattr(selected, "__iter__") and (
-            ("image" in str(selected))
-            or ("img" in str(selected))
-            or (
-                isinstance(selected, str)
-                and any(
-                    selected.lower().endswith(ext)
-                    for ext in getattr(
-                        config,
-                        "SUPPORTED_IMAGE_EXTENSIONS",
-                        (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tiff"),
-                    )
-                )
-            )
-        ):
+        elif _is_image_source(selected):
             file_list = None
             if isinstance(selected, str) and "." in selected:
                 file_list = selected.split(" ")

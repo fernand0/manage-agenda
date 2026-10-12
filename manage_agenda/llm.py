@@ -19,7 +19,10 @@ except Exception:
 try:
     import ollama
 except Exception:
-    ollama = types.SimpleNamespace(list=lambda: {"models": []})
+    ollama = types.SimpleNamespace(
+        list=lambda: {"models": []},
+        show=lambda *args, **kwargs: {},
+    )
 
 try:
     from ollama import ChatResponse, chat
@@ -47,7 +50,8 @@ def get_image_ocr_prompt():
     return (
         "Extract all the text contained in this image faithfully and completely. "
         "Return only the extracted text verbatim, without any explanations, summaries, "
-        "translations, or added commentary."
+        "translations, or added commentary. Be careful with spaces, when characters "
+        "have enough space between them."
     )
 
 
@@ -151,7 +155,7 @@ class OllamaClient(LLMClient):
 
     ensure_server = start_server
 
-    def __init__(self, model_name=""):
+    def __init__(self, model_name="", multimodal=False):
         name_class = self.__class__.__name__
         self.config = False
         super().__init__(name_class)
@@ -163,9 +167,13 @@ class OllamaClient(LLMClient):
         else:
             models = []
             try:
-                models = self.list_models()
+                models = self.list_models(multimodal=multimodal)
             except Exception as e:
                 logging.error("Could not retrieve Ollama models: %s", e)
+
+            if multimodal and not models:
+                print("No multi-modal models found in Ollama.")
+                print("Consider pulling a vision model (e.g. 'ollama pull llama3.2-vision' or 'ollama pull llava').")
 
             if isinstance(model_name, int):
                 if models and len(models) > model_name:
@@ -176,8 +184,9 @@ class OllamaClient(LLMClient):
                 else:
                     self.model_name = ""
             elif models:
+                title = "Available multi-modal models" if multimodal else "Available models"
                 _, self.model_name = select_from_list(
-                    models, identifier="model", title="Available models"
+                    models, identifier="model", title=title
                 )
             else:
                 self.model_name = ""
@@ -219,13 +228,88 @@ class OllamaClient(LLMClient):
             return None
 
     @classmethod
-    def list_models(cls):
+    def is_multimodal_model(cls, model_info):
+        """Checks whether an Ollama model supports multimodal/vision input."""
+        if isinstance(model_info, str):
+            model_name = model_info
+            details = None
+        elif isinstance(model_info, dict):
+            model_name = model_info.get("model") or model_info.get("name") or ""
+            details = model_info.get("details", {})
+        else:
+            model_name = getattr(model_info, "model", None) or getattr(model_info, "name", None) or ""
+            details = getattr(model_info, "details", None)
+
+        # Check capabilities directly if present on model_info
+        caps = getattr(model_info, "capabilities", None)
+        if caps is None and isinstance(model_info, dict):
+            caps = model_info.get("capabilities", [])
+        if any(str(c).lower() in ("vision", "multimodal") for c in (caps or [])):
+            return True
+
+        # Check capabilities via ollama.show()
+        if model_name:
+            try:
+                result = ollama.show(model_name)
+                caps = getattr(result, "capabilities", None)
+                if caps is None and isinstance(result, dict):
+                    caps = result.get("capabilities", [])
+                caps = caps or []
+                if any(str(c).lower() in ("vision", "multimodal") for c in caps):
+                    return True
+                if details is None:
+                    details = getattr(result, "details", None) or (
+                        result.get("details") if isinstance(result, dict) else None
+                    )
+            except Exception:
+                pass
+
+        name_lower = str(model_name).lower()
+
+        if details:
+            families = (
+                details.get("families", [])
+                if isinstance(details, dict)
+                else getattr(details, "families", [])
+            ) or []
+            family = (
+                details.get("family", "")
+                if isinstance(details, dict)
+                else getattr(details, "family", "")
+            ) or ""
+            all_families = [str(f).lower() for f in families] + [str(family).lower()]
+            vision_families = {"clip", "mllama"}
+            if any(f in vision_families for f in all_families):
+                return True
+
+        vision_indicators = (
+            "vision",
+            "llava",
+            "minicpm-v",
+            "moondream",
+            "bakllava",
+            "cogvlm",
+            "pixtral",
+            "qwen-vl",
+            "qwen2-vl",
+            "qwen2.5-vl",
+            "-vl",
+            "_vl",
+        )
+        return any(ind in name_lower for ind in vision_indicators)
+
+    @classmethod
+    def list_models(cls, multimodal=False):
         try:
-            return ollama.list()["models"]
+            models = ollama.list()["models"]
         except Exception:
             if cls.start_server():
-                return ollama.list()["models"]
-            raise
+                models = ollama.list()["models"]
+            else:
+                raise
+        if multimodal:
+            models = [m for m in models if cls.is_multimodal_model(m)]
+        return models
 
     def generate_text_from_image(self, image_path, prompt=None):
         prompt = prompt or get_image_ocr_prompt()
@@ -267,8 +351,16 @@ class OllamaClient(LLMClient):
 
 
 class GeminiClient(LLMClient):
-    # def __init__(self, model_name="gemini-1.5-flash-latest"):
-    def __init__(self, model_name=""):
+    @classmethod
+    def is_multimodal_model(cls, model_info):
+        """Checks whether a Gemini model supports multimodal input."""
+        name = getattr(model_info, "name", "") if not isinstance(model_info, str) else model_info
+        name_lower = str(name).lower()
+        if any(x in name_lower for x in ("embedding", "aqa", "imagen")):
+            return False
+        return "gemini" in name_lower
+
+    def __init__(self, model_name="", multimodal=False):
         name_class = self.__class__.__name__
         self.config = True
 
@@ -276,28 +368,26 @@ class GeminiClient(LLMClient):
 
         self.client = genai.Client(api_key=self.api_key)
         if not model_name:
-            # names = [el.name for el in genai.list_models()]
-            models = self.list_models()
+            models = self.list_models(multimodal=multimodal)
+            title = "Available multi-modal models" if multimodal else None
+            extra_args = {"title": title} if title else {}
             sel, name = select_from_list(
                 models,
                 identifier="name",
                 selector="gemini",
                 default="models/gemini-2.0-flash",
+                **extra_args,
             )
             logging.debug("Selected model: %s", name)
             self.model_name = name.split("/")[1]
         else:
             self.model_name = model_name
 
-        #self.client = genai.GenerativeModel(self.model_name)
-
     def generate_text(self, prompt):
         try:
-            #response = self.client.generate_content(prompt)
             response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt
-                    )
+                model=self.model_name, contents=prompt
+            )
             return response.text
         except Exception as e:
             logging.error("Error generating text with Gemini: %s", e)
@@ -326,14 +416,38 @@ class GeminiClient(LLMClient):
             logging.error("Error generating text from image with Gemini: %s", e)
             return None
 
-    #@staticmethod
-    def list_models(self):
-        #return list(genai.list_models())
-        return list(self.client.models.list())
+    def list_models(self, multimodal=False):
+        models = list(self.client.models.list())
+        if multimodal:
+            models = [m for m in models if self.is_multimodal_model(m)]
+        return models
 
 
 class MistralClient(LLMClient):
-    def __init__(self, model_name=""):
+    @classmethod
+    def is_multimodal_model(cls, model_info):
+        """Checks whether a Mistral model supports multimodal input."""
+        model_id = (
+            getattr(model_info, "id", "")
+            if not isinstance(model_info, (str, dict))
+            else (model_info.get("id", "") if isinstance(model_info, dict) else model_info)
+        ).lower()
+        caps = (
+            getattr(model_info, "capabilities", None)
+            if not isinstance(model_info, dict)
+            else model_info.get("capabilities")
+        )
+        if caps:
+            has_vision = (
+                getattr(caps, "vision", False)
+                if not isinstance(caps, dict)
+                else caps.get("vision", False)
+            )
+            if has_vision:
+                return True
+        return "pixtral" in model_id or "vision" in model_id
+
+    def __init__(self, model_name="", multimodal=False):
         name_class = self.__class__.__name__
         self.config = True
 
@@ -341,11 +455,16 @@ class MistralClient(LLMClient):
 
         self.client = Mistral(api_key=self.api_key)
         if not self.model_name:
-            # names = [el.id for el in self.list_models(self).data]
-            models = self.list_models(self).data
-            sel, name = select_from_list(models, identifier="id", default="mistral-small-latest")
-            # sel = select_from_list(names, default="mistral-small-latest")
+            models = self.list_models(self, multimodal=multimodal).data
+            default_model = "pixtral-12b-2409" if multimodal else "mistral-small-latest"
+            title = "Available multi-modal models" if multimodal else None
+            extra_args = {"title": title} if title else {}
+            sel, name = select_from_list(
+                models, identifier="id", default=default_model, **extra_args
+            )
             self.model_name = name
+        else:
+            self.model_name = model_name
 
     def generate_text(self, prompt):
         try:
@@ -391,15 +510,19 @@ class MistralClient(LLMClient):
             return None
 
     @staticmethod
-    def list_models(self):
-        return self.client.models.list()
+    def list_models(self, multimodal=False):
+        res = self.client.models.list()
+        if multimodal and hasattr(res, "data"):
+            res.data = [m for m in res.data if MistralClient.is_multimodal_model(m)]
+        return res
 
 
-def select_llm(args):
+def select_llm(args, multimodal=False):
     """Selects and initializes the appropriate LLM client."""
     if args.interactive:
         llm_options = ["ollama", "gemini", "mistral"]
-        sel, ai = select_from_list(llm_options, title="Select model provider", default="ollama")
+        title = "Select multi-modal model provider" if multimodal else "Select model provider"
+        sel, ai = select_from_list(llm_options, title=title, default="ollama")
     else:
         ai = getattr(args, "ai", None) or "gemini"
     print(f"Selected AI: {ai}")
@@ -408,18 +531,23 @@ def select_llm(args):
         if args.interactive:
             model = None
             while not model:
-                model = OllamaClient()
+                model = OllamaClient(multimodal=multimodal)
         else:
-            model = OllamaClient("granite4:latest")
+            default_model = "llama3.2-vision:latest" if multimodal else "granite4:latest"
+            model = OllamaClient(default_model, multimodal=multimodal)
         return model
     elif ai == "gemini":
         if args.interactive:
-            model = GeminiClient()
+            model = GeminiClient(multimodal=multimodal)
         else:
             model = GeminiClient("gemini-2.5-flash")
         return model
     elif ai == "mistral":
-        model = MistralClient()
+        if args.interactive:
+            model = MistralClient(multimodal=multimodal)
+        else:
+            default_model = "pixtral-12b-2409" if multimodal else "mistral-small-latest"
+            model = MistralClient(default_model, multimodal=multimodal)
         return model
     else:
         logging.error("Invalid LLM source: %s", ai)
