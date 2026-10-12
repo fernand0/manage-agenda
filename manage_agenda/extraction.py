@@ -23,8 +23,8 @@ def create_event_dict():
         "summary": "",
         "location": "",
         "description": "",
-        "start": {"dateTime": "", "timeZone": ""},
-        "end": {"dateTime": "", "timeZone": ""},
+        "start": {"dateTime": "(ISO format: YYYY-MM-DD HH:MM:SS)", "timeZone": "CET (default if not specified)"},
+        "end": {"dateTime": "(ISO format: YYYY-MM-DD HH:MM:SS)", "timeZone": "CET (default if not specified)"},
         "recurrence": [],
     }
 
@@ -245,7 +245,9 @@ def _create_llm_prompt(*args):
             "7. Do not translate the text; keep all information in the original language.\n"
             "8. Return ONLY the completed JSON structure without any additional comments or explanations.\n\n"
             f"SOURCE TEXT:\n{content_text}.\n"
-        )
+            )
+    print(f"Event: {event}")
+    print(f"Content: {content_text}")
     return prompt_template.format(event=event, content_text=content_text)
 
 
