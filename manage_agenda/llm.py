@@ -527,28 +527,26 @@ def select_llm(args, multimodal=False):
         ai = getattr(args, "ai", None) or "gemini"
     print(f"Selected AI: {ai}")
 
+    model = None
     if ai == "ollama":
         if args.interactive:
-            model = None
             while not model:
                 model = OllamaClient(multimodal=multimodal)
         else:
             default_model = "llama3.2-vision:latest" if multimodal else "granite4:latest"
             model = OllamaClient(default_model, multimodal=multimodal)
-        return model
     elif ai == "gemini":
         if args.interactive:
             model = GeminiClient(multimodal=multimodal)
         else:
             model = GeminiClient("gemini-2.5-flash")
-        return model
     elif ai == "mistral":
         if args.interactive:
             model = MistralClient(multimodal=multimodal)
         else:
             default_model = "pixtral-12b-2409" if multimodal else "mistral-small-latest"
             model = MistralClient(default_model, multimodal=multimodal)
-        return model
     else:
         logging.error("Invalid LLM source: %s", ai)
-        return None
+
+    return model
