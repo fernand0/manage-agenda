@@ -152,6 +152,47 @@ def repair_json(text):
     return result
 
 
+_DATETIME_REPAIR_PATTERNS = [
+    (re.compile(r"^(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2})h$"), r"\1 \2:00"),
+    (re.compile(r"^(\d{4}-\d{2}-\d{2})\s+(\d{1,2})h$"), r"\1 \2:00:00"),
+]
+
+
+def repair_datetime(value: str) -> str:
+    """Normalise a dateTime string to 'YYYY-MM-DD HH:MM:SS'.
+
+    Converts an hour suffix (for example, ``19:00h``) to seconds precision.
+    Other values are returned unchanged because they may already be valid ISO
+    datetimes in a non-canonical representation.
+    """
+    for pattern, replacement in _DATETIME_REPAIR_PATTERNS:
+        fixed = pattern.sub(replacement, value)
+        if fixed != value:
+            logging.debug("repair_datetime: %r → %r", value, fixed)
+            return fixed
+    return value
+
+
+def repair_event_datetimes(event):
+    """Apply repair_datetime to every dateTime field in one or more events.
+
+    Mutates and returns the original event or event collection for convenience.
+    """
+    if isinstance(event, (list, tuple)):
+        for item in event:
+            repair_event_datetimes(item)
+        return event
+
+    if not isinstance(event, dict):
+        return event
+
+    for block in ("start", "end"):
+        block_data = event.get(block)
+        if isinstance(block_data, dict) and isinstance(block_data.get("dateTime"), str):
+            block_data["dateTime"] = repair_datetime(block_data["dateTime"])
+    return event
+
+
 def get_event_from_llm(model, prompt, post_id, verbose=False):
     """Get event data from an LLM and parse its calendar JSON response."""
     from manage_agenda.sources import print_first_lines
@@ -178,6 +219,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
             print_first_lines(llm_response, n=None, title="Reply")
         try:
             vcal_json = ast.literal_eval(extract_json(llm_response.replace("\n", " ")))
+            repair_event_datetimes(vcal_json)
             write_file(
                 f"log/{model.model_name}/{post_id}_vcal_extracted.txt", json.dumps(vcal_json)
             )
@@ -190,6 +232,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
             try:
                 repaired = repair_json(extract_json(llm_response.replace("\n", " ")))
                 vcal_json = json.loads(repaired)
+                repair_event_datetimes(vcal_json)
                 write_file(
                     f"log/{model.model_name}/{post_id}_vcal_extracted.txt", json.dumps(vcal_json)
                 )

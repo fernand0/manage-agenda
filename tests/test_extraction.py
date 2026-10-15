@@ -7,6 +7,8 @@ from manage_agenda.extraction import (
     add_message_to_event_description,
     create_event_dict,
     extract_json,
+    repair_datetime,
+    repair_event_datetimes,
     repair_json,
 )
 from manage_agenda.sources import Args
@@ -297,3 +299,80 @@ class TestRepairJson(unittest.TestCase):
         self.assertIsNotNone(event)
         self.assertEqual(event["summary"], "Repaired Event")
         self.assertEqual(event["location"], "Room 42")
+
+
+class TestRepairDatetime(unittest.TestCase):
+    """Tests for repair_datetime and repair_event_datetimes."""
+
+    def test_hour_with_h_suffix_and_minutes(self):
+        """'2026-04-27 19:00h' → '2026-04-27 19:00:00'"""
+        self.assertEqual(repair_datetime("2026-04-27 19:00h"), "2026-04-27 19:00:00")
+
+    def test_hour_with_h_suffix_only(self):
+        """'2026-04-27 19h' → '2026-04-27 19:00:00'"""
+        self.assertEqual(repair_datetime("2026-04-27 19h"), "2026-04-27 19:00:00")
+
+    def test_valid_datetime_formats_are_unchanged(self):
+        """Supported ISO datetime representations are preserved."""
+        for value in (
+            "2026-04-27 19:00",
+            "2026-04-27T19:00",
+            "2026-04-27T19:00:00",
+            "2026-04-27 19:00:00",
+        ):
+            with self.subTest(value=value):
+                self.assertEqual(repair_datetime(value), value)
+
+    def test_repair_event_datetimes_fixes_both_blocks(self):
+        """repair_event_datetimes fixes start and end dateTime in-place."""
+        event = {
+            "summary": "Test",
+            "start": {"dateTime": "2026-04-27 19:00h", "timeZone": "CET"},
+            "end": {"dateTime": "2026-04-27 21:00h", "timeZone": "CET"},
+        }
+        result = repair_event_datetimes(event)
+        self.assertEqual(result["start"]["dateTime"], "2026-04-27 19:00:00")
+        self.assertEqual(result["end"]["dateTime"], "2026-04-27 21:00:00")
+
+    def test_repair_event_datetimes_leaves_valid_alone(self):
+        """repair_event_datetimes does not touch already-valid dateTimes."""
+        event = {
+            "summary": "Test",
+            "start": {"dateTime": "2026-04-27 19:00:00", "timeZone": "CET"},
+            "end": {"dateTime": "2026-04-27 21:00:00", "timeZone": "CET"},
+        }
+        repair_event_datetimes(event)
+        self.assertEqual(event["start"]["dateTime"], "2026-04-27 19:00:00")
+        self.assertEqual(event["end"]["dateTime"], "2026-04-27 21:00:00")
+
+    def test_repair_event_datetimes_handles_event_tuple(self):
+        """All events in a tuple are repaired without changing valid values."""
+        events = (
+            {"start": {"dateTime": "2026-04-27 19:00h"}},
+            {"start": {"dateTime": "2026-04-27T20:00:00"}},
+        )
+
+        result = repair_event_datetimes(events)
+
+        self.assertIs(result, events)
+        self.assertEqual(events[0]["start"]["dateTime"], "2026-04-27 19:00:00")
+        self.assertEqual(events[1]["start"]["dateTime"], "2026-04-27T20:00:00")
+
+    @patch("manage_agenda.extraction.format_time")
+    def test_get_event_from_llm_repairs_datetime(self, mock_format_time):
+        """get_event_from_llm normalises malformed dateTime values in the parsed event."""
+        from manage_agenda.extraction import get_event_from_llm
+
+        mock_format_time.return_value = "0h 0m 0.10s"
+        mock_model = MagicMock()
+        mock_model.generate_text.return_value = (
+            '{"summary": "Cine", '
+            '"start": {"dateTime": "2026-04-27 19:00h", "timeZone": "CET"}, '
+            '"end":   {"dateTime": "2026-04-27 21:00h", "timeZone": "CET"}}'
+        )
+
+        event, _, _ = get_event_from_llm(mock_model, "prompt", post_id="dt_test")
+
+        self.assertIsNotNone(event)
+        self.assertEqual(event["start"]["dateTime"], "2026-04-27 19:00:00")
+        self.assertEqual(event["end"]["dateTime"], "2026-04-27 21:00:00")
