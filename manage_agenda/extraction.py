@@ -4,6 +4,7 @@ import ast
 import datetime
 import json
 import logging
+import re
 import time
 from copy import copy
 from dataclasses import is_dataclass, replace
@@ -81,6 +82,76 @@ def extract_json(text):
     return text
 
 
+def repair_json(text):
+    """Attempt to fix common LLM JSON formatting errors.
+
+    Handles the most frequent mistake: bare (unquoted) keys and unquoted
+    simple string values, e.g.  ``{summary: "foo", location: bar}``.
+
+    The implementation walks the text character by character, correctly
+    skipping over already-quoted strings, so it never double-quotes content.
+
+    Returns the repaired string, which may still need ``json.loads`` /
+    ``ast.literal_eval`` to validate.
+    """
+    out = []
+    i = 0
+    n = len(text)
+
+    while i < n:
+        ch = text[i]
+
+        # --- already-quoted string: copy verbatim (handle \\" escapes) ---
+        if ch == '"':
+            out.append(ch)
+            i += 1
+            while i < n:
+                c = text[i]
+                out.append(c)
+                i += 1
+                if c == '\\' and i < n:        # skip escaped char
+                    out.append(text[i])
+                    i += 1
+                elif c == '"':
+                    break
+            continue
+
+        # --- structural / whitespace characters: copy verbatim ---
+        if ch in '{}[],:\n\r\t ' or ch.isdigit() or ch == '-':
+            out.append(ch)
+            i += 1
+            continue
+
+        # --- bare identifier: could be a key or an unquoted value ---
+        # Collect the full word
+        j = i
+        while j < n and (text[j].isalnum() or text[j] in '_'):
+            j += 1
+        word = text[i:j]
+
+        # Peek past whitespace to see what follows
+        k = j
+        while k < n and text[k] in ' \t':
+            k += 1
+
+        if k < n and text[k] == ':':
+            # It's a bare key → quote it
+            out.append(f'"{word}"')
+        elif word in ('true', 'false', 'null'):
+            # JSON literals → keep as-is
+            out.append(word)
+        else:
+            # Bare string value → quote it
+            out.append(f'"{word}"')
+
+        i = j
+        continue
+
+    result = ''.join(out)
+    logging.debug("repair_json result: %s", result)
+    return result
+
+
 def get_event_from_llm(model, prompt, post_id, verbose=False):
     """Get event data from an LLM and parse its calendar JSON response."""
     from manage_agenda.sources import print_first_lines
@@ -114,15 +185,21 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
                 print_first_lines(vcal_json, n=None, title="Json")
             event = vcal_json
             json_error_occurred = False
-        except json.JSONDecodeError as error:
-            logging.error("Invalid JSON in vCal data: %s", vcal_json)
-            logging.error("Error: %s", error)
-        except SyntaxError as error:
-            logging.error("Syntax error: %s", vcal_json)
-            logging.error("Error: %s", error)
-        except ValueError as error:
-            logging.error("Value error: %s", vcal_json)
-            logging.error("Error: %s", error)
+        except (json.JSONDecodeError, SyntaxError, ValueError) as error:
+            logging.warning("Initial JSON parse failed (%s), attempting repair...", error)
+            try:
+                repaired = repair_json(extract_json(llm_response.replace("\n", " ")))
+                vcal_json = json.loads(repaired)
+                write_file(
+                    f"log/{model.model_name}/{post_id}_vcal_extracted.txt", json.dumps(vcal_json)
+                )
+                if verbose:
+                    print_first_lines(vcal_json, n=None, title="Json (repaired)")
+                event = vcal_json
+                json_error_occurred = False
+                print("JSON repaired successfully.")
+            except (json.JSONDecodeError, SyntaxError, ValueError) as repair_error:
+                logging.error("Invalid JSON in vCal data even after repair: %s", repair_error)
 
     if memory_error_occurred or json_error_occurred:
         event = None

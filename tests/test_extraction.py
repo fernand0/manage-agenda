@@ -7,6 +7,7 @@ from manage_agenda.extraction import (
     add_message_to_event_description,
     create_event_dict,
     extract_json,
+    repair_json,
 )
 from manage_agenda.sources import Args
 
@@ -224,3 +225,75 @@ more text"""
         mock_select_api.assert_not_called()
         mock_select_calendar.assert_not_called()
         mock_write_file.assert_called()
+
+
+class TestRepairJson(unittest.TestCase):
+    """Tests for repair_json — tolerant JSON fixer for malformed LLM output."""
+
+    def _loads(self, text):
+        """Helper: repair then parse."""
+        import json
+        return json.loads(repair_json(text))
+
+    def test_bare_keys_quoted(self):
+        """Keys without quotes are quoted."""
+        result = self._loads('{summary: "My Event", location: "Room 1"}')
+        self.assertEqual(result["summary"], "My Event")
+        self.assertEqual(result["location"], "Room 1")
+
+    def test_already_valid_json_unchanged(self):
+        """Valid JSON passes through repair without alteration."""
+        import json
+        valid = '{"summary": "Test", "location": "Here"}'
+        result = self._loads(valid)
+        self.assertEqual(result, json.loads(valid))
+
+    def test_unquoted_simple_value(self):
+        """Unquoted simple string values are quoted."""
+        result = self._loads('{summary: "Event", location: Zaragoza}')
+        self.assertEqual(result["location"], "Zaragoza")
+
+    def test_real_world_malformed(self):
+        """Replicates the malformed JSON reported from a real LLM response."""
+        malformed = (
+            '{'
+            '    summary: "Ciclo de Cine",'
+            '    location: "ZARAGOZA",'
+            '    description: "Team Sync",'
+            '    start: {'
+            '        dateTime: "2026-10-19 19:00:00",'
+            '        timeZone: "CET"'
+            '    },'
+            '    end: {'
+            '        dateTime: "2026-10-19 21:00:00",'
+            '        timeZone: "CET"'
+            '    }'
+            '}'
+        )
+        result = self._loads(malformed)
+        self.assertEqual(result["summary"], "Ciclo de Cine")
+        self.assertEqual(result["location"], "ZARAGOZA")
+        self.assertEqual(result["start"]["dateTime"], "2026-10-19 19:00:00")
+        self.assertEqual(result["start"]["timeZone"], "CET")
+
+    @patch("manage_agenda.extraction.format_time")
+    def test_get_event_from_llm_uses_repair_on_bad_json(self, mock_format_time):
+        """get_event_from_llm falls back to repair_json when initial parse fails."""
+        from manage_agenda.extraction import get_event_from_llm
+
+        mock_format_time.return_value = "0h 0m 0.50s"
+        mock_model = MagicMock()
+        # Malformed: bare keys, but parseable after repair
+        mock_model.generate_text.return_value = (
+            '{summary: "Repaired Event", location: "Room 42",'
+            ' start: {dateTime: "2026-01-01 10:00:00", timeZone: "CET"},'
+            ' end: {dateTime: "2026-01-01 11:00:00", timeZone: "CET"}}'
+        )
+
+        event, vcal_json, elapsed_time = get_event_from_llm(
+            mock_model, "prompt", post_id="repair_test", verbose=False
+        )
+
+        self.assertIsNotNone(event)
+        self.assertEqual(event["summary"], "Repaired Event")
+        self.assertEqual(event["location"], "Room 42")
