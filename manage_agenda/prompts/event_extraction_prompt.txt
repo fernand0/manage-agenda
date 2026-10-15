@@ -18,10 +18,10 @@ INSTRUCTIONS:
 3. Prioritize main event dates: When multiple dates are mentioned, prioritize the main event being announced, not related events, historical references, or past dates (e.g., a movie release date vs. a specific discussion meeting date).
 4. Use reference date correctly: Use the reference date marked as 'Message date:' ONLY when interpreting relative dates (e.g., 'next Thursday', 'this Friday', 'tomorrow'). Do NOT use the reference date as the event date unless the text specifically states the event occurs on that date.
 5. Prioritize explicit dates: Actively look for explicit dates in the text (e.g., 'January 9th', '9 de enero', 'viernes 9 de enero') and prioritize these dates over the reference date.
-6. Default timezone is CET: If no timezone is explicitly specified in the text, use "CET".
-7. Ensure valid JSON array output: The final result must be a single, valid JSON array. All fields and values must be enclosed in double quotes. Do NOT add any extra information, comments, explanations, or text outside the JSON array.
-8. Avoid quote conflicts: Replace any double quotes (") or single quotes (') in the extracted summary content with single quotes (') to avoid JSON parsing errors.
-9. Format dateTime fields: Place the start and end times in event ['start']['dateTime'] and event ['end']['dateTime'] respectively.
+6. Format dateTime fields: Place the start and end times in event ['start']['dateTime'] and event ['end']['dateTime'] respectively.
+7. Default timezone is CET: If no timezone is explicitly specified in the text, use "CET".
+8. Ensure valid JSON array output: The final result must be a single, valid JSON array. All fields and values must be enclosed in double quotes. Do NOT add any extra information, comments, explanations, or text outside the JSON array.
+9. Avoid quote conflicts: Replace any double quotes (") or single quotes (') in the extracted summary content with single quotes (') to avoid JSON parsing errors.
 10. Use ISO 8601 format: For dateTime fields, use the strict format: "YYYY-MM-DD HH:MM:SS" (e.g., "2026-04-27 19:00:00"). Do NOT use formats like "27/04/2026 19:00h".
 11. Focus on the main event in summary: The summary field should be a short, clear title focusing only on the main event announcement.
 12. Include time details: If a specific time is mentioned (e.g., '19:00h'), include it in the dateTime field along with the date.
