@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -12,7 +13,7 @@ from socialModules.moduleContent import display_posts
 from socialModules.moduleRules import moduleRules
 from socialModules.configMod import CONFIGDIR, select_from_list
 
-from manage_agenda.base import write_file
+from manage_agenda.base import format_time, write_file
 from manage_agenda.config import config
 from manage_agenda.connections import select_api
 from manage_agenda.events import print_events_summary
@@ -484,7 +485,10 @@ def process_img_cli(args, model, source_name=None, rules=None):
     txt_files = []
     for img_path in images:
         print(f"Extracting text from {img_path.name} with {model.model_name}...")
+        start_time = time.time()
         extracted_text = model.generate_text_from_image(img_path)
+        elapsed_time = time.time() - start_time
+        print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
         if not extracted_text or not extracted_text.strip():
             print(f"Could not extract text from {img_path.name}, skipping.")
             continue
