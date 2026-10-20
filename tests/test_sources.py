@@ -791,3 +791,94 @@ class TestProcessImgCli(unittest.TestCase):
         # process_txt_cli should not be called because no txt files were created
         mock_txt.assert_not_called()
         self.assertEqual(result, [])
+
+    @patch("manage_agenda.sources.select_llm")
+    @patch("manage_agenda.sources.process_txt_cli", return_value=[{"summary": "Test"}])
+    def test_process_img_cli_interactive_selects_another_ai(self, mock_txt, mock_select_llm):
+        """In interactive mode, user can choose to select another AI for text processing."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import process_img_cli
+
+        self.args.interactive = True
+        self.mock_model.generate_text_from_image.return_value = "Some extracted text"
+        new_model = MagicMock()
+        new_model.model_name = "text-model"
+        mock_select_llm.return_value = new_model
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            img = Path(tmp_dir) / "poster.jpg"
+            img.write_bytes(b"fake-image-data")
+
+            with patch("manage_agenda.sources.config") as mock_cfg:
+                mock_cfg.MSG_IMG_DIR = tmp_dir
+                mock_cfg.MSG_TXT_DIR = tmp_dir
+                mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+                with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
+                    with patch("builtins.input", return_value="y"):
+                        result = process_img_cli(self.args, self.mock_model)
+
+        mock_select_llm.assert_called_once_with(self.args, multimodal=False)
+        mock_txt.assert_called_once()
+        self.assertEqual(mock_txt.call_args[0][1], new_model)
+        self.assertEqual(result, [{"summary": "Test"}])
+
+    @patch("manage_agenda.sources.select_llm")
+    @patch("manage_agenda.sources.process_txt_cli", return_value=[{"summary": "Test"}])
+    def test_process_img_cli_interactive_declines_another_ai(self, mock_txt, mock_select_llm):
+        """In interactive mode, user declining keeps the current AI for text processing."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import process_img_cli
+
+        self.args.interactive = True
+        self.mock_model.generate_text_from_image.return_value = "Some extracted text"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            img = Path(tmp_dir) / "poster.jpg"
+            img.write_bytes(b"fake-image-data")
+
+            with patch("manage_agenda.sources.config") as mock_cfg:
+                mock_cfg.MSG_IMG_DIR = tmp_dir
+                mock_cfg.MSG_TXT_DIR = tmp_dir
+                mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+                with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
+                    with patch("builtins.input", return_value="n"):
+                        result = process_img_cli(self.args, self.mock_model)
+
+        mock_select_llm.assert_not_called()
+        mock_txt.assert_called_once()
+        self.assertEqual(mock_txt.call_args[0][1], self.mock_model)
+        self.assertEqual(result, [{"summary": "Test"}])
+
+    @patch("manage_agenda.sources.select_llm")
+    @patch("manage_agenda.sources.process_txt_cli", return_value=[{"summary": "Test"}])
+    def test_process_img_cli_explicit_txt_model(self, mock_txt, mock_select_llm):
+        """Explicit txt_model passed to process_img_cli is used without prompting."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import process_img_cli
+
+        self.mock_model.generate_text_from_image.return_value = "Some extracted text"
+        explicit_txt_model = MagicMock()
+        explicit_txt_model.model_name = "explicit-model"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            img = Path(tmp_dir) / "poster.jpg"
+            img.write_bytes(b"fake-image-data")
+
+            with patch("manage_agenda.sources.config") as mock_cfg:
+                mock_cfg.MSG_IMG_DIR = tmp_dir
+                mock_cfg.MSG_TXT_DIR = tmp_dir
+                mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
+                with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
+                    result = process_img_cli(self.args, self.mock_model, txt_model=explicit_txt_model)
+
+        mock_select_llm.assert_not_called()
+        mock_txt.assert_called_once()
+        self.assertEqual(mock_txt.call_args[0][1], explicit_txt_model)
+        self.assertEqual(result, [{"summary": "Test"}])
+

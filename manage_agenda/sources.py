@@ -461,7 +461,7 @@ def _get_images_from_folder(args, source_name=None):
     return sorted(valid_files)
 
 
-def process_img_cli(args, model, source_name=None, rules=None):
+def process_img_cli(args, model, source_name=None, rules=None, txt_model=None):
     """Processes images by extracting text via AI and processing with existing text modules."""
     if not source_name:
         if getattr(args, "interactive", False):
@@ -521,7 +521,16 @@ def process_img_cli(args, model, source_name=None, rules=None):
         print("No text files generated from images.")
         return []
 
-    return process_txt_cli(args, model, source_name=txt_files, rules=rules)
+    txt_model = txt_model or model
+    if getattr(args, "interactive", False) and txt_model is model:
+        confirm = input("Do you want to select another AI for text processing? (y/N): ")
+        if confirm.strip().lower() in ["y", "yes"]:
+            selected_model = select_llm(args, multimodal=False)
+            if selected_model:
+                txt_model = selected_model
+                print(f"Selected model for text processing: {getattr(txt_model, 'model_name', str(txt_model))}")
+
+    return process_txt_cli(args, txt_model, source_name=txt_files, rules=rules)
 
 
 process_image_cli = process_img_cli
