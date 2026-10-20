@@ -13,7 +13,7 @@ JSON structure to fill for each object in the array:
 
 INSTRUCTIONS:
 
-1. Extract multiple distinct events: Carefully read the message body and subject to identify all separate, unique events being organized or announced (e.g., a "Team Sync" and a "Project Review"). For every unique event found, generate a separate JSON object {{}} within the final JSON array [].
+1. Extract multiple distinct events: Carefully read the message body and subject to identify all separate, unique events being organized or announced. For every unique event found, generate a separate JSON object {{}} within the final JSON array [].
 2. Series of events and recurring events: If the text describes a series or recurring event (e.g., "every Tuesday" or "Mon-Fri this week"), also output a JSON object for EACH individual event in that series within the JSON array.
 3. Prioritize main event dates: When multiple dates are mentioned, prioritize the main event being announced, not related events, historical references, or past dates (e.g., a movie release date vs. a specific discussion meeting date).
 4. Use reference date correctly: Use the reference date marked as 'Message date:' ONLY when interpreting relative dates (e.g., 'next Thursday', 'this Friday', 'tomorrow'). Do NOT use the reference date as the event date unless the text specifically states the event occurs on that date.
@@ -22,7 +22,7 @@ INSTRUCTIONS:
 7. Default timezone is CET: If no timezone is explicitly specified in the text, use "CET".
 8. Ensure valid JSON array output: The final result must be a single, valid JSON array. All fields and values must be enclosed in double quotes. Do NOT add any extra information, comments, explanations, or text outside the JSON array.
 9. Avoid quote conflicts: Replace any double quotes (") or single quotes (') in the extracted summary content with single quotes (') to avoid JSON parsing errors.
-10. Use ISO 8601 format: For dateTime fields, use the strict format: "YYYY-MM-DD HH:MM:SS" (e.g., "2026-04-27 19:00:00"). Do NOT use formats like "27/04/2026 19:00h".
+10. Use ISO 8601 format: For dateTime fields, use the strict format: "YYYY-MM-DD HH:MM:SS". Do NOT use other formats.
 11. Focus on the main event in summary: The summary field should be a short, clear title focusing only on the main event announcement.
 12. Include time details: If a specific time is mentioned (e.g., '19:00h'), include it in the dateTime field along with the date.
 13. Do not translate content: Keep all extracted information in the original language.
