@@ -517,11 +517,12 @@ class MistralClient(LLMClient):
         return res
 
 
-def select_llm(args, multimodal=False):
+def select_llm(args, multimodal=False, title=None):
     """Selects and initializes the appropriate LLM client."""
     if args.interactive:
         llm_options = ["ollama", "gemini", "mistral"]
-        title = "Select multi-modal model provider" if multimodal else "Select model provider"
+        if not title:
+            title = "Select multi-modal model provider" if multimodal else "Select model provider"
         sel, ai = select_from_list(llm_options, title=title, default="ollama")
     else:
         ai = getattr(args, "ai", None) or "gemini"

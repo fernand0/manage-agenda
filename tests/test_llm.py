@@ -540,6 +540,22 @@ class TestSelectLlm(unittest.TestCase):
         mock_ollama_client.assert_called_once_with(multimodal=True)
         self.assertEqual(model, mock_ollama_client.return_value)
 
+    @patch("manage_agenda.llm.select_from_list", return_value=(0, "ollama"))
+    @patch("manage_agenda.llm.OllamaClient")
+    def test_select_llm_interactive_custom_title(self, mock_ollama_client, mock_sfl):
+        from manage_agenda.llm import select_llm
+
+        args = self.Args(
+            interactive=True,
+            delete=False,
+            source="image",
+            verbose=False,
+            destination="",
+            text="",
+        )
+        select_llm(args, multimodal=True, title="Custom Title")
+        mock_sfl.assert_called_once_with(["ollama", "gemini", "mistral"], title="Custom Title", default="ollama")
+
     def test_ollama_is_multimodal_model(self):
         self.assertTrue(OllamaClient.is_multimodal_model("llava:latest"))
         self.assertTrue(OllamaClient.is_multimodal_model("llama3.2-vision:latest"))

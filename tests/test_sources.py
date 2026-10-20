@@ -3,7 +3,7 @@ import sys
 import unittest
 from collections import namedtuple
 from email.utils import formatdate
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from manage_agenda.sources import Args, list_folder, process_email_cli
 
@@ -627,6 +627,66 @@ class TestSourceUtilities(unittest.TestCase):
         mock_select_llm.assert_called_once_with(args, multimodal=True)
         mock_process_img.assert_called_once()
 
+    @patch("manage_agenda.sources.print_events_summary")
+    @patch("manage_agenda.sources.process_img_cli")
+    @patch("manage_agenda.sources.get_add_sources")
+    @patch("manage_agenda.sources.select_from_list")
+    @patch("manage_agenda.sources.select_llm")
+    def test_add_events_cli_image_interactive_selects_both_models(
+        self, mock_select_llm, mock_sfl, mock_get_sources, mock_process_img, mock_print_summary
+    ):
+        """In interactive mode with image, user can select separate vision and text models up front."""
+        from manage_agenda.sources import add_events_cli
+
+        args = Args(interactive=True, source=None, verbose=False)
+        mock_get_sources.return_value = ([], [("image", "set", "")])
+        mock_sfl.return_value = (0, ("image", "set", ""))
+
+        vision_model = MagicMock()
+        vision_model.model_name = "vision-model"
+        text_model = MagicMock()
+        text_model.model_name = "text-model"
+        mock_select_llm.side_effect = [vision_model, text_model]
+        mock_process_img.return_value = [{"summary": "Event"}]
+
+        with patch("builtins.input", return_value="n"):
+            result = add_events_cli(args)
+
+        self.assertEqual(mock_select_llm.call_count, 2)
+        mock_select_llm.assert_any_call(args, multimodal=True, title="Select vision model provider")
+        mock_select_llm.assert_any_call(args, multimodal=False, title="Select text model provider")
+        mock_process_img.assert_called_once_with(
+            args, vision_model, source_name=None, rules=ANY, txt_model=text_model
+        )
+
+    @patch("manage_agenda.sources.print_events_summary")
+    @patch("manage_agenda.sources.process_img_cli")
+    @patch("manage_agenda.sources.get_add_sources")
+    @patch("manage_agenda.sources.select_from_list")
+    @patch("manage_agenda.sources.select_llm")
+    def test_add_events_cli_image_interactive_uses_same_model(
+        self, mock_select_llm, mock_sfl, mock_get_sources, mock_process_img, mock_print_summary
+    ):
+        """In interactive mode with image, user accepting same model keeps vision model for text."""
+        from manage_agenda.sources import add_events_cli
+
+        args = Args(interactive=True, source=None, verbose=False)
+        mock_get_sources.return_value = ([], [("image", "set", "")])
+        mock_sfl.return_value = (0, ("image", "set", ""))
+
+        vision_model = MagicMock()
+        vision_model.model_name = "vision-model"
+        mock_select_llm.return_value = vision_model
+        mock_process_img.return_value = [{"summary": "Event"}]
+
+        with patch("builtins.input", return_value="y"):
+            result = add_events_cli(args)
+
+        mock_select_llm.assert_called_once_with(args, multimodal=True, title="Select vision model provider")
+        mock_process_img.assert_called_once_with(
+            args, vision_model, source_name=None, rules=ANY, txt_model=vision_model
+        )
+
     def test_is_image_source(self):
         """Test _is_image_source detection helper."""
         from manage_agenda.sources import _is_image_source
@@ -792,48 +852,14 @@ class TestProcessImgCli(unittest.TestCase):
         mock_txt.assert_not_called()
         self.assertEqual(result, [])
 
-    @patch("manage_agenda.sources.select_llm")
     @patch("manage_agenda.sources.process_txt_cli", return_value=[{"summary": "Test"}])
-    def test_process_img_cli_interactive_selects_another_ai(self, mock_txt, mock_select_llm):
-        """In interactive mode, user can choose to select another AI for text processing."""
+    def test_process_img_cli_delegates_to_process_txt_cli_with_default_model(self, mock_txt):
+        """When txt_model is not specified, process_img_cli delegates with the image model."""
         import tempfile
         from pathlib import Path
 
         from manage_agenda.sources import process_img_cli
 
-        self.args.interactive = True
-        self.mock_model.generate_text_from_image.return_value = "Some extracted text"
-        new_model = MagicMock()
-        new_model.model_name = "text-model"
-        mock_select_llm.return_value = new_model
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            img = Path(tmp_dir) / "poster.jpg"
-            img.write_bytes(b"fake-image-data")
-
-            with patch("manage_agenda.sources.config") as mock_cfg:
-                mock_cfg.MSG_IMG_DIR = tmp_dir
-                mock_cfg.MSG_TXT_DIR = tmp_dir
-                mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
-                with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
-                    with patch("builtins.input", return_value="y"):
-                        result = process_img_cli(self.args, self.mock_model)
-
-        mock_select_llm.assert_called_once_with(self.args, multimodal=False)
-        mock_txt.assert_called_once()
-        self.assertEqual(mock_txt.call_args[0][1], new_model)
-        self.assertEqual(result, [{"summary": "Test"}])
-
-    @patch("manage_agenda.sources.select_llm")
-    @patch("manage_agenda.sources.process_txt_cli", return_value=[{"summary": "Test"}])
-    def test_process_img_cli_interactive_declines_another_ai(self, mock_txt, mock_select_llm):
-        """In interactive mode, user declining keeps the current AI for text processing."""
-        import tempfile
-        from pathlib import Path
-
-        from manage_agenda.sources import process_img_cli
-
-        self.args.interactive = True
         self.mock_model.generate_text_from_image.return_value = "Some extracted text"
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -845,18 +871,15 @@ class TestProcessImgCli(unittest.TestCase):
                 mock_cfg.MSG_TXT_DIR = tmp_dir
                 mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
                 with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
-                    with patch("builtins.input", return_value="n"):
-                        result = process_img_cli(self.args, self.mock_model)
+                    result = process_img_cli(self.args, self.mock_model)
 
-        mock_select_llm.assert_not_called()
         mock_txt.assert_called_once()
         self.assertEqual(mock_txt.call_args[0][1], self.mock_model)
         self.assertEqual(result, [{"summary": "Test"}])
 
-    @patch("manage_agenda.sources.select_llm")
     @patch("manage_agenda.sources.process_txt_cli", return_value=[{"summary": "Test"}])
-    def test_process_img_cli_explicit_txt_model(self, mock_txt, mock_select_llm):
-        """Explicit txt_model passed to process_img_cli is used without prompting."""
+    def test_process_img_cli_explicit_txt_model(self, mock_txt):
+        """Explicit txt_model passed to process_img_cli is used for process_txt_cli."""
         import tempfile
         from pathlib import Path
 
@@ -877,7 +900,6 @@ class TestProcessImgCli(unittest.TestCase):
                 with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
                     result = process_img_cli(self.args, self.mock_model, txt_model=explicit_txt_model)
 
-        mock_select_llm.assert_not_called()
         mock_txt.assert_called_once()
         self.assertEqual(mock_txt.call_args[0][1], explicit_txt_model)
         self.assertEqual(result, [{"summary": "Test"}])

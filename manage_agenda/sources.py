@@ -521,16 +521,7 @@ def process_img_cli(args, model, source_name=None, rules=None, txt_model=None):
         print("No text files generated from images.")
         return []
 
-    txt_model = txt_model or model
-    if getattr(args, "interactive", False) and txt_model is model:
-        confirm = input("Do you want to select another AI for text processing? (y/N): ")
-        if confirm.strip().lower() in ["y", "yes"]:
-            selected_model = select_llm(args, multimodal=False)
-            if selected_model:
-                txt_model = selected_model
-                print(f"Selected model for text processing: {getattr(txt_model, 'model_name', str(txt_model))}")
-
-    return process_txt_cli(args, txt_model, source_name=txt_files, rules=rules)
+    return process_txt_cli(args, txt_model or model, source_name=txt_files, rules=rules)
 
 
 process_image_cli = process_img_cli
@@ -742,8 +733,28 @@ def add_events_cli(args, rules=None):
         selected = matches[0] if matches else None
 
     is_img = _is_image_source(selected)
-    model = select_llm(args, multimodal=is_img)
+    if is_img and args.interactive:
+        model = select_llm(args, multimodal=True, title="Select vision model provider")
+    else:
+        model = select_llm(args, multimodal=is_img)
     print(f"Selected model: {model.model_name}")
+
+    txt_model = model
+    if is_img and args.interactive:
+        try:
+            use_same = input("Use the same AI model for text processing? (Y/n): ").strip().lower()
+        except (EOFError, IOError):
+            use_same = "y"
+        if use_same in ["n", "no"]:
+            txt_model = (
+                select_llm(
+                    args,
+                    multimodal=False,
+                    title="Select text model provider",
+                )
+                or model
+            )
+            print(f"Selected model for text processing: {getattr(txt_model, 'model_name', str(txt_model))}")
 
     events_added = []
     if selected:
@@ -761,7 +772,9 @@ def add_events_cli(args, rules=None):
             file_list = None
             if isinstance(selected, str) and "." in selected:
                 file_list = selected.split(" ")
-            raw_result = process_img_cli(args, model, source_name=file_list, rules=rules)
+            raw_result = process_img_cli(
+                args, model, source_name=file_list, rules=rules, txt_model=txt_model
+            )
         elif hasattr(selected, "__iter__") and (
             ("text" in str(selected)) or os.path.exists(str(selected))
         ):
