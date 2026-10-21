@@ -1,4 +1,5 @@
 import datetime
+import inspect
 import logging
 from datetime import timedelta
 
@@ -8,6 +9,7 @@ from socialModules.configMod import safe_get
 from socialModules.moduleContent import display_posts
 
 from manage_agenda import connections
+from manage_agenda.base import format_time
 from manage_agenda.config import config
 from manage_agenda.connections import select_calendar, select_calendar_from_all_rules
 
@@ -339,6 +341,48 @@ def _format_datetime_for_display(dt_value):
         return dt_string
 
 
+def display_event_info(
+    event, subject_for_print="", elapsed_time=None, model=None, post_identifier=""
+):
+    """Display a normalized event consistently."""
+    start_val = safe_get(event, ["start", "dateTime"]) or safe_get(event, ["start", "date"])
+    if start_val is None and not isinstance(safe_get(event, ["start"]), dict):
+        start_val = safe_get(event, ["start"])
+
+    end_val = safe_get(event, ["end", "dateTime"]) or safe_get(event, ["end", "date"])
+    if end_val is None and not isinstance(safe_get(event, ["end"]), dict):
+        end_val = safe_get(event, ["end"])
+
+    start_time_local = _format_datetime_for_display(start_val)
+    end_time_local = _format_datetime_for_display(end_val)
+    event_summary = safe_get(event, ["summary"]) or subject_for_print
+    print("=====================================")
+    print(f"Summary: {event_summary}")
+    if post_identifier:
+        print(f"File: {post_identifier}")
+    print(f"Start: {start_time_local}")
+    print(f"End: {end_time_local}")
+    if model:
+        model_name = getattr(model, "model_name", str(model))
+        print(f"Model: {model_name}")
+    if elapsed_time is not None:
+        print(f"Time: {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+    print("=====================================")
+    return start_time_local, end_time_local
+
+
+def _execute_action_func(
+    action_func, api_cal, event, my_calendar, my_calendar_dst, verbose=False
+):
+    """Execute an action function, passing verbose if supported."""
+    sig = inspect.signature(action_func)
+    if "verbose" in sig.parameters or any(
+        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+    ):
+        return action_func(api_cal, event, my_calendar, my_calendar_dst, verbose=verbose)
+    return action_func(api_cal, event, my_calendar, my_calendar_dst)
+
+
 def clean_action(api_cal, event, my_calendar, my_calendar_dst):
     pass
 
@@ -554,8 +598,11 @@ def process_calendar_events(
         my_calendar_dst = None
 
     # Perform the specific action on selected events
+    verbose = getattr(args, "verbose", False)
     for event in selected_events:
-        action_func(api_cal, event, my_calendar, my_calendar_dst)
+        _execute_action_func(
+            action_func, api_cal, event, my_calendar, my_calendar_dst, verbose=verbose
+        )
 
 
 def delete_action(api_cal, event, my_calendar, my_calendar_dst):
@@ -571,7 +618,7 @@ def delete_events_cli(args):
     process_calendar_events(args, "delete", delete_action)
 
 
-def move_action(api_cal, event, my_calendar, my_calendar_dst):
+def move_action(api_cal, event, my_calendar, my_calendar_dst, verbose=False):
     """Action function to move an event (copy then delete)."""
     my_event = {
         "summary": event["summary"],
@@ -588,6 +635,8 @@ def move_action(api_cal, event, my_calendar, my_calendar_dst):
         calendarId=api_cal.getActive(), eventId=event["id"]
     ).execute()
     print(f"Deleted event: {event['summary']}")
+    if verbose:
+        display_event_info(event)
 
 
 def move_events_cli(args):

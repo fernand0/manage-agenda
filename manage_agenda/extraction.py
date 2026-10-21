@@ -455,25 +455,21 @@ def _extract_event_with_llm_retry(
 
 
 def _display_event_info(
-    event, subject_for_print, elapsed_time=None, model=None, post_identifier=""
+    event, subject_for_print="", elapsed_time=None, model=None, post_identifier=""
 ):
     """Display a normalized event consistently."""
-    from manage_agenda.events import _format_datetime_for_display
+    from manage_agenda.events import display_event_info
 
-    start_time_local = _format_datetime_for_display(safe_get(event, ["start", "dateTime"]))
-    end_time_local = _format_datetime_for_display(safe_get(event, ["end", "dateTime"]))
-    event_summary = safe_get(event, ["summary"]) or subject_for_print
-    print("=====================================")
-    print(f"Summary: {event_summary}")
-    if post_identifier:
-        print(f"File: {post_identifier}")
-    print(f"Start: {start_time_local}")
-    print(f"End: {end_time_local}")
-    print(f"Model: {model.model_name}")
-    if elapsed_time is not None:
-        print(f"Time: {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
-    print("=====================================")
-    return start_time_local, end_time_local
+    return display_event_info(
+        event,
+        subject_for_print=subject_for_print,
+        elapsed_time=elapsed_time,
+        model=model,
+        post_identifier=post_identifier,
+    )
+
+
+display_event_info = _display_event_info
 
 
 def _process_event_with_llm_and_calendar(

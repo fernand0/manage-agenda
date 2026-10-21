@@ -301,3 +301,153 @@ class TestEvents(unittest.TestCase):
         output = captured.getvalue()
         self.assertIn("Summary of events added:", output)
         self.assertIn("No events were added.", output)
+
+    def test_display_event_info_basic(self):
+        """Test display_event_info with minimal event."""
+        import io
+        import sys
+        from manage_agenda.events import display_event_info
+
+        event = {
+            "summary": "Team Sync",
+            "start": {"dateTime": "2026-10-21T10:00:00"},
+            "end": {"dateTime": "2026-10-21T11:00:00"},
+        }
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = captured
+            display_event_info(event)
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured.getvalue()
+        self.assertIn("=====================================", output)
+        self.assertIn("Summary: Team Sync", output)
+        self.assertIn("Start: 2026-10-21 10:00:00", output)
+        self.assertIn("End: 2026-10-21 11:00:00", output)
+        self.assertNotIn("Model:", output)
+        self.assertNotIn("File:", output)
+        self.assertNotIn("Time:", output)
+
+    def test_display_event_info_full(self):
+        """Test display_event_info with model, elapsed_time, and post_identifier."""
+        import io
+        import sys
+        from unittest.mock import MagicMock
+        from manage_agenda.events import display_event_info
+
+        event = {
+            "summary": "Keynote",
+            "start": {"dateTime": "2026-10-21T09:00:00"},
+            "end": {"dateTime": "2026-10-21T10:00:00"},
+        }
+        mock_model = MagicMock()
+        mock_model.model_name = "gemini-2.0-flash"
+
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = captured
+            display_event_info(
+                event,
+                subject_for_print="Fallback Subject",
+                elapsed_time=2.5,
+                model=mock_model,
+                post_identifier="file_123.txt",
+            )
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured.getvalue()
+        self.assertIn("Summary: Keynote", output)
+        self.assertIn("File: file_123.txt", output)
+        self.assertIn("Model: gemini-2.0-flash", output)
+        self.assertIn("Time: 0h 0m 2.50s (2.50 seconds)", output)
+
+    def test_display_event_info_date_only_and_fallback_summary(self):
+        """Test display_event_info with date-only start/end and fallback summary."""
+        import io
+        import sys
+        from manage_agenda.events import display_event_info
+
+        event = {
+            "start": {"date": "2026-10-21"},
+            "end": {"date": "2026-10-22"},
+        }
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = captured
+            display_event_info(event, subject_for_print="Holiday")
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured.getvalue()
+        self.assertIn("Summary: Holiday", output)
+        self.assertIn("Start: 2026-10-21", output)
+        self.assertIn("End: 2026-10-22", output)
+
+    def test_move_action_verbose_true(self):
+        """Test move_action with verbose=True displays event abstract."""
+        import io
+        import sys
+        from unittest.mock import MagicMock
+        from manage_agenda.events import move_action
+
+        mock_api = MagicMock()
+        mock_api.getActive.return_value = "src_cal"
+        mock_dst = MagicMock()
+
+        event = {
+            "id": "ev1",
+            "summary": "Moved Event",
+            "start": {"dateTime": "2026-10-21T10:00:00"},
+            "end": {"dateTime": "2026-10-21T11:00:00"},
+        }
+
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = captured
+            move_action(mock_api, event, "dst_cal", mock_dst, verbose=True)
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured.getvalue()
+        self.assertIn("Copied event: Moved Event", output)
+        self.assertIn("Deleted event: Moved Event", output)
+        self.assertIn("=====================================", output)
+        self.assertIn("Summary: Moved Event", output)
+        self.assertIn("Start: 2026-10-21 10:00:00", output)
+
+    def test_move_action_verbose_false(self):
+        """Test move_action with verbose=False does not display event abstract."""
+        import io
+        import sys
+        from unittest.mock import MagicMock
+        from manage_agenda.events import move_action
+
+        mock_api = MagicMock()
+        mock_api.getActive.return_value = "src_cal"
+        mock_dst = MagicMock()
+
+        event = {
+            "id": "ev1",
+            "summary": "Moved Event",
+            "start": {"dateTime": "2026-10-21T10:00:00"},
+            "end": {"dateTime": "2026-10-21T11:00:00"},
+        }
+
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        try:
+            sys.stdout = captured
+            move_action(mock_api, event, "dst_cal", mock_dst, verbose=False)
+        finally:
+            sys.stdout = old_stdout
+
+        output = captured.getvalue()
+        self.assertIn("Copied event: Moved Event", output)
+        self.assertIn("Deleted event: Moved Event", output)
+        self.assertNotIn("=====================================", output)
