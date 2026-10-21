@@ -605,12 +605,14 @@ def process_calendar_events(
         )
 
 
-def delete_action(api_cal, event, my_calendar, my_calendar_dst):
+def delete_action(api_cal, event, my_calendar, my_calendar_dst, verbose=False):
     """Action function to delete an event."""
     api_cal.getClient().events().delete(
         calendarId=api_cal.getActive(), eventId=event["id"]
     ).execute()
     print(f"Deleted event: {event['summary']}")
+    if verbose:
+        display_event_info(event)
 
 
 def delete_events_cli(args):
