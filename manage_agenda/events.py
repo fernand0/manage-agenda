@@ -631,7 +631,7 @@ def delete_events_cli(args):
 def move_action(api_cal, event, my_calendar, my_calendar_dst, verbose=False):
     """Action function to move an event (copy then delete)."""
     if my_calendar and str(my_calendar).lower() == "delete":
-        return delete_action(api_cal, event, my_calendar, my_calendar_dst)
+        return delete_action(api_cal, event, my_calendar, my_calendar_dst, verbose=verbose)
 
     my_event = {
         "summary": event["summary"],
