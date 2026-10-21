@@ -585,14 +585,22 @@ def process_calendar_events(
     # Handle destination calendar if needed
     if destination_needed:
         if getattr(args, "destination", None):
-            my_calendar_dst = connections.select_api(
-                args, "gcalendar", rules=None, title="Select rule"
-            )
-            my_calendar = args.destination
+            if action_verb == "move" and str(args.destination).lower() == "delete":
+                my_calendar_dst = None
+                my_calendar = "delete"
+                action_func = delete_action
+            else:
+                my_calendar_dst = connections.select_api(
+                    args, "gcalendar", rules=None, title="Select rule"
+                )
+                my_calendar = args.destination
         else:
+            extra_calendars = ["delete"] if action_verb == "move" else None
             my_calendar_dst, my_calendar = select_calendar_from_all_rules(
-                args, title="Select destination calendar"
+                args, title="Select destination calendar", extra_calendars=extra_calendars
             )
+            if action_verb == "move" and my_calendar and str(my_calendar).lower() == "delete":
+                action_func = delete_action
     else:
         my_calendar = None
         my_calendar_dst = None
@@ -622,6 +630,9 @@ def delete_events_cli(args):
 
 def move_action(api_cal, event, my_calendar, my_calendar_dst, verbose=False):
     """Action function to move an event (copy then delete)."""
+    if my_calendar and str(my_calendar).lower() == "delete":
+        return delete_action(api_cal, event, my_calendar, my_calendar_dst)
+
     my_event = {
         "summary": event["summary"],
         "description": event["description"] if "description" in event else "",

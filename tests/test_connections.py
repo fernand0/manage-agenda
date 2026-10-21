@@ -199,3 +199,45 @@ class TestConnections(unittest.TestCase):
         result = authorize(args, rules=mock_rules)
 
         self.assertIsNone(result)
+
+    @patch("manage_agenda.connections.select_from_list")
+    def test_select_calendar_from_all_rules_with_extra_calendars(self, mock_select_from_list):
+        """Test select_calendar_from_all_rules when an extra calendar 'delete' is supplied."""
+        from manage_agenda.connections import select_calendar_from_all_rules
+
+        args = MagicMock()
+        mock_rules = MagicMock()
+        mock_rules.get_rules_for_services.return_value = ["rule1"]
+        mock_rules.more = {"rule1": {}}
+        mock_api = MagicMock()
+        mock_api.getCalendarList.return_value = [
+            {"summary": "Work", "id": "work@example.com", "accessRole": "owner"}
+        ]
+        mock_rules.readConfigSrc.return_value = mock_api
+
+        # User chooses the extra calendar "delete"
+        mock_select_from_list.return_value = (1, "delete")
+
+        api, cal_id = select_calendar_from_all_rules(
+            args, title="Select destination calendar", rules=mock_rules, extra_calendars=["delete"]
+        )
+
+        mock_select_from_list.assert_called_once_with(
+            ["Work (rule1)", "delete"], title="Select destination calendar"
+        )
+        self.assertIsNone(api)
+        self.assertEqual(cal_id, "delete")
+
+    @patch("manage_agenda.connections.select_from_list")
+    def test_select_calendar_with_extra_calendars(self, mock_select_from_list):
+        """Test select_calendar with extra_calendars included."""
+        from manage_agenda.connections import select_calendar
+
+        mock_api = MagicMock()
+        mock_api.getCalendarList.return_value = [
+            {"summary": "Work", "id": "work@example.com", "accessRole": "owner"}
+        ]
+        mock_select_from_list.return_value = (1, {"id": "delete", "summary": "delete"})
+
+        cal_id = select_calendar(mock_api, extra_calendars=["delete"])
+        self.assertEqual(cal_id, "delete")

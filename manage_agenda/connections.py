@@ -46,17 +46,23 @@ def select_api(args, api_type, rules=None, title=""):
     return result
 
 
-def select_calendar(calendar_api, title="", args=None):
+def select_calendar(calendar_api, title="", args=None, extra_calendars=None):
     """Select a writable Google Calendar from a configured calendar API."""
     try:
         calendar_api.setCalendarList()
         calendars = calendar_api.getCalendarList()
-        if not calendars:
+        if not calendars and not extra_calendars:
             raise CalendarError("No calendars found in your Google Calendar account")
 
         eligible_calendars = [
-            calendar for calendar in calendars if "reader" not in calendar.get("accessRole", "")
+            calendar for calendar in (calendars or []) if "reader" not in calendar.get("accessRole", "")
         ]
+        if extra_calendars:
+            for extra in extra_calendars:
+                if isinstance(extra, str):
+                    eligible_calendars.append({"id": extra, "summary": extra})
+                elif isinstance(extra, dict):
+                    eligible_calendars.append(extra)
         if not eligible_calendars:
             raise CalendarError("No writable calendars found. Check your calendar permissions.")
 
@@ -81,7 +87,7 @@ def select_calendar(calendar_api, title="", args=None):
         raise CalendarError(f"Unexpected error selecting calendar: {error}") from error
 
 
-def select_calendar_from_all_rules(args, title="", rules=None):
+def select_calendar_from_all_rules(args, title="", rules=None, extra_calendars=None):
     """Select a writable calendar from all configured gcalendar rules.
 
     Aggregates calendars from every configured gcalendar rule into a single
@@ -89,8 +95,8 @@ def select_calendar_from_all_rules(args, title="", rules=None):
     user can tell accounts apart. Returns an (api, calendar_id) tuple.
     """
     rules = rules or moduleRules.from_config()
-    rule_names = rules.get_rules_for_services("gcalendar")
-    if not rule_names:
+    rule_names = rules.get_rules_for_services("gcalendar") if rules else []
+    if not rule_names and not extra_calendars:
         raise CalendarError("No gcalendar sources configured")
 
     # Collect (api, calendar_dict, rule_name) for every writable calendar.
@@ -98,22 +104,30 @@ def select_calendar_from_all_rules(args, title="", rules=None):
     # retrieved by label after select_from_list returns — avoiding any
     # index mismatch that could arise if select_from_list deduplicates labels.
     label_to_entry = {}
-    for rule_name in rule_names:
-        source_details = rules.more.get(rule_name, {})
-        api = rules.readConfigSrc("", rule_name, source_details)
-        if not api:
-            logging.warning("Could not instantiate API for rule %s, skipping", rule_name)
-            continue
-        try:
-            api.setCalendarList()
-            calendars = api.getCalendarList() or []
-        except Exception as exc:
-            logging.warning("Failed to fetch calendars for rule %s: %s", rule_name, exc)
-            continue
-        for cal in calendars:
-            if "reader" not in cal.get("accessRole", ""):
-                label = f"{safe_get(cal, ['summary'])} ({rule_name})"
-                label_to_entry[label] = (api, cal)
+    if rule_names:
+        for rule_name in rule_names:
+            source_details = rules.more.get(rule_name, {})
+            api = rules.readConfigSrc("", rule_name, source_details)
+            if not api:
+                logging.warning("Could not instantiate API for rule %s, skipping", rule_name)
+                continue
+            try:
+                api.setCalendarList()
+                calendars = api.getCalendarList() or []
+            except Exception as exc:
+                logging.warning("Failed to fetch calendars for rule %s: %s", rule_name, exc)
+                continue
+            for cal in calendars:
+                if "reader" not in cal.get("accessRole", ""):
+                    label = f"{safe_get(cal, ['summary'])} ({rule_name})"
+                    label_to_entry[label] = (api, cal)
+
+    if extra_calendars:
+        for extra in extra_calendars:
+            if isinstance(extra, str):
+                label_to_entry[extra] = (None, {"id": extra, "summary": extra})
+            elif isinstance(extra, tuple) and len(extra) == 2:
+                label_to_entry[extra[0]] = extra[1]
 
     if not label_to_entry:
         raise CalendarError("No writable calendars found across all configured rules")
@@ -124,10 +138,15 @@ def select_calendar_from_all_rules(args, title="", rules=None):
         raise CalendarError(f"Invalid calendar selection: {selected_label!r}")
 
     selected_api, selected_cal = label_to_entry[selected_label]
-    calendar_id = selected_cal["id"]
+    calendar_id = selected_cal["id"] if isinstance(selected_cal, dict) else selected_cal
+    cal_summary = (
+        safe_get(selected_cal, ["summary"])
+        if isinstance(selected_cal, dict)
+        else selected_label
+    )
     logging.info(
         "Selected calendar: %s (ID: %s)",
-        safe_get(selected_cal, ["summary"]),
+        cal_summary,
         calendar_id,
     )
     return selected_api, calendar_id

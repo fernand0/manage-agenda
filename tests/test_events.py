@@ -191,6 +191,84 @@ class TestEvents(unittest.TestCase):
         mock_client.events().insert.assert_called()
         mock_client.events().delete.assert_called()
 
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    @patch("builtins.input", side_effect=["", "0"])
+    def test_move_events_cli_select_delete_calendar(self, mock_input, mock_select_cal):
+        """Test move_events_cli calls delete_action when 'delete' calendar is selected."""
+        from manage_agenda.events import move_events_cli
+
+        args = Args(
+            interactive=True, source=None, destination=None, text=None, delete=False, verbose=False
+        )
+
+        mock_api = MagicMock()
+        mock_client = MagicMock()
+        mock_api.getClient.return_value = mock_client
+        mock_api.getActive.return_value = "calendar1"
+
+        mock_events = {
+            "items": [
+                {
+                    "id": "event1",
+                    "summary": "Meeting to delete",
+                    "start": {"dateTime": "2024-01-15T10:00:00"},
+                    "end": {"dateTime": "2024-01-15T11:00:00"},
+                }
+            ]
+        }
+        mock_client.events().list().execute.return_value = mock_events
+        mock_api.getPostTitle.return_value = "Meeting to delete"
+        mock_api.getPosts.return_value = mock_events["items"]
+        mock_select_cal.side_effect = [(mock_api, "calendar1"), (None, "delete")]
+
+        move_events_cli(args)
+
+        # Destination calendar selection should have requested extra_calendars=["delete"]
+        mock_select_cal.assert_any_call(
+            args, title="Select destination calendar", extra_calendars=["delete"]
+        )
+        mock_client.events().insert.assert_not_called()
+        mock_client.events().delete.assert_called_once_with(
+            calendarId="calendar1", eventId="event1"
+        )
+
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    @patch("builtins.input", side_effect=["", "0"])
+    def test_move_events_cli_destination_arg_delete(self, mock_input, mock_select_cal):
+        """Test move_events_cli calls delete_action when destination arg is 'delete'."""
+        from manage_agenda.events import move_events_cli
+
+        args = Args(
+            interactive=True, source=None, destination="delete", text=None, delete=False, verbose=False
+        )
+
+        mock_api = MagicMock()
+        mock_client = MagicMock()
+        mock_api.getClient.return_value = mock_client
+        mock_api.getActive.return_value = "calendar1"
+
+        mock_events = {
+            "items": [
+                {
+                    "id": "event1",
+                    "summary": "Meeting to delete directly",
+                    "start": {"dateTime": "2024-01-15T10:00:00"},
+                    "end": {"dateTime": "2024-01-15T11:00:00"},
+                }
+            ]
+        }
+        mock_client.events().list().execute.return_value = mock_events
+        mock_api.getPostTitle.return_value = "Meeting to delete directly"
+        mock_api.getPosts.return_value = mock_events["items"]
+        mock_select_cal.return_value = (mock_api, "calendar1")
+
+        move_events_cli(args)
+
+        mock_client.events().insert.assert_not_called()
+        mock_client.events().delete.assert_called_once_with(
+            calendarId="calendar1", eventId="event1"
+        )
+
     def test_parse_datetime_value(self):
         """Test _parse_datetime_value handles datetimes, dates, and strings."""
         from manage_agenda.events import _parse_datetime_value
@@ -451,3 +529,27 @@ class TestEvents(unittest.TestCase):
         self.assertIn("Copied event: Moved Event", output)
         self.assertIn("Deleted event: Moved Event", output)
         self.assertNotIn("=====================================", output)
+
+    def test_move_action_calendar_delete(self):
+        """Test move_action with my_calendar='delete' calls delete_action directly."""
+        from unittest.mock import MagicMock
+
+        from manage_agenda.events import move_action
+
+        mock_api = MagicMock()
+        mock_api.getActive.return_value = "src_cal"
+        mock_client = MagicMock()
+        mock_api.getClient.return_value = mock_client
+        mock_dst = MagicMock()
+
+        event = {
+            "id": "ev1",
+            "summary": "Moved Event",
+            "start": {"dateTime": "2026-10-21T10:00:00"},
+            "end": {"dateTime": "2026-10-21T11:00:00"},
+        }
+
+        move_action(mock_api, event, "delete", mock_dst)
+
+        mock_dst.getClient().events().insert.assert_not_called()
+        mock_client.events().delete.assert_called_once_with(calendarId="src_cal", eventId="ev1")
