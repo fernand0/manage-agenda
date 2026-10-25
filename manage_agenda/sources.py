@@ -324,11 +324,15 @@ def process_txt_cli(args, model, source_name=None, rules=None):
     """Processes txt files and creates calendar events."""
     res = []
     if not source_name:
-        source_name = input(
-            f"Enter filenames separated by spaces (leave empty to use {config.MSG_TXT_DIR}): "
-        ).split()
-        if not source_name:
-            print(f"No filenames entered. Extracting texts from {config.MSG_TXT_DIR}...")
+        if getattr(args, "interactive", False):
+            source_name = input(
+                f"Enter filenames separated by spaces (leave empty to use {config.MSG_TXT_DIR}): "
+            ).split()
+            if not source_name:
+                print(f"No filenames entered. Extracting texts from {config.MSG_TXT_DIR}...")
+        else:
+                print(f"Extracting texts from {config.MSG_TXT_DIR}...")
+
 
     api_src, posts = _get_msgs_from_folder(args, source_name, rules=rules)
 
@@ -461,23 +465,15 @@ def _get_images_from_folder(args, source_name=None):
     return sorted(valid_files)
 
 
-def process_img_cli(args, model, source_name=None, rules=None, txt_model=None):
-    """Processes images by extracting text via AI and processing with existing text modules."""
-    if not source_name:
-        if getattr(args, "interactive", False):
-            source_input = input(
-                f"Enter filenames separated by spaces (leave empty to use {config.MSG_IMG_DIR}): "
-            ).split()
-            if source_input:
-                source_name = source_input
-            else:
-                print(f"No filenames entered. Extracting images from {config.MSG_IMG_DIR}...")
-        else:
-            print(f"Extracting images from {config.MSG_IMG_DIR}...")
+def _get_texts_from_images(args, model, source_name=None):
+    """Helper function to extract text from images and save them as .txt files.
 
+    Returns a list of paths to the generated text files (empty if no images
+    were found or no text could be extracted).
+    """
     images = _get_images_from_folder(args, source_name)
     if not images:
-        return []
+        return None
 
     target_txt_dir = Path(config.MSG_TXT_DIR)
     target_txt_dir.mkdir(parents=True, exist_ok=True)
@@ -517,11 +513,27 @@ def process_img_cli(args, model, source_name=None, rules=None, txt_model=None):
             f.write(txt_content)
         txt_files.append(str(txt_path))
 
-    if not txt_files:
-        print("No text files generated from images.")
-        return []
+    return txt_files
 
-    return process_txt_cli(args, txt_model or model, source_name=txt_files, rules=rules)
+
+def process_img_cli(args, model, source_name=None, rules=None, txt_model=None):
+    """Processes images by extracting text via AI and processing with existing text modules."""
+    res = []
+    if not source_name:
+        if getattr(args, "interactive", False):
+            source_name = input(
+                f"Enter filenames separated by spaces (leave empty to use {config.MSG_IMG_DIR}): "
+            ).split()
+            if not source_name:
+                print(f"No filenames entered. Extracting images from {config.MSG_IMG_DIR}...")
+        else:
+            print(f"Extracting images from {config.MSG_IMG_DIR}...")
+
+    posts = _get_texts_from_images(args, model, source_name)
+
+    if posts:
+        res = process_txt_cli(args, txt_model or model, source_name=posts, rules=rules)
+    return res
 
 
 process_image_cli = process_img_cli
