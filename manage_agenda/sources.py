@@ -471,49 +471,50 @@ def _get_texts_from_images(args, model, source_name=None):
     Returns a list of paths to the generated text files (empty if no images
     were found or no text could be extracted).
     """
+    ret = []
+
     images = _get_images_from_folder(args, source_name)
-    if not images:
-        return None
+    if images:
+        target_txt_dir = Path(config.MSG_TXT_DIR)
+        target_txt_dir.mkdir(parents=True, exist_ok=True)
 
-    target_txt_dir = Path(config.MSG_TXT_DIR)
-    target_txt_dir.mkdir(parents=True, exist_ok=True)
+        txt_files = []
+        for img_path in images:
+            print(f"Extracting text from {img_path.name} with {model.model_name}...")
+            start_time = time.time()
+            extracted_text = model.generate_text_from_image(img_path)
+            elapsed_time = time.time() - start_time
+            print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
+            if not extracted_text or not extracted_text.strip():
+                print(f"Could not extract text from {img_path.name}, skipping.")
+                continue
 
-    txt_files = []
-    for img_path in images:
-        print(f"Extracting text from {img_path.name} with {model.model_name}...")
-        start_time = time.time()
-        extracted_text = model.generate_text_from_image(img_path)
-        elapsed_time = time.time() - start_time
-        print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
-        if not extracted_text or not extracted_text.strip():
-            print(f"Could not extract text from {img_path.name}, skipping.")
-            continue
+            extracted_text = (
+                extracted_text.replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+            )
 
-        extracted_text = (
-            extracted_text.replace("\\r\\n", "\n")
-            .replace("\\n", "\n")
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-        )
+            try:
+                mtime = img_path.stat().st_mtime
+                date_str = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        try:
-            mtime = img_path.stat().st_mtime
-            date_str = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
-        except Exception:
-            date_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            txt_content = (
+                f"{img_path.stem}\n"
+                f"Date: {date_str}\n\n"
+                f"{extracted_text.strip()}\n\n"
+                f"Date: {date_str}\n"
+            )
+            txt_path = target_txt_dir / f"{img_path.stem}.txt"
+            with open(txt_path, "w", encoding="utf-8") as f:
+                f.write(txt_content)
+            txt_files.append(str(txt_path))
+            ret = txt_files
 
-        txt_content = (
-            f"{img_path.stem}\n"
-            f"Date: {date_str}\n\n"
-            f"{extracted_text.strip()}\n\n"
-            f"Date: {date_str}\n"
-        )
-        txt_path = target_txt_dir / f"{img_path.stem}.txt"
-        with open(txt_path, "w", encoding="utf-8") as f:
-            f.write(txt_content)
-        txt_files.append(str(txt_path))
-
-    return txt_files
+    return ret
 
 
 def process_img_cli(args, model, source_name=None, rules=None, txt_model=None):
