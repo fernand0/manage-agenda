@@ -93,11 +93,26 @@ def select_calendar_from_all_rules(args, title="", rules=None, extra_calendars=N
     Aggregates calendars from every configured gcalendar rule into a single
     flat list. Each entry is displayed as "Calendar Name (rule-name)" so the
     user can tell accounts apart. Returns an (api, calendar_id) tuple.
+
+    When ``args.source`` is already set (e.g. passed via CLI), the calendar
+    selection step is skipped and the first available gcalendar API is returned
+    together with the pre-chosen calendar id.
     """
     rules = rules or moduleRules.from_config()
     rule_names = rules.get_rules_for_services("gcalendar") if rules else []
     if not rule_names and not extra_calendars:
         raise CalendarError("No gcalendar sources configured")
+
+    # Fast-path: caller already knows which calendar to use.
+    source = getattr(args, "source", None)
+    if source and isinstance(source, str):
+        for rule_name in rule_names:
+            source_details = rules.more.get(rule_name, {})
+            api = rules.readConfigSrc("", rule_name, source_details)
+            if api:
+                logging.info("Using pre-selected calendar %s via rule %s", source, rule_name)
+                return api, source
+        raise CalendarError(f"No gcalendar API available to serve pre-selected source '{source}'")
 
     # Collect (api, calendar_dict, rule_name) for every writable calendar.
     # Use an ordered dict keyed by display label so that the entry can be

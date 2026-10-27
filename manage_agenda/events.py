@@ -468,7 +468,7 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
 
 
 def process_calendar_events(
-    args, action_verb, action_func, destination_needed=False, api_src_type="gcalendar"
+    args, action_verb, action_func, destination_needed=False
 ):
     """
     Generic function to handle complete calendar event processing from initialization to action.
@@ -478,19 +478,16 @@ def process_calendar_events(
         action_verb: String describing the action (e.g., 'copy', 'delete', 'move')
         action_func: Function to perform the specific action on selected events
         destination_needed: Boolean indicating if destination calendar is needed
-        api_src_type: Type of API source (default: "gcalendar")
 
     Returns:
         None
     """
-    # Initialize API and calendar
-    if getattr(args, "source", None):
-        api_cal = connections.select_api(args, "gcalendar", rules=None, title="Select Rule")
-        selected_calendar = args.source
-    else:
-        api_cal, selected_calendar = select_calendar_from_all_rules(
-            args, title="Select calendar"
-        )
+    # Initialize API and calendar. When args.source is set the fast-path inside
+    # select_calendar_from_all_rules skips interactive selection and returns the
+    # first available API together with the pre-chosen calendar id.
+    api_cal, selected_calendar = select_calendar_from_all_rules(
+        args, title="Select calendar"
+    )
 
     # Set the active calendar using socialModules method
     api_cal.setActive(selected_calendar)
