@@ -133,7 +133,7 @@ def select_calendar_from_all_rules(args, title="", rules=None, extra_calendars=N
                 logging.warning("Failed to fetch calendars for rule %s: %s", rule_name, exc)
                 continue
             for cal in calendars:
-                if "reader" not in cal.get("accessRole", ""):
+                if "owner" in cal.get("accessRole", ""):
                     label = f"{safe_get(cal, ['summary'])} ({rule_name})"
                     label_to_entry[label] = (api, cal)
 
