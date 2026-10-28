@@ -61,9 +61,14 @@ def llm(ctx):
     default="file",
     help="Output destination: calendar or file",
 )
+@click.option(
+    "--output-dir",
+    default=None,
+    help="Directory for JSON files when --output=file",
+)
 @click.argument("prompt", required=False)
 @click.pass_context
-def evaluate(ctx, type_, output, prompt):
+def evaluate(ctx, type_, output, output_dir, prompt):
     """Evaluate different LLM models"""
     if prompt:
         print(prompt)
@@ -75,6 +80,7 @@ def evaluate(ctx, type_, output, prompt):
         destination=None,
         text=None,
         output=output,
+        output_dir=output_dir,
     )
 
     evaluate_models(args, prompt=prompt, eval_type=type_ if not prompt else None)
@@ -121,8 +127,13 @@ def evaluate(ctx, type_, output, prompt):
     default="calendar",
     help="Output destination: calendar or file",
 )
+@click.option(
+    "--output-dir",
+    default=None,
+    help="Directory for JSON files when --output=file",
+)
 @click.pass_context
-def add(ctx, interactive, source, ai, force_refresh, destination, output):
+def add(ctx, interactive, source, ai, force_refresh, destination, output, output_dir):
     """Add entries to the calendar."""
     verbose = ctx.obj["VERBOSE"]
     args = Args(
@@ -134,6 +145,7 @@ def add(ctx, interactive, source, ai, force_refresh, destination, output):
         destination=destination,
         text=None,
         output=output,
+        output_dir=output_dir,
         force_refresh=force_refresh,
     )
 
