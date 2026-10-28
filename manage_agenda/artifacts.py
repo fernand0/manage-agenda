@@ -8,7 +8,9 @@ directories clean and making whole runs easy to inspect or delete::
     <base>/runs/<timestamp>/posts/<post_id>/prompt.txt               (-v only)
     <base>/runs/<timestamp>/posts/<post_id>/events.json
     <base>/runs/<timestamp>/posts/<post_id>/failure.json
-    <base>/runs/<timestamp>/events/<post_id>_<idx>.json              (--output=file)
+
+Deliverables for ``--output=file`` default to ``./events/`` under the current
+directory and can be redirected with ``--output-dir``.
 
 ``<base>`` defaults to ``~/.local/share/manage-agenda``; tests redirect it by
 patching ``artifacts.BASE_DIR``.
@@ -22,6 +24,7 @@ from pathlib import Path
 from manage_agenda.config import DATA_DIR, RUN_START_TIME
 
 BASE_DIR = DATA_DIR / "runs"
+DEFAULT_DELIVERABLE_DIR = Path("events")
 
 _UNSAFE_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -83,7 +86,10 @@ def save_failure(post_id, model_name, reason):
     return _write(path, json.dumps(payload, indent=2))
 
 
-def save_deliverable(post_id, idx, event, output_dir=None):
+def save_deliverable(post_id, idx, event, output_dir=None, model_name=None):
     """Persist a published event for runs with file output."""
-    base = Path(output_dir) if output_dir else run_dir() / "events"
-    return _write(base / f"{_safe(post_id)}_{idx}.json", json.dumps(event, indent=2))
+    base = Path(output_dir) if output_dir else Path.cwd() / DEFAULT_DELIVERABLE_DIR
+    name = f"{_safe(post_id)}_{idx}"
+    if model_name:
+        name = f"{name}.{_safe(model_name)}"
+    return _write(base / f"{name}.json", json.dumps(event, indent=2))

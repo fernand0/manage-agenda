@@ -41,17 +41,21 @@ def test_verbose_only_artifacts_are_gated():
     assert (artifacts.run_dir() / "posts" / "post-1" / "extracted.m.json").exists()
 
 
-def test_save_deliverable_defaults_to_run_events_dir():
+def test_save_deliverable_defaults_to_events_dir(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
     path = artifacts.save_deliverable("post-1", 2, {"summary": "Test"})
 
-    assert path == artifacts.run_dir() / "events" / "post-1_2.json"
+    assert path == tmp_path / "events" / "post-1_2.json"
     assert json.loads(path.read_text(encoding="utf-8")) == {"summary": "Test"}
 
 
-def test_save_deliverable_honors_output_dir(tmp_path):
-    path = artifacts.save_deliverable("post-1", 1, {"summary": "Test"}, output_dir=tmp_path / "out")
+def test_save_deliverable_honors_output_dir_and_model(tmp_path):
+    path = artifacts.save_deliverable(
+        "post-1", 1, {"summary": "Test"}, output_dir=tmp_path / "out", model_name="qwen:4b"
+    )
 
-    assert path == tmp_path / "out" / "post-1_1.json"
+    assert path == tmp_path / "out" / "post-1_1.qwen_4b.json"
     assert path.exists()
 
 

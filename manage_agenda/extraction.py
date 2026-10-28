@@ -547,7 +547,11 @@ def _process_event_with_llm_and_calendar(
                     )
                 else:
                     path = save_deliverable(
-                        post_identifier, idx, single_event, getattr(args, "output_dir", None)
+                        post_identifier,
+                        idx,
+                        single_event,
+                        getattr(args, "output_dir", None),
+                        model_name=model.model_name,
                     )
                     calendar_result = str(path) if path else None
                     published = path is not None

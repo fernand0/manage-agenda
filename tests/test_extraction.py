@@ -1,9 +1,10 @@
 import datetime
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from manage_agenda import artifacts
 from manage_agenda.extraction import (
     add_message_to_event_description,
     create_event_dict,
@@ -191,6 +192,7 @@ more text"""
         """Test _process_event_with_llm_and_calendar with file output option."""
         from manage_agenda.extraction import _process_event_with_llm_and_calendar
 
+        output_dir = tempfile.mkdtemp()
         args = Args(
             interactive=False,
             delete=False,
@@ -199,9 +201,11 @@ more text"""
             destination="",
             text="",
             output="file",
+            output_dir=output_dir,
         )
 
         mock_model = MagicMock()
+        mock_model.model_name = "test_model"
         event = {
             "summary": "Meeting One",
             "start": {"dateTime": "2024-01-01T10:00:00"},
@@ -221,9 +225,11 @@ more text"""
         )
 
         self.assertEqual(events[0]["summary"], "Meeting One")
-        deliverable = artifacts.run_dir() / "events" / "post_123_1.json"
-        self.assertEqual(results, [str(deliverable)])
-        self.assertTrue(deliverable.exists())
+        self.assertEqual(len(results), 1)
+        written = Path(results[0])
+        self.assertEqual(written.parent, Path(output_dir))
+        self.assertEqual(written.name, "post_123_1.test_model.json")
+        self.assertTrue(written.exists())
 
         mock_select_api.assert_not_called()
         mock_select_calendar.assert_not_called()
