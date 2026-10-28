@@ -28,9 +28,8 @@ class FixtureModel:
     ("fixture_name", "expected_start_dates"),
     FIXTURE_CASES,
 )
-def test_parses_llm_response_fixture(fixture_name, expected_start_dates, monkeypatch):
+def test_parses_llm_response_fixture(fixture_name, expected_start_dates):
     response = (FIXTURES_DIR / fixture_name).read_text(encoding="utf-8")
-    monkeypatch.setattr("manage_agenda.extraction.write_file", lambda *args: None)
 
     event, _, _ = get_event_from_llm(
         FixtureModel(response), "Extract calendar events", fixture_name

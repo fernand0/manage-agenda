@@ -13,7 +13,7 @@ from socialModules.moduleContent import display_posts
 from socialModules.moduleRules import moduleRules
 from socialModules.configMod import CONFIGDIR, select_from_list
 
-from manage_agenda.base import format_time, write_file
+from manage_agenda.base import format_time
 from manage_agenda.config import config
 from manage_agenda.connections import select_api
 from manage_agenda.events import print_events_summary
@@ -34,6 +34,7 @@ class Args:
     destination: Optional[str] = None
     text: Optional[str] = None
     output: str = "calendar"
+    output_dir: Optional[str] = None
     force_refresh: bool = False
     start_date: Optional[str] = None
 
@@ -294,8 +295,7 @@ def _process_common_flow(
         if not content_text:
             continue
 
-        # 4. Save & Print (Common)
-        write_file(f"log/{post_id}_text.txt", content_text)
+        # 4. Print (Common)
         if args.verbose:
             print_first_10_lines(content_text, "content")
 

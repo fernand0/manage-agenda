@@ -13,7 +13,15 @@ from pathlib import Path
 import googleapiclient
 from socialModules.configMod import safe_get
 
-from manage_agenda.base import format_time, write_file
+from manage_agenda.artifacts import (
+    save_deliverable,
+    save_events,
+    save_extracted,
+    save_failure,
+    save_prompt,
+    save_response,
+)
+from manage_agenda.base import format_time
 from manage_agenda.connections import select_api, select_calendar
 from manage_agenda.llm import select_llm
 
@@ -200,7 +208,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
     event, vcal_json = None, None
     start_time = time.time()
     llm_response = model.generate_text(prompt)
-    write_file(f"log/{model.model_name}/{post_id}_llm.txt", llm_response)
+    save_response(model.model_name, post_id, llm_response)
     elapsed_time = time.time() - start_time
     print(f"AI call took {format_time(elapsed_time)} ({elapsed_time:.2f} seconds)")
 
@@ -220,9 +228,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
         try:
             vcal_json = ast.literal_eval(extract_json(llm_response.replace("\n", " ")))
             repair_event_datetimes(vcal_json)
-            write_file(
-                f"log/{model.model_name}/{post_id}_vcal_extracted.txt", json.dumps(vcal_json)
-            )
+            save_extracted(model.model_name, post_id, vcal_json, verbose)
             if verbose:
                 print_first_lines(vcal_json, n=None, title="Json")
             event = vcal_json
@@ -233,9 +239,7 @@ def get_event_from_llm(model, prompt, post_id, verbose=False):
                 repaired = repair_json(extract_json(llm_response.replace("\n", " ")))
                 vcal_json = json.loads(repaired)
                 repair_event_datetimes(vcal_json)
-                write_file(
-                    f"log/{model.model_name}/{post_id}_vcal_extracted.txt", json.dumps(vcal_json)
-                )
+                save_extracted(model.model_name, post_id, vcal_json, verbose)
                 if verbose:
                     print_first_lines(vcal_json, n=None, title="Json (repaired)")
                 event = vcal_json
@@ -383,7 +387,7 @@ def _extract_event_with_llm_retry(
     total_elapsed_time = 0
     while True:
         prompt = _create_llm_prompt(prompt_content, reference_date_time)
-        write_file(f"log/{post_identifier}_prompt.txt", prompt)
+        save_prompt(post_identifier, prompt, verbose=args.verbose)
         if args.verbose:
             print_first_lines(prompt, n=None, title="Prompt")
 
@@ -411,10 +415,7 @@ def _extract_event_with_llm_retry(
                 print_first_lines(processed_events, title="Proc event")
             break
 
-        write_file(
-            f"log/{post_identifier}_fail.json",
-            json.dumps(vcal_json) if vcal_json else "Failed extraction",
-        )
+        save_failure(post_identifier, model.model_name, vcal_json or "Failed extraction")
         if not args.interactive:
             return None, vcal_json, total_elapsed_time, False, False, False
 
@@ -434,10 +435,7 @@ def _extract_event_with_llm_retry(
                 continue
         return None, vcal_json, total_elapsed_time, False, False, False
 
-    write_file(
-        f"log/{model.model_name}/{post_identifier}_event_processed.json",
-        json.dumps(event) if isinstance(event, (dict, list)) else str(event),
-    )
+    save_events(post_identifier, event)
     return event, vcal_json, total_elapsed_time, True, False, False
 
 
@@ -515,10 +513,6 @@ def _process_event_with_llm_and_calendar(
         else:
             for idx, single_event in enumerate(events, start=1):
                 single_event = adjust_event_times(single_event)
-                write_file(
-                    f"log/{model.model_name}/{post_identifier}_{idx}.json",
-                    json.dumps(single_event),
-                )
                 _display_event_info(
                     single_event, subject_for_print, elapsed_time, model, post_identifier
                 )
@@ -547,21 +541,22 @@ def _process_event_with_llm_and_calendar(
                     continue
 
                 _add_ai_metadata_to_event(single_event, model, elapsed_time)
-                file_name = f"log/{post_identifier}_{idx}_times.json"
                 if getattr(args, "output", "calendar") == "calendar":
                     published, calendar_result = _publish_event_to_calendar(
                         api_dst, single_event, selected_calendar
                     )
                 else:
-                    write_file(file_name, json.dumps(single_event))
-                    calendar_result = f"{post_identifier}_{idx}_times.json"
-                    published = True
+                    path = save_deliverable(
+                        post_identifier, idx, single_event, getattr(args, "output_dir", None)
+                    )
+                    calendar_result = str(path) if path else None
+                    published = path is not None
                 if published:
                     calendar_results.append(calendar_result)
                     print(
                         "Calendar event created"
                         if getattr(args, "output", "calendar") == "calendar"
-                        else f"File {post_identifier}_{idx}_times.json created"
+                        else f"File {calendar_result} created"
                     )
                     success = True
 

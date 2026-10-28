@@ -19,12 +19,12 @@ class TestProcessEmailCli(unittest.TestCase):
     @patch("manage_agenda.sources.select_api")
     @patch("manage_agenda.sources._get_emails_from_folder")
     @patch("manage_agenda.extraction.select_calendar")
-    @patch("manage_agenda.extraction.write_file")
-    @patch("manage_agenda.sources.write_file")
+    @patch("manage_agenda.extraction.save_events")
+    @patch("manage_agenda.extraction.save_response")
     def test_process_email_cli_success(
         self,
-        mock_source_write_file,
-        mock_write_file,
+        mock_save_response,
+        mock_save_events,
         mock_select_calendar,
         mock_get_emails_from_folder,
         mock_select_api_source,
@@ -63,8 +63,8 @@ class TestProcessEmailCli(unittest.TestCase):
         process_email_cli(args, mock_model)
 
         self.assertEqual(mock_model.generate_text.call_count, 2)
-        mock_source_write_file.assert_called_once()
-        self.assertEqual(mock_write_file.call_count, 7)
+        self.assertEqual(mock_save_response.call_count, 2)
+        mock_save_events.assert_called_once()
         mock_select_calendar.assert_called_once()
         mock_api_dst.publishPost.assert_called_once()
         mock_api_src.modifyLabels.assert_called_once()

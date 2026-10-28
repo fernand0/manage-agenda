@@ -3,6 +3,7 @@ import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
+from manage_agenda import artifacts
 from manage_agenda.extraction import (
     add_message_to_event_description,
     create_event_dict,
@@ -116,12 +117,12 @@ more text"""
     @patch("manage_agenda.extraction.get_event_from_llm")
     @patch("manage_agenda.extraction.select_api")
     @patch("manage_agenda.extraction.select_calendar")
-    @patch("manage_agenda.extraction.write_file")
+    @patch("manage_agenda.extraction.save_events")
     @patch("manage_agenda.events._validate_event_dates_interactive")
     def test_process_event_with_llm_and_calendar_multiple_events(
         self,
         mock_interactive_confirmation,
-        mock_write_file,
+        mock_save_events,
         mock_select_calendar,
         mock_select_api,
         mock_get_event_from_llm,
@@ -173,18 +174,16 @@ more text"""
         self.assertEqual(events[1]["summary"], "Meeting Two")
         self.assertEqual(results, ["result1", "result2"])
 
-        self.assertEqual(mock_write_file.call_count, 4)
+        mock_save_events.assert_called_once()
         self.assertEqual(mock_api_dst.publishPost.call_count, 2)
 
     @patch("manage_agenda.extraction._extract_event_with_llm_retry")
     @patch("manage_agenda.extraction.select_api")
     @patch("manage_agenda.extraction.select_calendar")
-    @patch("manage_agenda.extraction.write_file")
     @patch("manage_agenda.events._validate_event_dates_interactive")
     def test_process_event_with_llm_and_calendar_file_output(
         self,
         mock_interactive_confirmation,
-        mock_write_file,
         mock_select_calendar,
         mock_select_api,
         mock_extract_event_with_llm_retry,
@@ -222,11 +221,12 @@ more text"""
         )
 
         self.assertEqual(events[0]["summary"], "Meeting One")
-        self.assertEqual(results, ["post_123_1_times.json"])
+        deliverable = artifacts.run_dir() / "events" / "post_123_1.json"
+        self.assertEqual(results, [str(deliverable)])
+        self.assertTrue(deliverable.exists())
 
         mock_select_api.assert_not_called()
         mock_select_calendar.assert_not_called()
-        mock_write_file.assert_called()
 
 
 class TestRepairJson(unittest.TestCase):

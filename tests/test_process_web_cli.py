@@ -57,14 +57,12 @@ class TestProcessWebCli(unittest.TestCase):
     @patch("manage_agenda.sources._get_pages_from_urls")
     @patch("manage_agenda.sources.moduleRules")
     @patch("manage_agenda.sources.reduce_html")
-    @patch("manage_agenda.sources.write_file")
     @patch("manage_agenda.sources.print_first_10_lines")
     @patch("manage_agenda.sources._process_event_with_llm_and_calendar")
     def test_process_web_cli_success(
         self,
         mock_process_event,
         mock_print_lines,
-        mock_write_file,
         mock_reduce_html,
         mock_module_rules,
         mock_get_pages,
