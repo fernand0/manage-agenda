@@ -177,9 +177,9 @@ When LLM extraction fails, interactive mode offers fallback options:
 - `p`: Provide a relevant text snippet for the LLM to focus on
 - `s`: Skip the item
 
-### Run Artifacts
-Each invocation writes its partial results under one per-run directory, keeping
-input directories clean:
+### File Persistence
+Each invocation writes internal run artifacts under one per-run directory,
+keeping input directories clean:
 
 ```
 ~/.local/share/manage-agenda/runs/<timestamp>/
@@ -195,10 +195,16 @@ With `-v/--verbose` the prompt and extracted JSON are saved too; everything else
 is reconstructible from those. A whole run can be inspected or discarded by
 looking at its timestamped directory.
 
-`-o/--output file` deliverables are separate from this tree: they go to
-`~/Documents/events/` when `~/Documents/` exists, otherwise
-`~/.local/share/manage-agenda/events/` (named
-`<post_id>_<idx>.<model>.json`), or to `--output-dir` when given.
+When using `-o/--output file`, published event JSON files are kept separate
+from run artifacts. The destination is selected in this order:
+
+1. `--output-dir` when provided.
+2. `~/Documents/events/` when `~/Documents/` exists.
+3. `~/.local/share/manage-agenda/events/` otherwise.
+
+Each published file is named `<post_id>_<idx>.<model>.json`. Repeating an
+extraction with the same post ID, event index, and model overwrites that file;
+use `--output-dir` to keep outputs from separate runs apart.
 
 ---
 
