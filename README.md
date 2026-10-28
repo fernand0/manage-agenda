@@ -119,6 +119,9 @@ uv run manage-agenda add -i -f
 # Save events to JSON files instead of adding to calendar
 uv run manage-agenda add -o file
 
+# ...into a specific directory (default: the run directory below)
+uv run manage-agenda add -o file --output-dir ./events
+
 # Add events to a specific calendar
 uv run manage-agenda add -d "My Calendar"
 
@@ -174,6 +177,25 @@ When LLM extraction fails, interactive mode offers fallback options:
 - `p`: Provide a relevant text snippet for the LLM to focus on
 - `s`: Skip the item
 
+### Run Artifacts
+Each invocation writes its partial results under one per-run directory, keeping
+input directories clean:
+
+```
+~/.local/share/manage-agenda/runs/<timestamp>/
+├── posts/<post_id>/
+│   ├── response.<model>.txt   # raw LLM response
+│   ├── events.json            # final normalized events
+│   ├── prompt.txt             # -v only
+│   ├── extracted.<model>.json # -v only
+│   └── failure.json           # only when extraction fails
+└── events/                    # deliverables for `-o file`
+```
+
+With `-v/--verbose` the prompt and extracted JSON are saved too; everything else
+is reconstructible from those. A whole run can be inspected or discarded by
+looking at its timestamped directory.
+
 ---
 
 ## Commands
@@ -188,6 +210,7 @@ Add entries to your calendar from email, web, text file, or image sources. In in
 - `-f, --force-refresh`: Force refresh web content to bypass cache
 - `-d, --destination`: Select destination calendar by name
 - `-o, --output`: Output destination (default: `calendar`). Options: `calendar`, `file`
+- `--output-dir`: Directory for JSON files when `--output=file` (default: the run's `events/` directory)
 
 ### `llm` - LLM Operations
 Group command for LLM-related operations.
@@ -198,6 +221,7 @@ Evaluate multiple Ollama models by running the same prompt through each and comp
 ##### Options
 - `-t, --type`: Evaluation input type (default: `txt`). Options: `email`, `web`, `txt`, `image`
 - `-o, --output`: Output destination (default: `file`). Options: `calendar`, `file`
+- `--output-dir`: Directory for JSON files when `--output=file` (default: the run's `events/` directory)
 - `PROMPT` (optional argument): Text prompt to evaluate directly
 
 ### Calendar Management Commands
