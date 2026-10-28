@@ -756,10 +756,10 @@ def add_events_cli(args, rules=None):
     txt_model = model
     if is_img and args.interactive:
         try:
-            use_same = input("Use the same AI model for text processing? (Y/n): ").strip().lower()
+            use_same = input("Use the same AI model for text processing? (y/N): ").strip().lower()
         except (EOFError, IOError):
-            use_same = "y"
-        if use_same in ["n", "no"]:
+            use_same = "n"
+        if not use_same or use_same in ["n", "no"]:
             txt_model = (
                 select_llm(
                     args,

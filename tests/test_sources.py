@@ -687,6 +687,38 @@ class TestSourceUtilities(unittest.TestCase):
             args, vision_model, source_name=None, rules=ANY, txt_model=vision_model
         )
 
+    @patch("manage_agenda.sources.print_events_summary")
+    @patch("manage_agenda.sources.process_img_cli")
+    @patch("manage_agenda.sources.get_add_sources")
+    @patch("manage_agenda.sources.select_from_list")
+    @patch("manage_agenda.sources.select_llm")
+    def test_add_events_cli_image_interactive_default_selects_second_model(
+        self, mock_select_llm, mock_sfl, mock_get_sources, mock_process_img, mock_print_summary
+    ):
+        """In interactive mode with image, pressing Enter defaults to N (selecting separate text model)."""
+        from manage_agenda.sources import add_events_cli
+
+        args = Args(interactive=True, source=None, verbose=False)
+        mock_get_sources.return_value = ([], [("image", "set", "")])
+        mock_sfl.return_value = (0, ("image", "set", ""))
+
+        vision_model = MagicMock()
+        vision_model.model_name = "vision-model"
+        text_model = MagicMock()
+        text_model.model_name = "text-model"
+        mock_select_llm.side_effect = [vision_model, text_model]
+        mock_process_img.return_value = [{"summary": "Event"}]
+
+        with patch("builtins.input", return_value=""):
+            result = add_events_cli(args)
+
+        self.assertEqual(mock_select_llm.call_count, 2)
+        mock_select_llm.assert_any_call(args, multimodal=True, title="Select vision model provider")
+        mock_select_llm.assert_any_call(args, multimodal=False, title="Select text model provider")
+        mock_process_img.assert_called_once_with(
+            args, vision_model, source_name=None, rules=ANY, txt_model=text_model
+        )
+
     def test_is_image_source(self):
         """Test _is_image_source detection helper."""
         from manage_agenda.sources import _is_image_source
