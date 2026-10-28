@@ -41,13 +41,26 @@ def test_verbose_only_artifacts_are_gated():
     assert (artifacts.run_dir() / "posts" / "post-1" / "extracted.m.json").exists()
 
 
-def test_save_deliverable_defaults_to_events_dir(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
+def test_save_deliverable_defaults_to_documents_events_dir(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    documents_dir = home / "Documents"
+    documents_dir.mkdir(parents=True)
+    monkeypatch.setattr(artifacts.Path, "home", lambda: home)
 
     path = artifacts.save_deliverable("post-1", 2, {"summary": "Test"})
 
-    assert path == tmp_path / "events" / "post-1_2.json"
+    assert path == documents_dir / "events" / "post-1_2.json"
     assert json.loads(path.read_text(encoding="utf-8")) == {"summary": "Test"}
+
+
+def test_save_deliverable_falls_back_when_documents_dir_is_unavailable(monkeypatch, tmp_path):
+    home = tmp_path / "home"
+    monkeypatch.setattr(artifacts.Path, "home", lambda: home)
+    monkeypatch.setattr(artifacts, "DATA_DIR", tmp_path / "data")
+
+    path = artifacts.save_deliverable("post-1", 2, {"summary": "Test"})
+
+    assert path == tmp_path / "data" / "events" / "post-1_2.json"
 
 
 def test_save_deliverable_honors_output_dir_and_model(tmp_path):

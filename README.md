@@ -196,8 +196,9 @@ is reconstructible from those. A whole run can be inspected or discarded by
 looking at its timestamped directory.
 
 `-o/--output file` deliverables are separate from this tree: they go to
-`./events/` under the working directory (named `<post_id>_<idx>.<model>.json`),
-or to `--output-dir` when given.
+`~/Documents/events/` when `~/Documents/` exists, otherwise
+`~/.local/share/manage-agenda/events/` (named
+`<post_id>_<idx>.<model>.json`), or to `--output-dir` when given.
 
 ---
 
@@ -213,7 +214,7 @@ Add entries to your calendar from email, web, text file, or image sources. In in
 - `-f, --force-refresh`: Force refresh web content to bypass cache
 - `-d, --destination`: Select destination calendar by name
 - `-o, --output`: Output destination (default: `calendar`). Options: `calendar`, `file`
-- `--output-dir`: Directory for JSON files when `--output=file` (default: `./events`)
+- `--output-dir`: Directory for JSON files when `--output=file` (default: `~/Documents/events`, falling back to `~/.local/share/manage-agenda/events`)
 
 ### `llm` - LLM Operations
 Group command for LLM-related operations.
@@ -224,7 +225,7 @@ Evaluate multiple Ollama models by running the same prompt through each and comp
 ##### Options
 - `-t, --type`: Evaluation input type (default: `txt`). Options: `email`, `web`, `txt`, `image`
 - `-o, --output`: Output destination (default: `file`). Options: `calendar`, `file`
-- `--output-dir`: Directory for JSON files when `--output=file` (default: `./events`)
+- `--output-dir`: Directory for JSON files when `--output=file` (default: `~/Documents/events`, falling back to `~/.local/share/manage-agenda/events`)
 - `PROMPT` (optional argument): Text prompt to evaluate directly
 
 ### Calendar Management Commands
