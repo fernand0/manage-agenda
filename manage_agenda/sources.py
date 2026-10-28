@@ -746,8 +746,9 @@ def add_events_cli(args, rules=None):
         selected = matches[0] if matches else None
 
     is_img = _is_image_source(selected)
-    if is_img and args.interactive:
-        model = select_llm(args, multimodal=True, title="Select vision model provider")
+    if args.interactive:
+        title = "Select vision model provider" if is_img else "Select text model provider"
+        model = select_llm(args, multimodal=is_img, title=title)
     else:
         model = select_llm(args, multimodal=is_img)
     print(f"Selected model: {model.model_name}")

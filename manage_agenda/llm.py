@@ -185,6 +185,7 @@ class OllamaClient(LLMClient):
                     self.model_name = ""
             elif models:
                 title = "Available multi-modal models" if multimodal else "Available models"
+                title = f"{title} in Ollama"
                 _, self.model_name = select_from_list(
                     models, identifier="model", title=title
                 )
@@ -369,14 +370,14 @@ class GeminiClient(LLMClient):
         self.client = genai.Client(api_key=self.api_key)
         if not model_name:
             models = self.list_models(multimodal=multimodal)
-            title = "Available multi-modal models" if multimodal else None
-            extra_args = {"title": title} if title else {}
+            title = "Available multi-modal models" if multimodal else "Available models"
+            title = f"{title} in Gemini"
             sel, name = select_from_list(
                 models,
                 identifier="name",
                 selector="gemini",
                 default="models/gemini-2.0-flash",
-                **extra_args,
+                title=title,
             )
             logging.debug("Selected model: %s", name)
             self.model_name = name.split("/")[1]
@@ -457,10 +458,10 @@ class MistralClient(LLMClient):
         if not self.model_name:
             models = self.list_models(self, multimodal=multimodal).data
             default_model = "pixtral-12b-2409" if multimodal else "mistral-small-latest"
-            title = "Available multi-modal models" if multimodal else None
-            extra_args = {"title": title} if title else {}
+            title = "Available multi-modal models" if multimodal else "Available models"
+            title = f"{title} in Mistral"
             sel, name = select_from_list(
-                models, identifier="id", default=default_model, **extra_args
+                models, identifier="id", default=default_model, title=title
             )
             self.model_name = name
         else:
