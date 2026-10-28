@@ -14,3 +14,4 @@ settings.json
 .ruff_cache
 htmlcov
 *.log
+scratch/
