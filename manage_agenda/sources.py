@@ -320,19 +320,26 @@ def _process_common_flow(
     return added_events
 
 
-def process_txt_cli(args, model, source_name=None, rules=None):
-    """Processes txt files and creates calendar events."""
-    res = []
+def _prompt_for_files_if_needed(args, source_name, default_dir, item_name="texts"):
+    """Prompts for filenames if not provided in interactive mode, otherwise announces default folder."""
     if not source_name:
         if getattr(args, "interactive", False):
             source_name = input(
-                f"Enter filenames separated by spaces (leave empty to use {config.MSG_TXT_DIR}): "
+                f"Enter filenames separated by spaces (leave empty to use {default_dir}): "
             ).split()
             if not source_name:
-                print(f"No filenames entered. Extracting texts from {config.MSG_TXT_DIR}...")
-        else:
-                print(f"Extracting texts from {config.MSG_TXT_DIR}...")
+                print("No filenames entered.")
+        if not source_name:
+            print(f"Extracting {item_name} from {default_dir}...")
+    return source_name
 
+
+def process_txt_cli(args, model, source_name=None, rules=None):
+    """Processes txt files and creates calendar events."""
+    res = []
+    source_name = _prompt_for_files_if_needed(
+        args, source_name, config.MSG_TXT_DIR, item_name="texts"
+    )
 
     api_src, posts = _get_msgs_from_folder(args, source_name, rules=rules)
 
@@ -520,15 +527,9 @@ def _get_texts_from_images(args, model, source_name=None):
 def process_img_cli(args, model, source_name=None, rules=None, txt_model=None):
     """Processes images by extracting text via AI and processing with existing text modules."""
     res = []
-    if not source_name:
-        if getattr(args, "interactive", False):
-            source_name = input(
-                f"Enter filenames separated by spaces (leave empty to use {config.MSG_IMG_DIR}): "
-            ).split()
-            if not source_name:
-                print(f"No filenames entered. Extracting images from {config.MSG_IMG_DIR}...")
-        else:
-            print(f"Extracting images from {config.MSG_IMG_DIR}...")
+    source_name = _prompt_for_files_if_needed(
+        args, source_name, config.MSG_IMG_DIR, item_name="images"
+    )
 
     posts = _get_texts_from_images(args, model, source_name)
 

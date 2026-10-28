@@ -822,6 +822,39 @@ class TestProcessImgCli(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].name, "event.jpg")
 
+    def test_prompt_for_files_if_needed_with_existing_sources(self):
+        """Returns source_name directly if already provided."""
+        from manage_agenda.sources import _prompt_for_files_if_needed
+
+        result = _prompt_for_files_if_needed(self.args, ["file1.txt"], "/tmp/dir")
+        self.assertEqual(result, ["file1.txt"])
+
+    def test_prompt_for_files_if_needed_interactive_user_enters_files(self):
+        """In interactive mode, returns user-entered filenames."""
+        from manage_agenda.sources import _prompt_for_files_if_needed
+
+        self.args.interactive = True
+        with patch("builtins.input", return_value="a.txt b.txt"):
+            result = _prompt_for_files_if_needed(self.args, None, "/tmp/dir")
+        self.assertEqual(result, ["a.txt", "b.txt"])
+
+    def test_prompt_for_files_if_needed_interactive_empty_input(self):
+        """In interactive mode with empty input, returns empty list and announces default dir."""
+        from manage_agenda.sources import _prompt_for_files_if_needed
+
+        self.args.interactive = True
+        with patch("builtins.input", return_value=""):
+            result = _prompt_for_files_if_needed(self.args, None, "/tmp/dir", item_name="texts")
+        self.assertEqual(result, [])
+
+    def test_prompt_for_files_if_needed_non_interactive(self):
+        """In non-interactive mode without source_name, returns input source_name."""
+        from manage_agenda.sources import _prompt_for_files_if_needed
+
+        self.args.interactive = False
+        result = _prompt_for_files_if_needed(self.args, None, "/tmp/dir", item_name="texts")
+        self.assertIsNone(result)
+
     # --- process_img_cli ---
 
     @patch("manage_agenda.sources.process_txt_cli")
