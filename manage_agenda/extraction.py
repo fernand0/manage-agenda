@@ -412,7 +412,7 @@ def _extract_event_with_llm_retry(
             break
 
         write_file(
-            f"log/{post_identifier}_fail.vcal",
+            f"log/{post_identifier}_fail.json",
             json.dumps(vcal_json) if vcal_json else "Failed extraction",
         )
         if not args.interactive:
@@ -435,22 +435,9 @@ def _extract_event_with_llm_retry(
         return None, vcal_json, total_elapsed_time, False, False, False
 
     write_file(
-        f"log/{model.model_name}/{post_identifier}_event_processed.vcal",
+        f"log/{model.model_name}/{post_identifier}_event_processed.json",
         json.dumps(event) if isinstance(event, (dict, list)) else str(event),
     )
-    if isinstance(event, (list, tuple)):
-        for idx, single_event in enumerate(event, start=1):
-            write_file(
-                f"log/{model.model_name}/{post_identifier}_{idx}.vcal",
-                json.dumps(single_event)
-                if isinstance(single_event, (dict, list))
-                else str(single_event),
-            )
-    else:
-        write_file(
-            f"log/{post_identifier}.vcal",
-            json.dumps(event) if isinstance(event, (dict, list)) else str(event),
-        )
     return event, vcal_json, total_elapsed_time, True, False, False
 
 
@@ -566,10 +553,7 @@ def _process_event_with_llm_and_calendar(
                         api_dst, single_event, selected_calendar
                     )
                 else:
-                    write_file(
-                        f"log/{model.model_name}/{post_identifier}_{idx}_times.json",
-                        json.dumps(single_event),
-                    )
+                    write_file(file_name, json.dumps(single_event))
                     calendar_result = f"{post_identifier}_{idx}_times.json"
                     published = True
                 if published:
@@ -580,7 +564,6 @@ def _process_event_with_llm_and_calendar(
                         else f"File {post_identifier}_{idx}_times.json created"
                     )
                     success = True
-                    write_file(file_name, json.dumps(single_event))
 
         logging.debug("Success: %s", success)
         if success:

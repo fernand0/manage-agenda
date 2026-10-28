@@ -64,7 +64,7 @@ class TestProcessEmailCli(unittest.TestCase):
 
         self.assertEqual(mock_model.generate_text.call_count, 2)
         mock_source_write_file.assert_called_once()
-        self.assertEqual(mock_write_file.call_count, 9)
+        self.assertEqual(mock_write_file.call_count, 7)
         mock_select_calendar.assert_called_once()
         mock_api_dst.publishPost.assert_called_once()
         mock_api_src.modifyLabels.assert_called_once()

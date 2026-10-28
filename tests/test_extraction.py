@@ -173,7 +173,7 @@ more text"""
         self.assertEqual(events[1]["summary"], "Meeting Two")
         self.assertEqual(results, ["result1", "result2"])
 
-        self.assertEqual(mock_write_file.call_count, 8)
+        self.assertEqual(mock_write_file.call_count, 4)
         self.assertEqual(mock_api_dst.publishPost.call_count, 2)
 
     @patch("manage_agenda.extraction._extract_event_with_llm_retry")
