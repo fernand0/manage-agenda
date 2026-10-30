@@ -236,7 +236,7 @@ Evaluate multiple Ollama models by running the same prompt through each and comp
 
 ### Calendar Management Commands
 
-> **Event Selection** (applies to `clean`, `copy`, `delete`, `move`, `update-status`):
+> **Event Selection** (applies to `clean`, `copy`, `delete`, `join`, `move`, `update-status`):
 > - Enter comma-separated numbers to select specific events (e.g., `0,2,4`)
 > - Enter `all` to select all events
 > - Enter text to match events containing that text (e.g., `meeting` selects all events with "meeting" in the title)
@@ -275,6 +275,16 @@ Move events between calendars (equivalent to copy + delete).
 - `-d, --destination`: Select destination calendar
 - `-t, --text`: Filter events by title text
 - `-D, --start-date`: First date to search events from (e.g. `'2024-01-01'`). Defaults to today.
+
+#### `join` - Join Events
+Join multiple calendar events into a single event, replacing the original events. Combines the time span (from earliest start to latest end), merges descriptions and locations, and allows selecting one of the original event titles (or specifying a new one).
+
+- `-i, --interactive`: Running in interactive mode (prompts for title selection among the joined events)
+- `-s, --source`: Select source calendar
+- `-d, --destination`: Select destination calendar (defaults to source calendar)
+- `-t, --text`: Filter events by title text
+- `-D, --start-date`: First date to search events from (e.g. `'2024-01-01'`). Defaults to today.
+- `-T, --title`: Specify a title for the joined event
 
 #### `update-status` - Update Event Status
 Update the transparency of calendar events from "opaque" (busy) to "transparent" (available), making them appear as free time.

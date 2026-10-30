@@ -553,3 +553,291 @@ class TestEvents(unittest.TestCase):
 
         mock_dst.getClient().events().insert.assert_not_called()
         mock_client.events().delete.assert_called_once_with(calendarId="src_cal", eventId="ev1")
+
+    def test_build_joined_event_basic(self):
+        """Test build_joined_event combines time range, descriptions, and locations."""
+        from manage_agenda.events import build_joined_event
+
+        events = [
+            {
+                "summary": "Meeting Part 1",
+                "description": "Discuss agenda",
+                "location": "Room 101",
+                "start": {"dateTime": "2024-06-01T09:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T10:00:00+00:00"},
+            },
+            {
+                "summary": "Meeting Part 2",
+                "description": "Action items",
+                "location": "Room 102",
+                "start": {"dateTime": "2024-06-01T10:30:00+00:00"},
+                "end": {"dateTime": "2024-06-01T11:30:00+00:00"},
+            },
+        ]
+
+        joined = build_joined_event(events, "All-Hands Meeting")
+        self.assertEqual(joined["summary"], "All-Hands Meeting")
+        self.assertEqual(joined["start"]["dateTime"], "2024-06-01T09:00:00+00:00")
+        self.assertEqual(joined["end"]["dateTime"], "2024-06-01T11:30:00+00:00")
+        self.assertEqual(joined["description"], "Discuss agenda\n\nAction items")
+        self.assertEqual(joined["location"], "Room 101, Room 102")
+
+    def test_build_joined_event_nested_times(self):
+        """Test build_joined_event when an event is nested inside another."""
+        from manage_agenda.events import build_joined_event
+
+        events = [
+            {
+                "summary": "Full Day Conference",
+                "start": {"dateTime": "2024-06-01T09:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T17:00:00+00:00"},
+            },
+            {
+                "summary": "Keynote Speech",
+                "start": {"dateTime": "2024-06-01T10:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T11:00:00+00:00"},
+            },
+        ]
+
+        joined = build_joined_event(events, "Conference")
+        self.assertEqual(joined["start"]["dateTime"], "2024-06-01T09:00:00+00:00")
+        self.assertEqual(joined["end"]["dateTime"], "2024-06-01T17:00:00+00:00")
+
+    def test_build_joined_event_date_only(self):
+        """Test build_joined_event with all-day (date-only) events."""
+        from manage_agenda.events import build_joined_event
+
+        events = [
+            {
+                "summary": "Hackathon Day 1",
+                "start": {"date": "2024-06-01"},
+                "end": {"date": "2024-06-01"},
+            },
+            {
+                "summary": "Hackathon Day 2",
+                "start": {"date": "2024-06-02"},
+                "end": {"date": "2024-06-03"},
+            },
+        ]
+
+        joined = build_joined_event(events, "Full Hackathon")
+        self.assertEqual(joined["start"]["date"], "2024-06-01")
+        self.assertEqual(joined["end"]["date"], "2024-06-03")
+
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    def test_join_events_cli_basic_non_interactive(self, mock_select_cal):
+        """Test join_events_cli non-interactive flow joining events."""
+        from manage_agenda.events import join_events_cli
+
+        args = Args(
+            interactive=False,
+            source="cal1",
+            destination=None,
+            text=None,
+            delete=False,
+            verbose=False,
+            start_date="2024-01-01",
+        )
+
+        mock_api = MagicMock()
+        mock_client = MagicMock()
+        mock_api.getClient.return_value = mock_client
+        mock_api.getActive.return_value = "cal1"
+
+        mock_events = [
+            {
+                "id": "ev1",
+                "summary": "Morning Sync",
+                "start": {"dateTime": "2024-06-01T09:00:00Z"},
+                "end": {"dateTime": "2024-06-01T10:00:00Z"},
+            },
+            {
+                "id": "ev2",
+                "summary": "Afternoon Retro",
+                "start": {"dateTime": "2024-06-01T14:00:00Z"},
+                "end": {"dateTime": "2024-06-01T15:00:00Z"},
+            },
+        ]
+        mock_api.getPosts.return_value = mock_events
+        mock_api.getPostTitle.side_effect = lambda e: e.get("summary")
+        mock_api.getPostDate.return_value = "2024-06-01"
+        mock_select_cal.return_value = (mock_api, "cal1")
+
+        with patch("manage_agenda.events.select_events_by_user_input", return_value=mock_events):
+            result = join_events_cli(args)
+
+        self.assertIsNotNone(result)
+        # Should pick earliest event's title in non-interactive mode
+        self.assertEqual(result["summary"], "Morning Sync")
+        mock_client.events().insert.assert_called_once_with(calendarId="cal1", body=result)
+        # Original events should be deleted
+        mock_client.events().delete.assert_any_call(calendarId="cal1", eventId="ev1")
+        mock_client.events().delete.assert_any_call(calendarId="cal1", eventId="ev2")
+
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    def test_join_events_cli_with_destination_and_title(self, mock_select_cal):
+        """Test join_events_cli with custom destination and title."""
+        from manage_agenda.events import join_events_cli
+
+        args = Args(
+            interactive=False,
+            source="src_cal",
+            destination="dst_cal",
+            text=None,
+            title="Consolidated Team Day",
+            delete=False,
+            verbose=False,
+            start_date="2024-01-01",
+        )
+
+        mock_api_src = MagicMock()
+        mock_client_src = MagicMock()
+        mock_api_src.getClient.return_value = mock_client_src
+        mock_api_src.getActive.return_value = "src_cal"
+
+        mock_api_dst = MagicMock()
+        mock_client_dst = MagicMock()
+        mock_api_dst.getClient.return_value = mock_client_dst
+
+        mock_events = [
+            {
+                "id": "ev1",
+                "summary": "Part 1",
+                "start": {"dateTime": "2024-06-01T09:00:00Z"},
+                "end": {"dateTime": "2024-06-01T10:00:00Z"},
+            },
+            {
+                "id": "ev2",
+                "summary": "Part 2",
+                "start": {"dateTime": "2024-06-01T11:00:00Z"},
+                "end": {"dateTime": "2024-06-01T12:00:00Z"},
+            },
+        ]
+        mock_api_src.getPosts.return_value = mock_events
+        mock_api_src.getPostTitle.side_effect = lambda e: e.get("summary")
+        mock_api_src.getPostDate.return_value = "2024-06-01"
+        mock_select_cal.return_value = (mock_api_src, "src_cal")
+
+        with patch("manage_agenda.events.connections.select_api", return_value=mock_api_dst):
+            with patch("manage_agenda.events.select_events_by_user_input", return_value=mock_events):
+                result = join_events_cli(args)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["summary"], "Consolidated Team Day")
+        mock_client_dst.events().insert.assert_called_once_with(calendarId="dst_cal", body=result)
+        mock_client_src.events().delete.assert_any_call(calendarId="src_cal", eventId="ev1")
+        mock_client_src.events().delete.assert_any_call(calendarId="src_cal", eventId="ev2")
+
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    @patch("builtins.input", side_effect=["", "0,1", "1"])
+    def test_join_events_cli_interactive_select_title(self, mock_input, mock_select_cal):
+        """Test join_events_cli in interactive mode allowing user to pick from existing titles."""
+        from manage_agenda.events import join_events_cli
+
+        args = Args(
+            interactive=True, source=None, destination=None, text=None, delete=False, verbose=False
+        )
+
+        mock_api = MagicMock()
+        mock_client = MagicMock()
+        mock_api.getClient.return_value = mock_client
+        mock_api.getActive.return_value = "cal1"
+
+        mock_events = [
+            {
+                "id": "ev1",
+                "summary": "First Event",
+                "start": {"dateTime": "2024-06-01T09:00:00Z"},
+                "end": {"dateTime": "2024-06-01T10:00:00Z"},
+            },
+            {
+                "id": "ev2",
+                "summary": "Second Event",
+                "start": {"dateTime": "2024-06-01T10:30:00Z"},
+                "end": {"dateTime": "2024-06-01T11:30:00Z"},
+            },
+        ]
+        mock_api.getPosts.return_value = mock_events
+        mock_api.getPostTitle.side_effect = lambda e: e.get("summary")
+        mock_api.getPostDate.return_value = "2024-06-01"
+        mock_select_cal.return_value = (mock_api, "cal1")
+
+        result = join_events_cli(args)
+
+        self.assertIsNotNone(result)
+        # Selected title '1' corresponding to "Second Event"
+        self.assertEqual(result["summary"], "Second Event")
+        mock_client.events().insert.assert_called_once_with(calendarId="cal1", body=result)
+
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    @patch("builtins.input", side_effect=["", "0,1", "Custom Joint Title"])
+    def test_join_events_cli_interactive_custom_title(self, mock_input, mock_select_cal):
+        """Test join_events_cli in interactive mode allowing user to enter a custom title."""
+        from manage_agenda.events import join_events_cli
+
+        args = Args(
+            interactive=True, source=None, destination=None, text=None, delete=False, verbose=False
+        )
+
+        mock_api = MagicMock()
+        mock_client = MagicMock()
+        mock_api.getClient.return_value = mock_client
+        mock_api.getActive.return_value = "cal1"
+
+        mock_events = [
+            {
+                "id": "ev1",
+                "summary": "First Event",
+                "start": {"dateTime": "2024-06-01T09:00:00Z"},
+                "end": {"dateTime": "2024-06-01T10:00:00Z"},
+            },
+            {
+                "id": "ev2",
+                "summary": "Second Event",
+                "start": {"dateTime": "2024-06-01T10:30:00Z"},
+                "end": {"dateTime": "2024-06-01T11:30:00Z"},
+            },
+        ]
+        mock_api.getPosts.return_value = mock_events
+        mock_api.getPostTitle.side_effect = lambda e: e.get("summary")
+        mock_api.getPostDate.return_value = "2024-06-01"
+        mock_select_cal.return_value = (mock_api, "cal1")
+
+        result = join_events_cli(args)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["summary"], "Custom Joint Title")
+
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
+    def test_join_events_cli_fewer_than_two_events(self, mock_select_cal):
+        """Test join_events_cli aborts when fewer than 2 events are selected."""
+        from manage_agenda.events import join_events_cli
+
+        args = Args(
+            interactive=False, source="cal1", destination=None, text=None, delete=False, verbose=False
+        )
+
+        mock_api = MagicMock()
+        mock_client = MagicMock()
+        mock_api.getClient.return_value = mock_client
+        mock_api.getActive.return_value = "cal1"
+
+        mock_events = [
+            {
+                "id": "ev1",
+                "summary": "Lone Event",
+                "start": {"dateTime": "2024-06-01T09:00:00Z"},
+                "end": {"dateTime": "2024-06-01T10:00:00Z"},
+            }
+        ]
+        mock_api.getPosts.return_value = mock_events
+        mock_api.getPostTitle.return_value = "Lone Event"
+        mock_api.getPostDate.return_value = "2024-06-01"
+        mock_select_cal.return_value = (mock_api, "cal1")
+
+        with patch("manage_agenda.events.select_events_by_user_input", return_value=mock_events):
+            result = join_events_cli(args)
+
+        self.assertIsNone(result)
+        mock_client.events().insert.assert_not_called()
+        mock_client.events().delete.assert_not_called()

@@ -837,3 +837,222 @@ def print_events_summary(events):
         print(line)
     return output_lines
 
+
+def build_joined_event(events, chosen_title):
+    """
+    Build a joined event dictionary from a list of events and a chosen title.
+
+    Args:
+        events: List of event dicts to join.
+        chosen_title: String title for the joined event.
+
+    Returns:
+        Dictionary representing the joined event.
+    """
+    sorted_events = sorted(events, key=_get_event_sort_key)
+    joined_start = dict(sorted_events[0].get("start", {}))
+
+    def _get_end_dt(ev):
+        end = ev.get("end", {})
+        val = end.get("dateTime") or end.get("date") if isinstance(end, dict) else None
+        dt, _ = _parse_datetime_value(val)
+        if dt is None:
+            start = ev.get("start", {})
+            s_val = start.get("dateTime") or start.get("date") if isinstance(start, dict) else None
+            s_dt, _ = _parse_datetime_value(s_val)
+            if s_dt is not None:
+                dt = s_dt + timedelta(minutes=30)
+            else:
+                dt = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        return dt
+
+    event_with_max_end = max(sorted_events, key=_get_end_dt)
+    joined_end = dict(event_with_max_end.get("end", {}))
+
+    if not joined_end:
+        start_val = joined_start.get("dateTime") or joined_start.get("date")
+        s_dt, is_date = _parse_datetime_value(start_val)
+        if is_date:
+            joined_end = {"date": start_val}
+        elif s_dt:
+            joined_end = {"dateTime": (s_dt + timedelta(minutes=30)).isoformat()}
+
+    # Normalize if one is date and the other is dateTime
+    if "date" in joined_start and "dateTime" in joined_end:
+        date_str = joined_start["date"]
+        joined_start = {"dateTime": f"{date_str}T00:00:00"}
+        if "timeZone" in joined_end:
+            joined_start["timeZone"] = joined_end["timeZone"]
+    elif "dateTime" in joined_start and "date" in joined_end:
+        date_str = joined_end["date"]
+        joined_end = {"dateTime": f"{date_str}T23:59:59"}
+        if "timeZone" in joined_start:
+            joined_end["timeZone"] = joined_start["timeZone"]
+
+    descriptions = []
+    for ev in sorted_events:
+        desc = ev.get("description")
+        if desc and isinstance(desc, str) and desc.strip() and desc.strip() not in descriptions:
+            descriptions.append(desc.strip())
+
+    locations = []
+    for ev in sorted_events:
+        loc = ev.get("location")
+        if loc and isinstance(loc, str) and loc.strip() and loc.strip() not in locations:
+            locations.append(loc.strip())
+
+    joined_event = {
+        "summary": chosen_title,
+        "start": joined_start,
+        "end": joined_end,
+    }
+    if descriptions:
+        joined_event["description"] = "\n\n".join(descriptions)
+    if locations:
+        joined_event["location"] = ", ".join(locations)
+
+    return joined_event
+
+
+def join_events_cli(args):
+    """
+    Join multiple calendar events into a single event.
+
+    Args:
+        args: Arguments object containing CLI options.
+
+    Returns:
+        Created joined event dictionary, or None.
+    """
+    result = None
+
+    api_cal, selected_calendar = select_calendar_from_all_rules(
+        args, title="Select calendar"
+    )
+    api_cal.setActive(selected_calendar)
+
+    start_date_str = getattr(args, "start_date", None)
+    if start_date_str:
+        parsed = dateparser.parse(start_date_str)
+        if parsed is not None:
+            today = parsed.astimezone(datetime.timezone.utc)
+        else:
+            logging.warning("Could not parse start_date '%s', falling back to today.", start_date_str)
+            today = datetime.datetime.now(datetime.timezone.utc)
+    else:
+        today = datetime.datetime.now(datetime.timezone.utc)
+
+    all_posts = []
+    try:
+        api_cal.setPostsType("posts")
+        api_cal.setPosts(date=today)
+        all_posts = api_cal.getPosts()
+    except Exception:
+        all_posts = []
+
+    if args.interactive:
+        future_events = all_posts
+    else:
+        future_events = []
+        for post in all_posts:
+            post_date = api_cal.getPostDate(post)
+            logging.debug("Date: %s", post_date)
+
+            if not isinstance(post_date, str):
+                if isinstance(post, dict):
+                    start = post.get("start", {})
+                    post_date = start.get("dateTime") or start.get("date")
+
+            if isinstance(post_date, str):
+                post_date = dateparser.parse(post_date)
+                if post_date and post_date.tzinfo is None:
+                    try:
+                        post_date = pytz.utc.localize(post_date)
+                    except Exception:
+                        pass
+            else:
+                post_date = None
+
+            if post_date and post_date >= today:
+                future_events.append(post)
+
+    print("Upcoming events (up to 20):")
+    for event in future_events[:20]:
+        print(f"- {api_cal.getPostTitle(event)} ({api_cal.getPostDate(event)})")
+
+    text_filter = args.text
+    if args.interactive and not text_filter:
+        text_filter = input("Text to filter by (leave empty for no filter): ")
+
+    filtered_events = filter_events_by_title(api_cal, future_events, text_filter)
+
+    if not filtered_events:
+        print("No events found matching the criteria.")
+    else:
+        selected_events = select_events_by_user_input(api_cal, filtered_events, "join")
+        if not selected_events:
+            print("No events selected.")
+        elif len(selected_events) < 2:
+            print("At least two events must be selected to join.")
+        else:
+            sorted_events = sorted(selected_events, key=_get_event_sort_key)
+
+            titles = []
+            for ev in sorted_events:
+                t = api_cal.getPostTitle(ev) or ev.get("summary") or ""
+                if t and t not in titles:
+                    titles.append(t)
+            if not titles:
+                titles = ["Joined Event"]
+
+            if getattr(args, "title", None):
+                chosen_title = args.title
+            elif args.interactive:
+                print("Select title for joined event:")
+                for idx, t in enumerate(titles):
+                    print(f"{idx}) {t}")
+                choice = input(
+                    f"Choose title [0-{len(titles)-1}] or enter a new title (default 0): "
+                ).strip()
+                if not choice:
+                    chosen_title = titles[0]
+                elif choice.isdigit() and 0 <= int(choice) < len(titles):
+                    chosen_title = titles[int(choice)]
+                else:
+                    chosen_title = choice
+            else:
+                chosen_title = titles[0]
+
+            joined_event = build_joined_event(sorted_events, chosen_title)
+
+            # Destination calendar
+            if getattr(args, "destination", None):
+                my_calendar_dst = connections.select_api(
+                    args, "gcalendar", rules=None, title="Select rule"
+                )
+                my_calendar = args.destination
+            else:
+                my_calendar_dst = api_cal
+                my_calendar = selected_calendar
+
+            my_calendar_dst.getClient().events().insert(
+                calendarId=my_calendar, body=joined_event
+            ).execute()
+            print(f"Joined {len(sorted_events)} events into: {joined_event['summary']}")
+
+            if getattr(args, "verbose", False):
+                display_event_info(joined_event)
+
+            # Delete original events from source calendar
+            for ev in sorted_events:
+                ev_id = ev.get("id")
+                if ev_id:
+                    api_cal.getClient().events().delete(
+                        calendarId=api_cal.getActive(), eventId=ev_id
+                    ).execute()
+                    print(f"Deleted original event: {ev.get('summary') or 'No Title'}")
+
+            result = joined_event
+
+    return result
+

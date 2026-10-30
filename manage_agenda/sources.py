@@ -37,6 +37,7 @@ class Args:
     output_dir: Optional[str] = None
     force_refresh: bool = False
     start_date: Optional[str] = None
+    title: Optional[str] = None
 
 
 def get_add_sources(rules=None):

@@ -11,6 +11,7 @@ from .events import (
     clean_events_cli,
     copy_events_cli,
     delete_events_cli,
+    join_events_cli,
     move_events_cli,
     update_event_status_cli,
 )
@@ -472,6 +473,63 @@ def update_status(ctx, interactive, source, text):
     )
 
     update_event_status_cli(args)
+
+
+@cli.command()
+@click.option(
+    "-i",
+    "--interactive",
+    is_flag=True,
+    default=False,
+    help="Running in interactive mode",
+)
+@click.option(
+    "-s",
+    "--source",
+    default=None,
+    help="Select source calendar",
+)
+@click.option(
+    "-d",
+    "--destination",
+    default=None,
+    help="Select destination calendar (defaults to source calendar)",
+)
+@click.option(
+    "-t",
+    "--text",
+    default=None,
+    help="Select text in title",
+)
+@click.option(
+    "-D",
+    "--start-date",
+    default=None,
+    help="First date to search events from (e.g. '2024-01-01'). Defaults to today.",
+)
+@click.option(
+    "-T",
+    "--title",
+    default=None,
+    help="Title for the joined event",
+)
+@click.pass_context
+def join(ctx, interactive, source, destination, text, start_date, title):
+    """Join multiple events into a single event"""
+    verbose = ctx.obj["VERBOSE"]
+    args = Args(
+        interactive=interactive,
+        delete=None,
+        source=source,
+        verbose=verbose,
+        destination=destination,
+        text=text,
+        start_date=start_date,
+        title=title,
+    )
+
+    join_events_cli(args)
+
 
 BROWSERS = ("chromium", "firefox", "webkit", "chrome", "chrome-beta")
 

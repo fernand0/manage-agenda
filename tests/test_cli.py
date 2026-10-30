@@ -305,6 +305,21 @@ class TestCliCommands(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_move.assert_called_once()
 
+    @patch("manage_agenda.cli.join_events_cli")
+    def test_join_command(self, mock_join):
+        """Test join command."""
+        result = self.runner.invoke(
+            self.cli.cli, ["join", "-s", "cal1", "-d", "cal2", "-t", "meeting", "-T", "Joined Meeting"]
+        )
+
+        self.assertEqual(result.exit_code, 0)
+        mock_join.assert_called_once()
+        args = mock_join.call_args[0][0]
+        self.assertEqual(args.source, "cal1")
+        self.assertEqual(args.destination, "cal2")
+        self.assertEqual(args.text, "meeting")
+        self.assertEqual(args.title, "Joined Meeting")
+
 
 if __name__ == "__main__":
     unittest.main()
