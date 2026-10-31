@@ -541,30 +541,6 @@ def get_filtered_calendar_events(args):
     return (api_cal, filtered_events)
 
 
-def select_calendar_events(args, action_verb):
-    """
-    Select active calendar, filter events, and prompt user to select events.
-
-    Args:
-        args: Command-line arguments object.
-        action_verb: String describing the action (e.g., 'copy', 'delete', 'join').
-
-    Returns:
-        Tuple of (api_cal, selected_events).
-    """
-    api_cal, filtered_events = get_filtered_calendar_events(args)
-    selected_events = []
-
-    if not filtered_events:
-        print("No events found matching the criteria.")
-    else:
-        selected_events = select_events_by_user_input(api_cal, filtered_events, action_verb)
-        if not selected_events:
-            print("No events selected.")
-
-    return (api_cal, selected_events)
-
-
 def process_calendar_events(
     args, action_verb, action_func, destination_needed=False
 ):
@@ -581,67 +557,73 @@ def process_calendar_events(
         Result of the action (if any), or None.
     """
     result = None
-    api_cal, selected_events = select_calendar_events(args, action_verb)
+    api_cal, filtered_events = get_filtered_calendar_events(args)
 
-    if selected_events:
-        if "clean" in action_func.__name__:
-            actions = ["Delete", "Copy", "Move"]
-            msg = "Select operation:"
-            for i, act in enumerate(actions):
-                msg = f"{msg}\n{i}) {act}"
-            msg = f"{msg}\n"
+    if not filtered_events:
+        print("No events found matching the criteria.")
+    else:
+        selected_events = select_events_by_user_input(api_cal, filtered_events, action_verb)
+        if not selected_events:
+            print("No events selected.")
+        else:
+            if "clean" in action_func.__name__:
+                actions = ["Delete", "Copy", "Move"]
+                msg = "Select operation:"
+                for i, act in enumerate(actions):
+                    msg = f"{msg}\n{i}) {act}"
+                msg = f"{msg}\n"
 
-            action_sel = input(msg)
-            destination_needed = True
-            if action_sel == "1":  # Copy
-                action_verb = "copy"
-                action_func = copy_action
-            elif action_sel == "2":  # Move
-                action_verb = "move"
-                action_func = move_action
-            else:  # Delete
-                action_verb = "delete"
-                action_func = delete_action
-                destination_needed = False
-
-        # Handle destination calendar if needed
-        if destination_needed:
-            if getattr(args, "destination", None):
-                if action_verb == "move" and str(args.destination).lower() == "delete":
-                    my_calendar_dst = None
-                    my_calendar = "delete"
+                action_sel = input(msg)
+                destination_needed = True
+                if action_sel == "1":  # Copy
+                    action_verb = "copy"
+                    action_func = copy_action
+                elif action_sel == "2":  # Move
+                    action_verb = "move"
+                    action_func = move_action
+                else:  # Delete
+                    action_verb = "delete"
                     action_func = delete_action
+                    destination_needed = False
+
+            # Handle destination calendar if needed
+            if destination_needed:
+                if getattr(args, "destination", None):
+                    if action_verb == "move" and str(args.destination).lower() == "delete":
+                        my_calendar_dst = None
+                        my_calendar = "delete"
+                        action_func = delete_action
+                    else:
+                        my_calendar_dst = connections.select_api(
+                            args, "gcalendar", rules=None, title="Select rule"
+                        )
+                        my_calendar = args.destination
                 else:
-                    my_calendar_dst = connections.select_api(
-                        args, "gcalendar", rules=None, title="Select rule"
+                    extra_calendars = ["delete"] if action_verb == "move" else None
+                    my_calendar_dst, my_calendar = select_calendar_from_all_rules(
+                        args, title="Select destination calendar", extra_calendars=extra_calendars
                     )
-                    my_calendar = args.destination
+                    if action_verb == "move" and my_calendar and str(my_calendar).lower() == "delete":
+                        action_func = delete_action
+            elif getattr(args, "destination", None):
+                my_calendar_dst = connections.select_api(
+                    args, "gcalendar", rules=None, title="Select rule"
+                )
+                my_calendar = args.destination
             else:
-                extra_calendars = ["delete"] if action_verb == "move" else None
-                my_calendar_dst, my_calendar = select_calendar_from_all_rules(
-                    args, title="Select destination calendar", extra_calendars=extra_calendars
-                )
-                if action_verb == "move" and my_calendar and str(my_calendar).lower() == "delete":
-                    action_func = delete_action
-        elif getattr(args, "destination", None):
-            my_calendar_dst = connections.select_api(
-                args, "gcalendar", rules=None, title="Select rule"
-            )
-            my_calendar = args.destination
-        else:
-            my_calendar = api_cal.getActive()
-            my_calendar_dst = api_cal
+                my_calendar = api_cal.getActive()
+                my_calendar_dst = api_cal
 
-        verbose = getattr(args, "verbose", False)
-        if action_verb == "join":
-            result = action_func(
-                api_cal, selected_events, my_calendar, my_calendar_dst, args=args, verbose=verbose
-            )
-        else:
-            for event in selected_events:
-                _execute_action_func(
-                    action_func, api_cal, event, my_calendar, my_calendar_dst, verbose=verbose
+            verbose = getattr(args, "verbose", False)
+            if action_verb == "join":
+                result = action_func(
+                    api_cal, selected_events, my_calendar, my_calendar_dst, args=args, verbose=verbose
                 )
+            else:
+                for event in selected_events:
+                    _execute_action_func(
+                        action_func, api_cal, event, my_calendar, my_calendar_dst, verbose=verbose
+                    )
 
     return result
 

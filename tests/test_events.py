@@ -730,33 +730,33 @@ class TestEvents(unittest.TestCase):
         self.assertEqual(filtered[0]["summary"], "Team Meeting")
 
     @patch("manage_agenda.events.get_filtered_calendar_events")
-    def test_select_calendar_events_no_filtered_events(self, mock_get_filtered):
-        """Test select_calendar_events when no events match filter."""
-        from manage_agenda.events import select_calendar_events
+    def test_process_calendar_events_no_filtered_events(self, mock_get_filtered):
+        """Test process_calendar_events when no events match filter."""
+        from manage_agenda.events import process_calendar_events
 
         args = Args(interactive=False)
         mock_api = MagicMock()
         mock_get_filtered.return_value = (mock_api, [])
 
-        api_cal, selected = select_calendar_events(args, "join")
-        self.assertEqual(api_cal, mock_api)
-        self.assertEqual(selected, [])
+        result = process_calendar_events(args, "join", MagicMock())
+        self.assertIsNone(result)
 
     @patch("manage_agenda.events.select_events_by_user_input")
     @patch("manage_agenda.events.get_filtered_calendar_events")
-    def test_select_calendar_events_success(self, mock_get_filtered, mock_select_input):
-        """Test select_calendar_events when events are filtered and selected."""
-        from manage_agenda.events import select_calendar_events
+    def test_process_calendar_events_no_selected_events(
+        self, mock_get_filtered, mock_select_input
+    ):
+        """Test process_calendar_events when user selects no events."""
+        from manage_agenda.events import process_calendar_events
 
         args = Args(interactive=False)
         mock_api = MagicMock()
         mock_events = [{"summary": "Event 1"}]
         mock_get_filtered.return_value = (mock_api, mock_events)
-        mock_select_input.return_value = mock_events
+        mock_select_input.return_value = []
 
-        api_cal, selected = select_calendar_events(args, "join")
-        self.assertEqual(api_cal, mock_api)
-        self.assertEqual(selected, mock_events)
+        result = process_calendar_events(args, "join", MagicMock())
+        self.assertIsNone(result)
 
     def test_join_action_fewer_than_two(self):
         """Test join_action returns None when fewer than two events are passed."""
