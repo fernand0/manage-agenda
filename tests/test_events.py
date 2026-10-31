@@ -705,6 +705,98 @@ class TestEvents(unittest.TestCase):
         self.assertEqual(joined["location"], "Room 101, Room 102")
 
     @patch("manage_agenda.events.select_calendar_from_all_rules")
+    def test_get_filtered_calendar_events(self, mock_select_cal):
+        """Test get_filtered_calendar_events fetches and filters events."""
+        from manage_agenda.events import get_filtered_calendar_events
+
+        args = Args(
+            interactive=False,
+            source="cal1",
+            text="Team",
+            start_date="2024-01-01",
+        )
+        mock_api = MagicMock()
+        mock_api.getPosts.return_value = [
+            {"summary": "Team Meeting", "start": {"dateTime": "2024-06-01T10:00:00Z"}},
+            {"summary": "Dentist", "start": {"dateTime": "2024-06-01T14:00:00Z"}},
+        ]
+        mock_api.getPostTitle.side_effect = lambda e: e.get("summary")
+        mock_api.getPostDate.return_value = "2024-06-01T10:00:00Z"
+        mock_select_cal.return_value = (mock_api, "cal1")
+
+        api_cal, filtered = get_filtered_calendar_events(args)
+        self.assertEqual(api_cal, mock_api)
+        self.assertEqual(len(filtered), 1)
+        self.assertEqual(filtered[0]["summary"], "Team Meeting")
+
+    @patch("manage_agenda.events.get_filtered_calendar_events")
+    def test_select_calendar_events_no_filtered_events(self, mock_get_filtered):
+        """Test select_calendar_events when no events match filter."""
+        from manage_agenda.events import select_calendar_events
+
+        args = Args(interactive=False)
+        mock_api = MagicMock()
+        mock_get_filtered.return_value = (mock_api, [])
+
+        api_cal, selected = select_calendar_events(args, "join")
+        self.assertEqual(api_cal, mock_api)
+        self.assertEqual(selected, [])
+
+    @patch("manage_agenda.events.select_events_by_user_input")
+    @patch("manage_agenda.events.get_filtered_calendar_events")
+    def test_select_calendar_events_success(self, mock_get_filtered, mock_select_input):
+        """Test select_calendar_events when events are filtered and selected."""
+        from manage_agenda.events import select_calendar_events
+
+        args = Args(interactive=False)
+        mock_api = MagicMock()
+        mock_events = [{"summary": "Event 1"}]
+        mock_get_filtered.return_value = (mock_api, mock_events)
+        mock_select_input.return_value = mock_events
+
+        api_cal, selected = select_calendar_events(args, "join")
+        self.assertEqual(api_cal, mock_api)
+        self.assertEqual(selected, mock_events)
+
+    def test_join_action_fewer_than_two(self):
+        """Test join_action returns None when fewer than two events are passed."""
+        from manage_agenda.events import join_action
+
+        mock_api = MagicMock()
+        res = join_action(mock_api, [{"summary": "One"}], "cal1", mock_api)
+        self.assertIsNone(res)
+
+    def test_join_action_success(self):
+        """Test join_action inserts joined event and deletes originals."""
+        from manage_agenda.events import join_action
+
+        mock_api = MagicMock()
+        mock_client = MagicMock()
+        mock_api.getClient.return_value = mock_client
+        mock_api.getActive.return_value = "cal1"
+        mock_api.getPostTitle.side_effect = lambda e: e.get("summary")
+
+        events = [
+            {
+                "id": "1",
+                "summary": "Part 1",
+                "start": {"dateTime": "2024-06-01T09:00:00Z"},
+                "end": {"dateTime": "2024-06-01T10:00:00Z"},
+            },
+            {
+                "id": "2",
+                "summary": "Part 2",
+                "start": {"dateTime": "2024-06-01T10:00:00Z"},
+                "end": {"dateTime": "2024-06-01T11:00:00Z"},
+            },
+        ]
+        res = join_action(mock_api, events, "cal1", mock_api, args=Args(interactive=False, title=None))
+        self.assertIsNotNone(res)
+        self.assertEqual(res["summary"], "Part 1")
+        mock_client.events().insert.assert_called_once()
+        self.assertEqual(mock_client.events().delete.call_count, 2)
+
+    @patch("manage_agenda.events.select_calendar_from_all_rules")
     def test_join_events_cli_basic_non_interactive(self, mock_select_cal):
         """Test join_events_cli non-interactive flow joining events."""
         from manage_agenda.events import join_events_cli

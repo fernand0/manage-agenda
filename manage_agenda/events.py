@@ -469,32 +469,21 @@ def select_events_by_user_input(api_cal, events_list, action_verb="copy"):
     return selected_events
 
 
-def process_calendar_events(
-    args, action_verb, action_func, destination_needed=False
-):
+def get_filtered_calendar_events(args):
     """
-    Generic function to handle complete calendar event processing from initialization to action.
+    Select active calendar and retrieve events filtered by date and text criteria.
 
     Args:
-        args: Arguments object
-        action_verb: String describing the action (e.g., 'copy', 'delete', 'move')
-        action_func: Function to perform the specific action on selected events
-        destination_needed: Boolean indicating if destination calendar is needed
+        args: Command-line arguments object.
 
     Returns:
-        None
+        Tuple of (api_cal, filtered_events).
     """
-    # Initialize API and calendar. When args.source is set the fast-path inside
-    # select_calendar_from_all_rules skips interactive selection and returns the
-    # first available API together with the pre-chosen calendar id.
     api_cal, selected_calendar = select_calendar_from_all_rules(
         args, title="Select calendar"
     )
-
-    # Set the active calendar using socialModules method
     api_cal.setActive(selected_calendar)
 
-    # Determine the start date for fetching events
     start_date_str = getattr(args, "start_date", None)
     if start_date_str:
         parsed = dateparser.parse(start_date_str)
@@ -506,7 +495,6 @@ def process_calendar_events(
     else:
         today = datetime.datetime.now(datetime.timezone.utc)
 
-    # Fetch events from calendar using socialModules methods
     all_posts = []
     try:
         api_cal.setPostsType("posts")
@@ -515,8 +503,6 @@ def process_calendar_events(
     except Exception:
         all_posts = []
 
-    # If interactive, present all fetched posts (tests expect interactive flows
-    # to show items regardless of date)
     if args.interactive:
         future_events = all_posts
     else:
@@ -532,7 +518,6 @@ def process_calendar_events(
 
             if isinstance(post_date, str):
                 post_date = dateparser.parse(post_date)
-                # Normalize naive datetimes to UTC for comparison
                 if post_date and post_date.tzinfo is None:
                     try:
                         post_date = pytz.utc.localize(post_date)
@@ -552,64 +537,113 @@ def process_calendar_events(
     if args.interactive and not text_filter:
         text_filter = input("Text to filter by (leave empty for no filter): ")
 
-    # Use the helper function to filter events by title
     filtered_events = filter_events_by_title(api_cal, future_events, text_filter)
+    return (api_cal, filtered_events)
+
+
+def select_calendar_events(args, action_verb):
+    """
+    Select active calendar, filter events, and prompt user to select events.
+
+    Args:
+        args: Command-line arguments object.
+        action_verb: String describing the action (e.g., 'copy', 'delete', 'join').
+
+    Returns:
+        Tuple of (api_cal, selected_events).
+    """
+    api_cal, filtered_events = get_filtered_calendar_events(args)
+    selected_events = []
 
     if not filtered_events:
         print("No events found matching the criteria.")
-        return
-
-    selected_events = select_events_by_user_input(api_cal, filtered_events, action_verb)
-
-    if "clean" in action_func.__name__:
-        actions = ["Delete", "Copy", "Move"]
-        msg = "Select operation:"
-        for i, act in enumerate(actions):
-            msg = f"{msg}\n{i}) {act}"
-        msg = f"{msg}\n"
-
-        action_sel = input(msg)
-        destination_needed = True
-        if action_sel == "1":  # Copy
-            action_verb = "copy"
-            action_func = copy_action
-        elif action_sel == "2":  # Move
-            action_verb = "move"
-            action_func = move_action
-        else:  # Delete
-            action_verb = "delete"
-            action_func = delete_action
-            destination_needed = False
-
-    # Handle destination calendar if needed
-    if destination_needed:
-        if getattr(args, "destination", None):
-            if action_verb == "move" and str(args.destination).lower() == "delete":
-                my_calendar_dst = None
-                my_calendar = "delete"
-                action_func = delete_action
-            else:
-                my_calendar_dst = connections.select_api(
-                    args, "gcalendar", rules=None, title="Select rule"
-                )
-                my_calendar = args.destination
-        else:
-            extra_calendars = ["delete"] if action_verb == "move" else None
-            my_calendar_dst, my_calendar = select_calendar_from_all_rules(
-                args, title="Select destination calendar", extra_calendars=extra_calendars
-            )
-            if action_verb == "move" and my_calendar and str(my_calendar).lower() == "delete":
-                action_func = delete_action
     else:
-        my_calendar = None
-        my_calendar_dst = None
+        selected_events = select_events_by_user_input(api_cal, filtered_events, action_verb)
+        if not selected_events:
+            print("No events selected.")
 
-    # Perform the specific action on selected events
-    verbose = getattr(args, "verbose", False)
-    for event in selected_events:
-        _execute_action_func(
-            action_func, api_cal, event, my_calendar, my_calendar_dst, verbose=verbose
-        )
+    return (api_cal, selected_events)
+
+
+def process_calendar_events(
+    args, action_verb, action_func, destination_needed=False
+):
+    """
+    Generic function to handle complete calendar event processing from initialization to action.
+
+    Args:
+        args: Arguments object
+        action_verb: String describing the action (e.g., 'copy', 'delete', 'move', 'join')
+        action_func: Function to perform the specific action on selected events
+        destination_needed: Boolean indicating if destination calendar is needed
+
+    Returns:
+        Result of the action (if any), or None.
+    """
+    result = None
+    api_cal, selected_events = select_calendar_events(args, action_verb)
+
+    if selected_events:
+        if "clean" in action_func.__name__:
+            actions = ["Delete", "Copy", "Move"]
+            msg = "Select operation:"
+            for i, act in enumerate(actions):
+                msg = f"{msg}\n{i}) {act}"
+            msg = f"{msg}\n"
+
+            action_sel = input(msg)
+            destination_needed = True
+            if action_sel == "1":  # Copy
+                action_verb = "copy"
+                action_func = copy_action
+            elif action_sel == "2":  # Move
+                action_verb = "move"
+                action_func = move_action
+            else:  # Delete
+                action_verb = "delete"
+                action_func = delete_action
+                destination_needed = False
+
+        # Handle destination calendar if needed
+        if destination_needed:
+            if getattr(args, "destination", None):
+                if action_verb == "move" and str(args.destination).lower() == "delete":
+                    my_calendar_dst = None
+                    my_calendar = "delete"
+                    action_func = delete_action
+                else:
+                    my_calendar_dst = connections.select_api(
+                        args, "gcalendar", rules=None, title="Select rule"
+                    )
+                    my_calendar = args.destination
+            else:
+                extra_calendars = ["delete"] if action_verb == "move" else None
+                my_calendar_dst, my_calendar = select_calendar_from_all_rules(
+                    args, title="Select destination calendar", extra_calendars=extra_calendars
+                )
+                if action_verb == "move" and my_calendar and str(my_calendar).lower() == "delete":
+                    action_func = delete_action
+        elif getattr(args, "destination", None):
+            my_calendar_dst = connections.select_api(
+                args, "gcalendar", rules=None, title="Select rule"
+            )
+            my_calendar = args.destination
+        else:
+            my_calendar = api_cal.getActive()
+            my_calendar_dst = api_cal
+
+        verbose = getattr(args, "verbose", False)
+        if action_verb == "join":
+            result = action_func(
+                api_cal, selected_events, my_calendar, my_calendar_dst, args=args, verbose=verbose
+            )
+        else:
+            for event in selected_events:
+                _execute_action_func(
+                    action_func, api_cal, event, my_calendar, my_calendar_dst, verbose=verbose
+                )
+
+    return result
 
 
 def delete_action(api_cal, event, my_calendar, my_calendar_dst, verbose=False):
@@ -959,6 +993,66 @@ def build_joined_event(events, chosen_title):
     return joined_event
 
 
+def join_action(api_cal, selected_events, my_calendar, my_calendar_dst, args=None, verbose=False):
+    """Action function to join selected events into a single event."""
+    result = None
+    if len(selected_events) < 2:
+        print("At least two events must be selected to join.")
+    else:
+        sorted_events = sorted(selected_events, key=_get_event_sort_key)
+
+        titles = []
+        for ev in sorted_events:
+            t = api_cal.getPostTitle(ev) or ev.get("summary") or ""
+            if t and t not in titles:
+                titles.append(t)
+        if not titles:
+            titles = ["Joined Event"]
+
+        custom_title = getattr(args, "title", None) if args else None
+        interactive = getattr(args, "interactive", False) if args else False
+        if custom_title:
+            chosen_title = custom_title
+        elif interactive:
+            print("Select title for joined event:")
+            for idx, t in enumerate(titles):
+                print(f"{idx}) {t}")
+            choice = input(
+                f"Choose title [0-{len(titles)-1}] or enter a new title (default 0): "
+            ).strip()
+            if not choice:
+                chosen_title = titles[0]
+            elif choice.isdigit() and 0 <= int(choice) < len(titles):
+                chosen_title = titles[int(choice)]
+            else:
+                chosen_title = choice
+        else:
+            chosen_title = titles[0]
+
+        joined_event = build_joined_event(sorted_events, chosen_title)
+
+        my_calendar_dst.getClient().events().insert(
+            calendarId=my_calendar, body=joined_event
+        ).execute()
+        print(f"Joined {len(sorted_events)} events into: {joined_event['summary']}")
+
+        if verbose:
+            display_event_info(joined_event)
+
+        # Delete original events from source calendar
+        for ev in sorted_events:
+            ev_id = ev.get("id")
+            if ev_id:
+                api_cal.getClient().events().delete(
+                    calendarId=api_cal.getActive(), eventId=ev_id
+                ).execute()
+                print(f"Deleted original event: {ev.get('summary') or 'No Title'}")
+
+        result = joined_event
+
+    return result
+
+
 def join_events_cli(args):
     """
     Join multiple calendar events into a single event.
@@ -969,135 +1063,6 @@ def join_events_cli(args):
     Returns:
         Created joined event dictionary, or None.
     """
-    result = None
-
-    api_cal, selected_calendar = select_calendar_from_all_rules(
-        args, title="Select calendar"
-    )
-    api_cal.setActive(selected_calendar)
-
-    start_date_str = getattr(args, "start_date", None)
-    if start_date_str:
-        parsed = dateparser.parse(start_date_str)
-        if parsed is not None:
-            today = parsed.astimezone(datetime.timezone.utc)
-        else:
-            logging.warning("Could not parse start_date '%s', falling back to today.", start_date_str)
-            today = datetime.datetime.now(datetime.timezone.utc)
-    else:
-        today = datetime.datetime.now(datetime.timezone.utc)
-
-    all_posts = []
-    try:
-        api_cal.setPostsType("posts")
-        api_cal.setPosts(date=today)
-        all_posts = api_cal.getPosts()
-    except Exception:
-        all_posts = []
-
-    if args.interactive:
-        future_events = all_posts
-    else:
-        future_events = []
-        for post in all_posts:
-            post_date = api_cal.getPostDate(post)
-            logging.debug("Date: %s", post_date)
-
-            if not isinstance(post_date, str):
-                if isinstance(post, dict):
-                    start = post.get("start", {})
-                    post_date = start.get("dateTime") or start.get("date")
-
-            if isinstance(post_date, str):
-                post_date = dateparser.parse(post_date)
-                if post_date and post_date.tzinfo is None:
-                    try:
-                        post_date = pytz.utc.localize(post_date)
-                    except Exception:
-                        pass
-            else:
-                post_date = None
-
-            if post_date and post_date >= today:
-                future_events.append(post)
-
-    print("Upcoming events (up to 20):")
-    for event in future_events[:20]:
-        print(f"- {api_cal.getPostTitle(event)} ({api_cal.getPostDate(event)})")
-
-    text_filter = args.text
-    if args.interactive and not text_filter:
-        text_filter = input("Text to filter by (leave empty for no filter): ")
-
-    filtered_events = filter_events_by_title(api_cal, future_events, text_filter)
-
-    if not filtered_events:
-        print("No events found matching the criteria.")
-    else:
-        selected_events = select_events_by_user_input(api_cal, filtered_events, "join")
-        if not selected_events:
-            print("No events selected.")
-        elif len(selected_events) < 2:
-            print("At least two events must be selected to join.")
-        else:
-            sorted_events = sorted(selected_events, key=_get_event_sort_key)
-
-            titles = []
-            for ev in sorted_events:
-                t = api_cal.getPostTitle(ev) or ev.get("summary") or ""
-                if t and t not in titles:
-                    titles.append(t)
-            if not titles:
-                titles = ["Joined Event"]
-
-            if getattr(args, "title", None):
-                chosen_title = args.title
-            elif args.interactive:
-                print("Select title for joined event:")
-                for idx, t in enumerate(titles):
-                    print(f"{idx}) {t}")
-                choice = input(
-                    f"Choose title [0-{len(titles)-1}] or enter a new title (default 0): "
-                ).strip()
-                if not choice:
-                    chosen_title = titles[0]
-                elif choice.isdigit() and 0 <= int(choice) < len(titles):
-                    chosen_title = titles[int(choice)]
-                else:
-                    chosen_title = choice
-            else:
-                chosen_title = titles[0]
-
-            joined_event = build_joined_event(sorted_events, chosen_title)
-
-            # Destination calendar
-            if getattr(args, "destination", None):
-                my_calendar_dst = connections.select_api(
-                    args, "gcalendar", rules=None, title="Select rule"
-                )
-                my_calendar = args.destination
-            else:
-                my_calendar_dst = api_cal
-                my_calendar = selected_calendar
-
-            my_calendar_dst.getClient().events().insert(
-                calendarId=my_calendar, body=joined_event
-            ).execute()
-            print(f"Joined {len(sorted_events)} events into: {joined_event['summary']}")
-
-            if getattr(args, "verbose", False):
-                display_event_info(joined_event)
-
-            # Delete original events from source calendar
-            for ev in sorted_events:
-                ev_id = ev.get("id")
-                if ev_id:
-                    api_cal.getClient().events().delete(
-                        calendarId=api_cal.getActive(), eventId=ev_id
-                    ).execute()
-                    print(f"Deleted original event: {ev.get('summary') or 'No Title'}")
-
-            result = joined_event
-
+    result = process_calendar_events(args, "join", join_action)
     return result
 
