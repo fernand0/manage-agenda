@@ -624,6 +624,86 @@ class TestEvents(unittest.TestCase):
         self.assertEqual(joined["start"]["date"], "2024-06-01")
         self.assertEqual(joined["end"]["date"], "2024-06-03")
 
+    def test_build_joined_event_similar_descriptions(self):
+        """Test build_joined_event deduplicates nearly identical descriptions."""
+        from manage_agenda.events import build_joined_event
+
+        events = [
+            {
+                "summary": "Meeting Part 1",
+                "description": "Weekly status review meeting with project leads",
+                "location": "Room 101",
+                "start": {"dateTime": "2024-06-01T09:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T10:00:00+00:00"},
+            },
+            {
+                "summary": "Meeting Part 2",
+                "description": "Weekly status review meeting with project leads.",
+                "location": "Room 101",
+                "start": {"dateTime": "2024-06-01T10:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T11:00:00+00:00"},
+            },
+        ]
+
+        joined = build_joined_event(events, "All-Hands")
+        self.assertEqual(
+            joined["description"], "Weekly status review meeting with project leads."
+        )
+        self.assertEqual(joined["location"], "Room 101")
+
+    def test_build_joined_event_contained_description_keeps_longer(self):
+        """Test build_joined_event keeps the longer, more complete description when contained."""
+        from manage_agenda.events import build_joined_event
+
+        events = [
+            {
+                "summary": "Meeting Part 1",
+                "description": "Discuss quarterly budget",
+                "location": "Headquarters",
+                "start": {"dateTime": "2024-06-01T09:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T10:00:00+00:00"},
+            },
+            {
+                "summary": "Meeting Part 2",
+                "description": "Discuss quarterly budget and assign action items",
+                "location": "Headquarters",
+                "start": {"dateTime": "2024-06-01T10:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T11:00:00+00:00"},
+            },
+        ]
+
+        joined = build_joined_event(events, "Budget Meeting")
+        self.assertEqual(
+            joined["description"], "Discuss quarterly budget and assign action items"
+        )
+
+    def test_build_joined_event_different_numbers_kept(self):
+        """Test build_joined_event does not collapse texts with differing numbers."""
+        from manage_agenda.events import build_joined_event
+
+        events = [
+            {
+                "summary": "Session 1",
+                "description": "Workshop session 1 notes",
+                "location": "Room 101",
+                "start": {"dateTime": "2024-06-01T09:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T10:00:00+00:00"},
+            },
+            {
+                "summary": "Session 2",
+                "description": "Workshop session 2 notes",
+                "location": "Room 102",
+                "start": {"dateTime": "2024-06-01T10:00:00+00:00"},
+                "end": {"dateTime": "2024-06-01T11:00:00+00:00"},
+            },
+        ]
+
+        joined = build_joined_event(events, "Workshop")
+        self.assertEqual(
+            joined["description"], "Workshop session 1 notes\n\nWorkshop session 2 notes"
+        )
+        self.assertEqual(joined["location"], "Room 101, Room 102")
+
     @patch("manage_agenda.events.select_calendar_from_all_rules")
     def test_join_events_cli_basic_non_interactive(self, mock_select_cal):
         """Test join_events_cli non-interactive flow joining events."""

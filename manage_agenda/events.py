@@ -1,6 +1,8 @@
 import datetime
+import difflib
 import inspect
 import logging
+import re
 from datetime import timedelta
 
 import dateparser
@@ -838,6 +840,55 @@ def print_events_summary(events):
     return output_lines
 
 
+def _are_texts_similar(text1: str, text2: str, threshold: float = 0.85) -> bool:
+    """Check if two text strings are sufficiently similar or one contains another."""
+    is_similar = False
+    t1 = text1.strip()
+    t2 = text2.strip()
+
+    if t1.lower() == t2.lower():
+        is_similar = True
+    else:
+        nums1 = re.findall(r"\d+", t1)
+        nums2 = re.findall(r"\d+", t2)
+        if not (nums1 and nums2 and nums1 != nums2):
+            if (t1.lower() in t2.lower() and len(t1) >= 5) or (
+                t2.lower() in t1.lower() and len(t2) >= 5
+            ):
+                is_similar = True
+            else:
+                ratio = difflib.SequenceMatcher(None, t1.lower(), t2.lower()).ratio()
+                if ratio >= threshold:
+                    is_similar = True
+
+    return is_similar
+
+
+def _deduplicate_texts(texts: list[str], threshold: float = 0.85) -> list[str]:
+    """
+    Deduplicate a list of texts by similarity.
+    If a similar text already exists, keep the longer/more complete version.
+    """
+    result: list[str] = []
+    for text in texts:
+        if isinstance(text, str):
+            cleaned = text.strip()
+            if cleaned:
+                match_idx = None
+                for idx, existing in enumerate(result):
+                    if _are_texts_similar(cleaned, existing, threshold=threshold):
+                        match_idx = idx
+                        break
+
+                if match_idx is not None:
+                    if len(cleaned) > len(result[match_idx]):
+                        result[match_idx] = cleaned
+                else:
+                    result.append(cleaned)
+
+    return result
+
+
 def build_joined_event(events, chosen_title):
     """
     Build a joined event dictionary from a list of events and a chosen title.
@@ -889,17 +940,11 @@ def build_joined_event(events, chosen_title):
         if "timeZone" in joined_start:
             joined_end["timeZone"] = joined_start["timeZone"]
 
-    descriptions = []
-    for ev in sorted_events:
-        desc = ev.get("description")
-        if desc and isinstance(desc, str) and desc.strip() and desc.strip() not in descriptions:
-            descriptions.append(desc.strip())
+    raw_descriptions = [ev.get("description") for ev in sorted_events if ev.get("description")]
+    descriptions = _deduplicate_texts(raw_descriptions)
 
-    locations = []
-    for ev in sorted_events:
-        loc = ev.get("location")
-        if loc and isinstance(loc, str) and loc.strip() and loc.strip() not in locations:
-            locations.append(loc.strip())
+    raw_locations = [ev.get("location") for ev in sorted_events if ev.get("location")]
+    locations = _deduplicate_texts(raw_locations)
 
     joined_event = {
         "summary": chosen_title,
