@@ -484,21 +484,19 @@ def get_filtered_calendar_events(args):
     )
     api_cal.setActive(selected_calendar)
 
+    start_date = datetime.datetime.now(datetime.timezone.utc)
     start_date_str = getattr(args, "start_date", None)
     if start_date_str:
         parsed = dateparser.parse(start_date_str)
         if parsed is not None:
-            today = parsed.astimezone(datetime.timezone.utc)
+            start_date = parsed.astimezone(datetime.timezone.utc)
         else:
             logging.warning("Could not parse start_date '%s', falling back to today.", start_date_str)
-            today = datetime.datetime.now(datetime.timezone.utc)
-    else:
-        today = datetime.datetime.now(datetime.timezone.utc)
 
     future_events = []
     try:
         api_cal.setPostsType("posts")
-        api_cal.setPosts(date=today)
+        api_cal.setPosts(date=start_date)
         future_events = api_cal.getPosts()
     except Exception:
         future_events = []
