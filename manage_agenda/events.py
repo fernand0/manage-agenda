@@ -495,32 +495,13 @@ def get_filtered_calendar_events(args):
     else:
         today = datetime.datetime.now(datetime.timezone.utc)
 
-    all_posts = []
+    future_events = []
     try:
         api_cal.setPostsType("posts")
         api_cal.setPosts(date=today)
-        all_posts = api_cal.getPosts()
+        future_events = api_cal.getPosts()
     except Exception:
-        all_posts = []
-
-    if args.interactive:
-        future_events = all_posts
-    else:
         future_events = []
-        for post in all_posts:
-            post_date_str = api_cal.getPostDate(post)
-            logging.debug("Date: %s", post_date_str)
-            post_date = None
-            if isinstance(post_date_str, str):
-                try:
-                    parsed = datetime.datetime.fromisoformat(post_date_str)
-                    if parsed.tzinfo is None:
-                        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
-                    post_date = parsed
-                except ValueError:
-                    pass
-            if post_date and post_date >= today:
-                future_events.append(post)
 
     print("Upcoming events (up to 20):")
     for event in future_events[:20]:
