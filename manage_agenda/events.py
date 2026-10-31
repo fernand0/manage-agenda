@@ -508,24 +508,17 @@ def get_filtered_calendar_events(args):
     else:
         future_events = []
         for post in all_posts:
-            post_date = api_cal.getPostDate(post)
-            logging.debug("Date: %s", post_date)
-
-            if not isinstance(post_date, str):
-                if isinstance(post, dict):
-                    start = post.get("start", {})
-                    post_date = start.get("dateTime") or start.get("date")
-
-            if isinstance(post_date, str):
-                post_date = dateparser.parse(post_date)
-                if post_date and post_date.tzinfo is None:
-                    try:
-                        post_date = pytz.utc.localize(post_date)
-                    except Exception:
-                        pass
-            else:
-                post_date = None
-
+            post_date_str = api_cal.getPostDate(post)
+            logging.debug("Date: %s", post_date_str)
+            post_date = None
+            if isinstance(post_date_str, str):
+                try:
+                    parsed = datetime.datetime.fromisoformat(post_date_str)
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+                    post_date = parsed
+                except ValueError:
+                    pass
             if post_date and post_date >= today:
                 future_events.append(post)
 
