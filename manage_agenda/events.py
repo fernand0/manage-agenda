@@ -13,7 +13,7 @@ from socialModules.moduleContent import display_posts
 from manage_agenda import connections
 from manage_agenda.base import format_time
 from manage_agenda.config import config
-from manage_agenda.connections import select_calendar, select_calendar_from_all_rules
+from manage_agenda.connections import select_calendar_from_all_rules
 
 # Constants for date confirmation and interactive date/time modification.
 DATE_CONFIRM_PROMPT = (
@@ -493,7 +493,6 @@ def get_filtered_calendar_events(args):
         else:
             logging.warning("Could not parse start_date '%s', falling back to today.", start_date_str)
 
-    future_events = []
     try:
         api_cal.setPostsType("posts")
         api_cal.setPosts(date=start_date)
