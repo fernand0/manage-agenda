@@ -719,6 +719,33 @@ class TestSourceUtilities(unittest.TestCase):
             args, vision_model, source_name=None, rules=ANY, txt_model=text_model
         )
 
+    @patch("manage_agenda.sources.print_events_summary")
+    @patch("manage_agenda.sources.process_txt_cli", return_value=[])
+    @patch("manage_agenda.sources.get_add_sources")
+    @patch("manage_agenda.sources.select_llm")
+    def test_add_events_cli_passes_selected_text_directory(
+        self, mock_select_llm, mock_get_sources, mock_process_txt, mock_print_summary
+    ):
+        """Passes a selected text directory through to the unified text helper."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import add_events_cli
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            directory = Path(tmp_dir)
+            args = Args(interactive=False, source=str(directory), verbose=False)
+            mock_get_sources.return_value = ([str(directory)], [])
+            model = MagicMock()
+            model.model_name = "test-model"
+            mock_select_llm.return_value = model
+
+            add_events_cli(args)
+
+        mock_process_txt.assert_called_once_with(
+            args, model, source_name=directory, rules=ANY
+        )
+
     def test_is_image_source(self):
         """Test _is_image_source detection helper."""
         from manage_agenda.sources import _is_image_source
@@ -732,6 +759,89 @@ class TestSourceUtilities(unittest.TestCase):
         self.assertFalse(_is_image_source("text"))
         self.assertFalse(_is_image_source("web"))
         self.assertFalse(_is_image_source(None))
+
+
+class TestTextFileDiscovery(unittest.TestCase):
+    def test_discovers_default_directory_files(self):
+        """Uses MSG_TXT_DIR when no target is provided."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import _discover_text_files
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            text_file = Path(tmp_dir) / "agenda.txt"
+            text_file.write_text("Agenda", encoding="utf-8")
+            (Path(tmp_dir) / "image.jpg").write_text("Not text", encoding="utf-8")
+
+            with patch("manage_agenda.sources.config") as mock_cfg:
+                mock_cfg.MSG_TXT_DIR = tmp_dir
+                result = _discover_text_files(None)
+
+        self.assertEqual(result, [text_file])
+
+    def test_discovers_directory_files(self):
+        """Processes only text files in the requested directory."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import _discover_text_files
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            directory = Path(tmp_dir)
+            first = directory / "a.txt"
+            second = directory / "b.txt"
+            first.write_text("A", encoding="utf-8")
+            second.write_text("B", encoding="utf-8")
+
+            result = _discover_text_files(directory)
+
+        self.assertEqual(result, [first, second])
+
+    def test_discovers_single_text_file(self):
+        """Processes an explicitly requested text file."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import _discover_text_files
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            text_file = Path(tmp_dir) / "notes.txt"
+            text_file.write_text("Notes", encoding="utf-8")
+
+            result = _discover_text_files(text_file)
+
+        self.assertEqual(result, [text_file])
+
+    def test_discovers_explicit_text_file_list(self):
+        """Processes exactly the valid text files from an explicit list."""
+        import tempfile
+        from pathlib import Path
+
+        from manage_agenda.sources import _discover_text_files
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            directory = Path(tmp_dir)
+            first = directory / "first.txt"
+            second = directory / "second.txt"
+            other = directory / "photo.jpg"
+            first.write_text("First", encoding="utf-8")
+            second.write_text("Second", encoding="utf-8")
+            other.write_text("Other", encoding="utf-8")
+
+            result = _discover_text_files([second, other, first])
+
+        self.assertEqual(result, [second, first])
+
+    @patch("builtins.print")
+    def test_reports_invalid_explicit_target(self, mock_print):
+        """Does not fall back to the default directory for an invalid target."""
+        from manage_agenda.sources import _get_msgs_from_folder
+
+        _, posts = _get_msgs_from_folder(Args(), "/missing/notes.txt")
+
+        self.assertIsNone(posts)
+        mock_print.assert_called_once_with("No valid text files found in /missing/notes.txt")
 
 
 class TestProcessImgCli(unittest.TestCase):

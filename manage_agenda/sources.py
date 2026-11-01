@@ -75,30 +75,41 @@ def print_first_lines(content, content_type="content", *, n=10, title=None):
 print_first_10_lines = print_first_lines
 
 
-def _get_msgs_from_folder(args, source_name, rules=None):
-    """Helper function to get posts stored in some folder."""
-    # FIXME: maybe a folder argument?
+def _discover_text_files(target: Path | list[Path] | str | None) -> list[Path]:
+    """Return valid text files for a directory, file, explicit list, or default directory."""
+    if target is None:
+        target = Path(config.MSG_TXT_DIR)
 
-    if source_name and isinstance(source_name, list):
-        txt_files = source_name
-    else:
-        target_dir = Path(config.MSG_TXT_DIR)
-        txt_files = target_dir.glob("*.txt")
+    if isinstance(target, (str, Path)):
+        target_path = Path(target)
+        if target_path.is_dir():
+            return sorted(path for path in target_path.glob("*.txt") if path.is_file())
+        if target_path.is_file() and target_path.suffix.lower() == ".txt":
+            return [target_path]
+        return []
+
+    return [
+        path
+        for item in target
+        if (path := Path(item)).is_file() and path.suffix.lower() == ".txt"
+    ]
+
+
+def _get_msgs_from_folder(args, target=None, rules=None):
+    """Read text posts from a directory, file, explicit file list, or default directory."""
+    txt_files = _discover_text_files(target)
 
     posts = []
     for file_path in txt_files:
-        file_path = Path(file_path)
         with open(file_path, encoding="utf-8") as f:
             content = f.read()
             file_name = file_path.stem
             posts.append([file_name, content])
 
     if not posts:
-        if not os.path.exists(target_dir):
-            print(f"There is no {target_dir} directory")
-        else:
-            print(f"There are no posts in {target_dir}")
-        posts = None
+        source = target if target is not None else Path(config.MSG_TXT_DIR)
+        print(f"No valid text files found in {source}")
+        return None, None
 
     return None, posts
 
@@ -342,7 +353,7 @@ def process_txt_cli(args, model, source_name=None, rules=None):
         args, source_name, config.MSG_TXT_DIR, item_name="texts"
     )
 
-    api_src, posts = _get_msgs_from_folder(args, source_name, rules=rules)
+    api_src, posts = _get_msgs_from_folder(args, source_name or None, rules=rules)
 
     if posts:
 
@@ -794,10 +805,13 @@ def add_events_cli(args, rules=None):
         elif hasattr(selected, "__iter__") and (
             ("text" in str(selected)) or os.path.exists(str(selected))
         ):
-            file_list = None
-            if isinstance(selected, str) and "." in selected:
-                file_list = selected.split(" ")
-            raw_result = process_txt_cli(args, model, source_name=file_list, rules=rules)
+            text_target = None
+            if isinstance(selected, str):
+                if os.path.exists(selected):
+                    text_target = Path(selected)
+                elif "." in selected:
+                    text_target = selected.split()
+            raw_result = process_txt_cli(args, model, source_name=text_target, rules=rules)
         else:
             raw_result = process_email_cli(args, model, selected_source=selected, rules=rules)
 
