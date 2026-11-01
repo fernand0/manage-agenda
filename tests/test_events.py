@@ -157,6 +157,32 @@ class TestEvents(unittest.TestCase):
 
         mock_client.events().delete.assert_called()
 
+    @patch("manage_agenda.events.get_filtered_calendar_events")
+    @patch("manage_agenda.events.select_events_by_user_input")
+    @patch("manage_agenda.events.delete_action")
+    @patch("builtins.input", return_value="0")
+    def test_clean_command_uses_action_verb_to_select_operation(
+        self, mock_input, mock_delete_action, mock_select_events, mock_get_filtered
+    ):
+        """Test the clean command selects delete independently of callback name."""
+        from manage_agenda.events import process_calendar_events
+
+        args = Args(interactive=False, destination=None, verbose=False)
+        api_cal = MagicMock()
+        event = {"id": "event1", "summary": "Old meeting"}
+        mock_get_filtered.return_value = (api_cal, [event])
+        mock_select_events.return_value = [event]
+
+        def action_without_clean_in_its_name(*args, **kwargs):
+            raise AssertionError("The clean placeholder action should not be called.")
+
+        process_calendar_events(args, "clean", action_without_clean_in_its_name)
+
+        mock_input.assert_called_once()
+        mock_delete_action.assert_called_once_with(
+            api_cal, event, api_cal.getActive(), api_cal, verbose=False
+        )
+
     @patch("manage_agenda.events.select_calendar_from_all_rules")
     @patch("builtins.input", side_effect=["", "0"])
     def test_move_events_cli_basic(self, mock_input, mock_select_cal):

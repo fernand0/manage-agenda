@@ -474,7 +474,7 @@ def _get_images_from_folder(args, source_name=None):
 
 
 def _get_texts_from_images(args, model, source_name=None):
-    """Helper function to extract text from images and save them as .txt files.
+    """Extract text from images and save it in the OCR staging directory.
 
     Returns a list of paths to the generated text files (empty if no images
     were found or no text could be extracted).
@@ -483,7 +483,7 @@ def _get_texts_from_images(args, model, source_name=None):
 
     images = _get_images_from_folder(args, source_name)
     if images:
-        target_txt_dir = Path(config.MSG_TXT_DIR)
+        target_txt_dir = Path(config.MSG_TXT_DIR) / "ocr_staging"
         target_txt_dir.mkdir(parents=True, exist_ok=True)
 
         txt_files = []

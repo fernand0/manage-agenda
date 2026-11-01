@@ -513,7 +513,7 @@ def get_filtered_calendar_events(args):
 
 
 def process_calendar_events(
-    args, action_verb, action_func, destination_needed=False
+    args, action_verb, action_func, destination_needed=False, batch=False
 ):
     """
     Generic function to handle complete calendar event processing from initialization to action.
@@ -523,6 +523,8 @@ def process_calendar_events(
         action_verb: String describing the action (e.g., 'copy', 'delete', 'move', 'join')
         action_func: Function to perform the specific action on selected events
         destination_needed: Boolean indicating if destination calendar is needed
+        batch: Boolean indicating if action_func takes the whole events list
+            (e.g., 'join') instead of a single event
 
     Returns:
         Result of the action (if any), or None.
@@ -537,7 +539,7 @@ def process_calendar_events(
         if not selected_events:
             print("No events selected.")
         else:
-            if "clean" in action_func.__name__:
+            if action_verb == "clean":
                 actions = ["Delete", "Copy", "Move"]
                 msg = "Select operation:"
                 for i, act in enumerate(actions):
@@ -586,9 +588,10 @@ def process_calendar_events(
                 my_calendar_dst = api_cal
 
             verbose = getattr(args, "verbose", False)
-            if action_verb == "join":
+            if batch:
                 result = action_func(
-                    api_cal, selected_events, my_calendar, my_calendar_dst, args=args, verbose=verbose
+                    api_cal, selected_events, my_calendar, my_calendar_dst,
+                    args=args, verbose=verbose,
                 )
             else:
                 for event in selected_events:
@@ -1016,6 +1019,5 @@ def join_events_cli(args):
     Returns:
         Created joined event dictionary, or None.
     """
-    result = process_calendar_events(args, "join", join_action)
+    result = process_calendar_events(args, "join", join_action, batch=True)
     return result
-

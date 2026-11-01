@@ -887,9 +887,19 @@ class TestProcessImgCli(unittest.TestCase):
                 mock_cfg.SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
                 with patch("manage_agenda.sources._get_images_from_folder", return_value=[img]):
                     result = process_img_cli(self.args, self.mock_model)
+                    staged_file = Path(tmp_dir) / "ocr_staging" / "poster.txt"
+                    self.assertTrue(staged_file.is_file())
+                    self.assertEqual(
+                        staged_file.read_text(encoding="utf-8").splitlines()[0], "poster"
+                    )
+                    self.assertIn(
+                        "Some extracted text", staged_file.read_text(encoding="utf-8")
+                    )
 
         self.mock_model.generate_text_from_image.assert_called_once_with(img)
-        mock_txt.assert_called_once()
+        mock_txt.assert_called_once_with(
+            self.args, self.mock_model, source_name=[str(staged_file)], rules=None
+        )
         self.assertEqual(result, [{"summary": "Test"}])
 
     @patch("manage_agenda.sources.process_txt_cli", return_value=[])
@@ -968,4 +978,3 @@ class TestProcessImgCli(unittest.TestCase):
         mock_txt.assert_called_once()
         self.assertEqual(mock_txt.call_args[0][1], explicit_txt_model)
         self.assertEqual(result, [{"summary": "Test"}])
-
