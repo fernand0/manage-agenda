@@ -160,11 +160,17 @@ class TestEvents(unittest.TestCase):
     @patch("manage_agenda.events.get_filtered_calendar_events")
     @patch("manage_agenda.events.select_events_by_user_input")
     @patch("manage_agenda.events.delete_action")
+    @patch("manage_agenda.events.select_calendar_from_all_rules", return_value=(None, "delete"))
     @patch("manage_agenda.events.select_from_list", return_value=(0, "Delete"))
-    def test_clean_command_uses_action_verb_to_select_operation(
-        self, mock_select_action, mock_delete_action, mock_select_events, mock_get_filtered
+    def test_clean_command_deletes_directly(
+        self,
+        mock_select_action,
+        mock_select_calendar,
+        mock_delete_action,
+        mock_select_events,
+        mock_get_filtered,
     ):
-        """Test the clean command selects delete independently of callback name."""
+        """Test the clean command deletes without selecting a destination."""
         from manage_agenda.events import process_calendar_events
 
         args = Args(interactive=False, destination=None, verbose=False)
@@ -179,8 +185,11 @@ class TestEvents(unittest.TestCase):
         process_calendar_events(args, "clean", action_without_clean_in_its_name)
 
         mock_select_action.assert_called_once_with(
-            ["Delete", "Copy", "Move"], default="Delete", title="Select operation"
+            ["Delete", "Copy", "Move"],
+            default="Delete",
+            title="Select operation (Move can delete)",
         )
+        mock_select_calendar.assert_not_called()
         mock_delete_action.assert_called_once_with(
             api_cal, event, api_cal.getActive(), api_cal, verbose=False
         )
@@ -253,7 +262,9 @@ class TestEvents(unittest.TestCase):
 
         # Destination calendar selection should have requested extra_calendars=["delete"]
         mock_select_cal.assert_any_call(
-            args, title="Select destination calendar", extra_calendars=["delete"]
+            args,
+            title="Select destination calendar ('delete' deletes events)",
+            extra_calendars=["delete"],
         )
         mock_client.events().insert.assert_not_called()
         mock_client.events().delete.assert_called_once_with(

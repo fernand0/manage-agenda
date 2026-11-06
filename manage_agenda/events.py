@@ -540,16 +540,16 @@ def process_calendar_events(
             print("No events selected.")
         else:
             if action_verb == "clean":
-                actions = {
-                    "Delete": delete_action,
-                    "Copy": copy_action,
-                    "Move": move_action,
-                }
+                actions = ["Delete", "Copy", "Move"]
                 _, selected_action = select_from_list(
-                    list(actions), default="Delete", title="Select operation"
+                    actions, default="Delete", title="Select operation (Move can delete)"
                 )
                 action_verb = selected_action.lower()
-                action_func = actions[selected_action]
+                action_func = {
+                    "copy": copy_action,
+                    "delete": delete_action,
+                    "move": move_action,
+                }[action_verb]
                 destination_needed = action_verb != "delete"
 
             # Handle destination calendar if needed
@@ -565,8 +565,11 @@ def process_calendar_events(
                         my_calendar = args.destination
                 else:
                     extra_calendars = ["delete"] if action_verb == "move" else None
+                    destination_title = "Select destination calendar"
+                    if action_verb == "move":
+                        destination_title += " ('delete' deletes events)"
                     my_calendar_dst, my_calendar = select_calendar_from_all_rules(
-                        args, title="Select destination calendar", extra_calendars=extra_calendars
+                        args, title=destination_title, extra_calendars=extra_calendars
                     )
             elif getattr(args, "destination", None):
                 my_calendar_dst = connections.select_api(
