@@ -540,16 +540,16 @@ def process_calendar_events(
             print("No events selected.")
         else:
             if action_verb == "clean":
-                actions = ["Delete", "Copy", "Move"]
+                actions = {
+                    "Delete": delete_action,
+                    "Copy": copy_action,
+                    "Move": move_action,
+                }
                 _, selected_action = select_from_list(
-                    actions, default="Delete", title="Select operation"
+                    list(actions), default="Delete", title="Select operation"
                 )
                 action_verb = selected_action.lower()
-                action_func = {
-                    "copy": copy_action,
-                    "delete": delete_action,
-                    "move": move_action,
-                }[action_verb]
+                action_func = actions[selected_action]
                 destination_needed = action_verb != "delete"
 
             # Handle destination calendar if needed
@@ -558,7 +558,6 @@ def process_calendar_events(
                     if action_verb == "move" and str(args.destination).lower() == "delete":
                         my_calendar_dst = None
                         my_calendar = "delete"
-                        action_func = delete_action
                     else:
                         my_calendar_dst = connections.select_api(
                             args, "gcalendar", rules=None, title="Select rule"
@@ -569,8 +568,6 @@ def process_calendar_events(
                     my_calendar_dst, my_calendar = select_calendar_from_all_rules(
                         args, title="Select destination calendar", extra_calendars=extra_calendars
                     )
-                    if action_verb == "move" and my_calendar and str(my_calendar).lower() == "delete":
-                        action_func = delete_action
             elif getattr(args, "destination", None):
                 my_calendar_dst = connections.select_api(
                     args, "gcalendar", rules=None, title="Select rule"
