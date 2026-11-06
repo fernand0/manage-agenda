@@ -7,7 +7,7 @@ from datetime import timedelta
 
 import dateparser
 import pytz
-from socialModules.configMod import safe_get
+from socialModules.configMod import safe_get, select_from_list
 from socialModules.moduleContent import display_posts
 
 from manage_agenda import connections
@@ -541,23 +541,16 @@ def process_calendar_events(
         else:
             if action_verb == "clean":
                 actions = ["Delete", "Copy", "Move"]
-                msg = "Select operation:"
-                for i, act in enumerate(actions):
-                    msg = f"{msg}\n{i}) {act}"
-                msg = f"{msg}\n"
-
-                action_sel = input(msg)
-                destination_needed = True
-                if action_sel == "1":  # Copy
-                    action_verb = "copy"
-                    action_func = copy_action
-                elif action_sel == "2":  # Move
-                    action_verb = "move"
-                    action_func = move_action
-                else:  # Delete
-                    action_verb = "delete"
-                    action_func = delete_action
-                    destination_needed = False
+                _, selected_action = select_from_list(
+                    actions, default="Delete", title="Select operation"
+                )
+                action_verb = selected_action.lower()
+                action_func = {
+                    "copy": copy_action,
+                    "delete": delete_action,
+                    "move": move_action,
+                }[action_verb]
+                destination_needed = action_verb != "delete"
 
             # Handle destination calendar if needed
             if destination_needed:

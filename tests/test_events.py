@@ -160,9 +160,9 @@ class TestEvents(unittest.TestCase):
     @patch("manage_agenda.events.get_filtered_calendar_events")
     @patch("manage_agenda.events.select_events_by_user_input")
     @patch("manage_agenda.events.delete_action")
-    @patch("builtins.input", return_value="0")
+    @patch("manage_agenda.events.select_from_list", return_value=(0, "Delete"))
     def test_clean_command_uses_action_verb_to_select_operation(
-        self, mock_input, mock_delete_action, mock_select_events, mock_get_filtered
+        self, mock_select_action, mock_delete_action, mock_select_events, mock_get_filtered
     ):
         """Test the clean command selects delete independently of callback name."""
         from manage_agenda.events import process_calendar_events
@@ -178,7 +178,9 @@ class TestEvents(unittest.TestCase):
 
         process_calendar_events(args, "clean", action_without_clean_in_its_name)
 
-        mock_input.assert_called_once()
+        mock_select_action.assert_called_once_with(
+            ["Delete", "Copy", "Move"], default="Delete", title="Select operation"
+        )
         mock_delete_action.assert_called_once_with(
             api_cal, event, api_cal.getActive(), api_cal, verbose=False
         )
